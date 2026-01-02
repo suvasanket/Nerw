@@ -57,8 +57,22 @@ public class ExtensionEngine {
         loadExtensions(from: userExtensionsPath)
         
         // 2. Built-in Extensions
-        if let bundlePath = Bundle.main.resourceURL?.appendingPathComponent("extensions") {
-            loadExtensions(from: bundlePath)
+        print("[Debug] Bundle.main.resourceURL: \(String(describing: Bundle.main.resourceURL))")
+        print("[Debug] Bundle.main.bundlePath: \(Bundle.main.bundlePath)")
+        
+        if let resourcePath = Bundle.main.resourcePath {
+             let potentialPaths = [
+                 URL(fileURLWithPath: resourcePath).appendingPathComponent("extensions"),
+                 // Check for flat bundle structure (debug builds)
+                 URL(fileURLWithPath: resourcePath).appendingPathComponent("Nerw_Nerw.bundle/extensions"),
+                 // Check for nested bundle structure (release/Xcode builds)
+                 URL(fileURLWithPath: resourcePath).appendingPathComponent("Nerw_Nerw.bundle/Contents/Resources/extensions")
+             ]
+             
+             for path in potentialPaths {
+                 print("[Debug] Checking path: \(path.path)")
+                 loadExtensions(from: path)
+             }
         }
     }
     

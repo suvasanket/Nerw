@@ -1,6 +1,7 @@
 // PopupContentViewController.swift
 import Cocoa
 import NerwCore
+import Ifrit
 
 protocol PopupContentDelegate: AnyObject {
     func didPressEscape()
@@ -352,7 +353,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
 
         // 2. Default Local Search (Fallback)
-        results = [
+        let candidates = [
             SearchResult(
                 icon: NSImage(systemSymbolName: "safari.fill", accessibilityDescription: nil),
                 title: "Safari", subtitle: "Application"),
@@ -389,7 +390,14 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             SearchResult(
                 icon: NSImage(systemSymbolName: "swift", accessibilityDescription: nil),
                 title: "Nerw Source", subtitle: "~/Developer/Nerw"),
-        ].filter { $0.title.localizedCaseInsensitiveContains(query) }
+        ]
+        
+        // Ifrit (Fuse) Fuzzy Search
+        let fuse = Fuse()
+        let searchResults = fuse.searchSync(query, in: candidates.map(\.title))
+        
+        // Map back to SearchResult
+        self.results = searchResults.map { candidates[$0.index] }
 
         selectedIndex = 0
         updateResults()
