@@ -44,7 +44,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         struct Results {
             static let rowHeight: CGFloat = 50
             static let maxVisibleRows: Int = 5
-            static let bottom: CGFloat = 0     // Margin from window bottom
+            static let bottom: CGFloat = 0      // Default margin
+            static let expandedBottom: CGFloat = 16 // Margin when expanded
         }
 
         struct Cell {
@@ -79,6 +80,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private var scrollView: NSScrollView!
     private var separatorView: NSBox!
     private var backgroundView: NSVisualEffectView!
+    private var scrollViewBottomConstraint: NSLayoutConstraint!
 
     private var isDebugMode = false
 
@@ -135,7 +137,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         // Input field
         inputField = NSTextField()
-        inputField.placeholderString = "zabb"
+        inputField.placeholderString = "nerw"
         inputField.font = .systemFont(ofSize: LayoutMetrics.SearchField.fontSize, weight: .light)
         inputField.isBordered = false
         inputField.drawsBackground = false
@@ -175,6 +177,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         scrollView.drawsBackground = false
         scrollView.isHidden = true
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.automaticallyAdjustsContentInsets = false
         backgroundView.addSubview(scrollView)
 
         // Constraints
@@ -209,13 +212,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 constant: -LayoutMetrics.Separator.trailing),
             separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
 
+            separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
+
             scrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
             scrollView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            scrollView.bottomAnchor.constraint(
-                equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottom
-            ),
         ])
+        
+        scrollViewBottomConstraint = scrollView.bottomAnchor.constraint(
+            equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottom
+        )
+        scrollViewBottomConstraint.isActive = true
     }
 
     func toggleDebugMode() {
@@ -308,7 +315,38 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return
         }
 
-        // Demo results - replace with actual search
+        // 1. Check for Extension Triggers
+        let components = query.split(separator: " ", maxSplits: 1)
+        if let firstWord = components.first,
+           let extensionManifest = ExtensionEngine.shared.extensions.first(where: { $0.trigger == String(firstWord) }) {
+             
+             let arg = components.count > 1 ? String(components[1]) : ""
+             
+             // Run Extension
+             ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { [weak self] extResults in
+                 DispatchQueue.main.async {
+                     self?.results = extResults.map { res in
+                         var image: NSImage?
+                         if let iconName = res.icon {
+                             image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+                         }
+                         if image == nil {
+                             image = NSImage(systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
+                         }
+                         
+                         return SearchResult(
+                            icon: image,
+                            title: res.title, 
+                            subtitle: res.subtitle ?? extensionManifest.name
+                         )
+                     }
+                     self?.updateResults()
+                 }
+             }
+             return
+        }
+
+        // 2. Default Local Search (Fallback)
         results = [
             SearchResult(
                 icon: NSImage(systemSymbolName: "safari.fill", accessibilityDescription: nil),
@@ -345,7 +383,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 title: "Developer", subtitle: "~/Developer"),
             SearchResult(
                 icon: NSImage(systemSymbolName: "swift", accessibilityDescription: nil),
-                title: "Zabb Source", subtitle: "~/Developer/Zabb"),
+                title: "Nerw Source", subtitle: "~/Developer/Nerw"),
         ].filter { $0.title.localizedCaseInsensitiveContains(query) }
 
         selectedIndex = 0
@@ -357,6 +395,10 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         separatorView.isHidden = !hasResults
         scrollView.isHidden = !hasResults
         scrollView.hasVerticalScroller = results.count > LayoutMetrics.Results.maxVisibleRows
+        
+        // Update bottom constraint dynamically
+        scrollViewBottomConstraint.constant = hasResults ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
+        
         resultsTableView.reloadData()
 
         if hasResults {

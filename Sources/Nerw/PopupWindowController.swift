@@ -112,15 +112,17 @@ extension PopupWindowController: PopupContentDelegate {
             // Calculate total height dynamically based on all components
             // Search Field Section
             let searchSection = metrics.SearchField.top + metrics.SearchField.height
-            
+
             // Separator Section (Top margin + Height + Bottom margin)
             let separatorSection = metrics.Separator.top + metrics.Separator.height + metrics.Separator.bottom
-            
-            // Results Section (Results height + Bottom margin matching top margin)
-            let bottomPadding = metrics.SearchField.top
+
+            // Results Section (Results height + Bottom margin matching expandedBottom)
+            // We use the explicit expandedBottom metric from LayoutMetrics
+            let bottomPadding = metrics.Results.expandedBottom
             let resultsSection = resultsHeight + bottomPadding
-            
-            let newHeight = searchSection + separatorSection + resultsSection
+
+            // Add a 6pt buffer to ensure no clipping occurs
+            let newHeight = searchSection + separatorSection + resultsSection + 10
             updateHeight(newHeight)
         } else {
             // Shrink view height (SearchField.top + SearchField.height + SearchField.bottom)

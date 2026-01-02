@@ -1,5 +1,5 @@
-APP=Zabb
-SOURCES=Sources/Zabb/*.swift
+APP=Nerw
+SOURCES=Sources/Nerw/*.swift
 
 main:
 	swiftc -o $(APP) $(SOURCES) -framework Cocoa -framework Carbon
