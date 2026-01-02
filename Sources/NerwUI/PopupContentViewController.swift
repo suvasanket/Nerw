@@ -1,6 +1,7 @@
 // PopupContentViewController.swift
 import Cocoa
 import NerwCore
+import NerwBuiltin
 import Ifrit
 
 protocol PopupContentDelegate: AnyObject {
@@ -24,14 +25,14 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             static let fontSize: CGFloat = 22
             static let top: CGFloat = 16        // Margin from window top
             static let bottom: CGFloat = 16     // Margin from window bottom (in shrink view)
-            static let leading: CGFloat = 16    // Margin from icon container
+            static let leading: CGFloat = 12    // Margin from icon container
             static let trailing: CGFloat = 20   // Margin from window trailing edge
         }
 
         struct IconContainer {
-            static let height: CGFloat = 32
-            static let iconSize: CGFloat = 24
-            static let spacing: CGFloat = 8
+            static let height: CGFloat = 40
+            static let iconSize: CGFloat = 20
+            static let spacing: CGFloat = 12
             static let leading: CGFloat = 20    // Margin from window leading edge
         }
 
@@ -86,13 +87,29 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
     private var isDebugMode = false
 
-    private var results: [SearchResult] = []
+    private var actions: [Action] = []
+    private var activeAction: Action?
+    private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
 
-    struct SearchResult {
+    struct Action {
         let icon: NSImage?
         let title: String
         let subtitle: String
+        let height: CGFloat? // Dynamic height support if needed
+        let supportsArguments: Bool
+        let path: String? // For apps
+        let handler: ((String) -> Void)?
+        
+        init(icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil) {
+            self.icon = icon
+            self.title = title
+            self.subtitle = subtitle
+            self.supportsArguments = supportsArguments
+            self.path = path
+            self.handler = handler
+            self.height = nil
+        }
     }
 
     override func loadView() {
@@ -135,6 +152,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             .isActive = true
         defaultSearchIcon.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
             .isActive = true
+        defaultSearchIcon.imageScaling = .scaleProportionallyUpOrDown
         iconContainer.addArrangedSubview(defaultSearchIcon)
 
         // Input field
@@ -195,7 +213,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
             iconContainer.leadingAnchor.constraint(
                 equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading),
-            iconContainer.centerYAnchor.constraint(equalTo: inputField.centerYAnchor),
+            iconContainer.centerYAnchor.constraint(equalTo: inputField.centerYAnchor, constant: -1.5),
             iconContainer.heightAnchor.constraint(
                 equalToConstant: LayoutMetrics.IconContainer.height),
 
@@ -263,6 +281,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 iv.translatesAutoresizingMaskIntoConstraints = false
                 iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
                 iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
+                iv.imageScaling = .scaleProportionallyUpOrDown
                 iconContainer.addArrangedSubview(iv)
             }
         }
@@ -271,9 +290,11 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     func reset() {
         inputField.stringValue = ""
         setIcons([])
-        results = []
+        actions = []
+        activeAction = nil
+        previousSearchText = ""
         selectedIndex = 0
-        updateResults()
+        updateActions()
     }
 
     // MARK: - NSTextFieldDelegate
@@ -288,12 +309,74 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     {
         switch commandSelector {
         case #selector(NSResponder.cancelOperation(_:)):
+            if activeAction != nil {
+                // Restore previous state
+                activeAction = nil
+                inputField.stringValue = previousSearchText
+                inputField.placeholderString = "nerw"
+                setIcons([]) // Reset to default icon
+                search(query: previousSearchText) // Re-trigger search
+                return true
+            }
             delegate?.didPressEscape()
             return true
 
+        case #selector(NSResponder.insertTab(_:)):
+            if activeAction == nil && !actions.isEmpty {
+                let selectedAction = actions[selectedIndex]
+                
+                // Only allow argument mode if supported
+                guard selectedAction.supportsArguments else { return false }
+                
+                // Save state
+                previousSearchText = inputField.stringValue
+                activeAction = selectedAction
+                
+                // Switch to Argument Mode
+                inputField.stringValue = ""
+                inputField.placeholderString = selectedAction.title
+                if let icon = selectedAction.icon {
+                    setIcons([icon])
+                }
+                
+                // Clear list
+                actions = []
+                updateActions()
+                return true
+            }
+            return false
+
         case #selector(NSResponder.insertNewline(_:)):
-            if !results.isEmpty {
-                delegate?.didSubmit(text: results[selectedIndex].title)
+            if let action = activeAction {
+                 if let handler = action.handler {
+                     handler(inputField.stringValue)
+                     // Restore state after submit
+                     activeAction = nil
+                     inputField.stringValue = previousSearchText
+                     inputField.placeholderString = "nerw"
+                     setIcons([])
+                     search(query: previousSearchText)
+                 } else {
+                     // Execute Action with Argument (Default legacy behavior)
+                     delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
+                     
+                     // Restore state after submit
+                     activeAction = nil
+                     inputField.stringValue = previousSearchText
+                     inputField.placeholderString = "nerw"
+                     setIcons([])
+                     search(query: previousSearchText)
+                 }
+            } else if !actions.isEmpty {
+                let selectedAction = actions[selectedIndex]
+                if let appPath = selectedAction.path {
+                     // Launch Application
+                     NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
+                     // Hide window
+                     delegate?.didPressEscape()
+                } else {
+                    delegate?.didSubmit(text: selectedAction.title)
+                }
             } else {
                 delegate?.didSubmit(text: inputField.stringValue)
             }
@@ -315,10 +398,28 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // MARK: - Search
 
     private func search(query: String) {
-        guard !query.isEmpty else {
-            results = []
-            updateResults()
+        // If in Argument Mode, query is the argument. (For now, we just let the user type)
+        if activeAction != nil {
             return
+        }
+
+        guard !query.isEmpty else {
+            actions = []
+            updateActions()
+            return
+        }
+        
+        var newActions: [Action] = []
+        
+        // 0. Built-in Extensions (Google, etc.)
+        if let google = GoogleSearch.shared.check(query: query) {
+            newActions.append(Action(
+                icon: NSImage(systemSymbolName: google.iconName, accessibilityDescription: nil),
+                title: google.title,
+                subtitle: google.subtitle,
+                supportsArguments: google.supportsArguments,
+                handler: google.handler
+            ))
         }
 
         // 1. Check for Extension Triggers
@@ -329,102 +430,87 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
              let arg = components.count > 1 ? String(components[1]) : ""
              
              // Run Extension
-             ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { [weak self] extResults in
-                 DispatchQueue.main.async {
-                     self?.results = extResults.map { res in
-                         var image: NSImage?
-                         if let iconName = res.icon {
-                             image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
-                         }
-                         if image == nil {
-                             image = NSImage(systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
-                         }
-                         
-                         return SearchResult(
-                            icon: image,
-                            title: res.title, 
-                            subtitle: res.subtitle ?? extensionManifest.name
-                         )
-                     }
-                     self?.updateResults()
-                 }
-             }
+              ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { [weak self] extResults in
+                  DispatchQueue.main.async {
+                      let extActions = extResults.map { res in
+                          var image: NSImage?
+                          if let iconName = res.icon {
+                              image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+                          }
+                          if image == nil {
+                              image = NSImage(systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
+                          }
+                          
+                          return Action(
+                             icon: image,
+                             title: res.title, 
+                             subtitle: res.subtitle ?? extensionManifest.name,
+                             supportsArguments: true, // Extensions usually support args
+                             path: nil
+                          )
+                      }
+                      
+                      // Combine existing actions (Google) with extension results
+                      self?.actions = newActions + extActions
+                      self?.updateActions()
+                  }
+              }
              return
         }
-
-        // 2. Default Local Search (Fallback)
-        let candidates = [
-            SearchResult(
-                icon: NSImage(systemSymbolName: "safari.fill", accessibilityDescription: nil),
-                title: "Safari", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil),
-                title: "Terminal", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "gear", accessibilityDescription: nil),
-                title: "System Settings", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "music.note", accessibilityDescription: nil),
-                title: "Music", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "envelope.fill", accessibilityDescription: nil),
-                title: "Mail", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "calendar", accessibilityDescription: nil),
-                title: "Calendar", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "note.text", accessibilityDescription: nil),
-                title: "Notes", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "message.fill", accessibilityDescription: nil),
-                title: "Messages", subtitle: "Application"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "doc.fill", accessibilityDescription: nil),
-                title: "Project Proposal.pdf", subtitle: "~/Documents/Work"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "photo.fill", accessibilityDescription: nil),
-                title: "Vacation.jpg", subtitle: "~/Pictures"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "folder.fill", accessibilityDescription: nil),
-                title: "Developer", subtitle: "~/Developer"),
-            SearchResult(
-                icon: NSImage(systemSymbolName: "swift", accessibilityDescription: nil),
-                title: "Nerw Source", subtitle: "~/Developer/Nerw"),
-        ]
         
-        // Ifrit (Fuse) Fuzzy Search
+        // 2. Default App Search (Fallback)
+        // If extension matched, we return above. If not, continue here.
+        
+        let allApps = AppSearch.shared.getAllApps()
+        
+        // Ifrit (Fuse) Fuzzy Search on App Names
         let fuse = Fuse()
-        let searchResults = fuse.searchSync(query, in: candidates.map(\.title))
+        // Improve performance by only searching names
+        let appNames = allApps.map { $0.name }
         
-        // Map back to SearchResult
-        self.results = searchResults.map { candidates[$0.index] }
+        let searchResults = fuse.searchSync(query, in: appNames)
+        
+        // Map back to Action
+        let appActions = searchResults.map { result in
+            let app = allApps[result.index]
+            return Action(
+                icon: NSWorkspace.shared.icon(forFile: app.path), // Lazy load icon here
+                title: app.name,
+                subtitle: "Application",
+                supportsArguments: false,
+                path: app.path
+            )
+        }
+        
+        // Combine Built-in (Google) + App Results
+        self.actions = newActions + appActions
 
         selectedIndex = 0
-        updateResults()
+        updateActions()
     }
 
-    private func updateResults() {
-        let hasResults = !results.isEmpty
-        separatorView.isHidden = !hasResults
-        scrollView.isHidden = !hasResults
-        scrollView.hasVerticalScroller = results.count > LayoutMetrics.Results.maxVisibleRows
+    private func updateActions() {
+        let hasActions = !actions.isEmpty
+        separatorView.isHidden = !hasActions
+        scrollView.isHidden = !hasActions
+        scrollView.hasVerticalScroller = actions.count > LayoutMetrics.Results.maxVisibleRows
         
         // Update bottom constraint dynamically
-        scrollViewBottomConstraint.constant = hasResults ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
+        scrollViewBottomConstraint.constant = hasActions ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
         
         resultsTableView.reloadData()
 
-        if hasResults {
+        if hasActions {
             resultsTableView.selectRowIndexes(
                 IndexSet(integer: selectedIndex), byExtendingSelection: false)
         }
 
-        delegate?.didUpdateResults(count: results.count)
+        delegate?.didUpdateResults(count: actions.count)
     }
 
     private func moveSelection(by delta: Int) {
-        guard !results.isEmpty else { return }
-        selectedIndex = (selectedIndex + delta + results.count) % results.count
+        guard !actions.isEmpty else { return }
+        selectedIndex = (selectedIndex + delta + actions.count) % actions.count
         resultsTableView.selectRowIndexes(
             IndexSet(integer: selectedIndex), byExtendingSelection: false)
         resultsTableView.scrollRowToVisible(selectedIndex)
@@ -433,7 +519,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // MARK: - NSTableViewDataSource
 
     func numberOfRows(in tableView: NSTableView) -> Int {
-        results.count
+        actions.count
     }
 
     // MARK: - NSTableViewDelegate
@@ -441,9 +527,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
         -> NSView?
     {
-        let result = results[row]
+        let action = actions[row]
         let cell = ResultCellView()
-        cell.configure(with: result, isSelected: row == selectedIndex)
+        cell.configure(with: action, isSelected: row == selectedIndex)
         return cell
     }
 

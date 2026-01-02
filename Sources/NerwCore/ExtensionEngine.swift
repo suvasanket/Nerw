@@ -32,15 +32,14 @@ public class ExtensionEngine {
         context = JSContext()
         
         context?.exceptionHandler = { context, exception in
-            let msg = exception?.toString() ?? "unknown error"
-            print("[JS Error] \(msg)")
+            // Log error silently or to file if needed, but avoiding console spam
         }
         
         let bridge = NerwAPI(context: context)
         context?.setObject(bridge, forKeyedSubscript: "nerw" as NSString)
         
         let log: @convention(block) (String) -> Void = { message in
-            print("[JS Console] \(message)")
+            // System log if needed
         }
         context?.setObject(log, forKeyedSubscript: "syslog" as NSString)
     }
@@ -57,8 +56,7 @@ public class ExtensionEngine {
         loadExtensions(from: userExtensionsPath)
         
         // 2. Built-in Extensions
-        print("[Debug] Bundle.main.resourceURL: \(String(describing: Bundle.main.resourceURL))")
-        print("[Debug] Bundle.main.bundlePath: \(Bundle.main.bundlePath)")
+
         
         if let resourcePath = Bundle.main.resourcePath {
              let potentialPaths = [

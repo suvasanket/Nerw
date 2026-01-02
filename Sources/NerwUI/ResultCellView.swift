@@ -60,16 +60,16 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
-    func configure(with result: PopupContentViewController.SearchResult, isSelected: Bool) {
-        iconView.image = result.icon
+    func configure(with action: PopupContentViewController.Action, isSelected: Bool) {
+        iconView.image = action.icon
         iconView.contentTintColor = isSelected ? .white : .labelColor
-        titleLabel.stringValue = result.title
+        titleLabel.stringValue = action.title
         titleLabel.textColor = isSelected ? .white : .labelColor
-        subtitleLabel.stringValue = result.subtitle
+        subtitleLabel.stringValue = action.subtitle
         subtitleLabel.textColor = isSelected ? .white.withAlphaComponent(0.8) : .secondaryLabelColor
 
         containerView.layer?.backgroundColor = isSelected 
-            ? NSColor.controlAccentColor.cgColor 
+            ? NSColor.black.withAlphaComponent(0.2).cgColor 
             : NSColor.clear.cgColor
     }
 }

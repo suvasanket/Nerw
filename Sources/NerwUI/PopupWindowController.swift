@@ -52,13 +52,28 @@ public class PopupWindowController: NSObject {
         guard let screen = NSScreen.main else { return }
         let screenRect = screen.visibleFrame
         let windowRect = panel.frame
-
+        
+        // Calculate positioning based on the search bar height logic
+        // We want the Search Bar to be roughly at the "Visual Center" + Offset
+        // regardless of whether there are results or not.
+        
+        let metrics = PopupContentViewController.LayoutMetrics.self
+        let searchBarHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
+        
+        // This is where we want the center of the Search Bar to be
+        let visualCenterY = screenRect.origin.y + screenRect.height / 2 + screenRect.height * 0.15
+        
+        // Calculate where the top of the window should be
+        // CenterOfSearchBar = TopOfWindow - SearchBarHeight/2
+        // TopOfWindow = CenterOfSearchBar + SearchBarHeight/2
+        let targetTopY = visualCenterY + searchBarHeight / 2
+        
+        // Actual Origin Y = TopOfWindow - CurrentHeight
+        let newOriginY = targetTopY - windowRect.height
+        
         let x = screenRect.origin.x + (screenRect.width - windowRect.width) / 2
-        let y =
-            screenRect.origin.y + (screenRect.height - windowRect.height) / 2 + screenRect.height
-            * 0.15
-
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        
+        panel.setFrameOrigin(NSPoint(x: x, y: newOriginY))
     }
 
     public func toggle() {

@@ -1,7 +1,0 @@
-{
-  "id": "com.nerw.hello",
-  "name": "Hello World",
-  "trigger": "hello",
-  "description": "A sample extension",
-  "icon": "hand.wave"
-}

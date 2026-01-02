@@ -23,6 +23,11 @@ let package = Package(
             path: "Sources/NerwCore"
         ),
         .target(
+            name: "NerwBuiltin",
+            dependencies: ["NerwCore"],
+            path: "Sources/NerwBuiltin"
+        ),
+        .target(
             name: "Ifrit",
             dependencies: [],
             path: "Sources/Ifrit",
@@ -30,14 +35,13 @@ let package = Package(
         ),
         .target(
             name: "NerwUI",
-            dependencies: ["NerwCore", "Ifrit"],
+            dependencies: ["NerwCore", "NerwBuiltin", "Ifrit"],
             path: "Sources/NerwUI"
         ),
         .executableTarget(
             name: "Nerw",
-            dependencies: ["NerwCore", "NerwUI"],
-            path: "Sources/Nerw",
-            resources: [.copy("extensions")]
+            dependencies: ["NerwCore", "NerwUI", "NerwBuiltin"],
+            path: "Sources/Nerw"
         )
     ]
 )
