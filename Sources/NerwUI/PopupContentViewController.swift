@@ -100,14 +100,16 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         let supportsArguments: Bool
         let path: String? // For apps
         let handler: ((String) -> Void)?
+        let searcher: ((String) -> [Action])?
         
-        init(icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil) {
+        init(icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
             self.icon = icon
             self.title = title
             self.subtitle = subtitle
             self.supportsArguments = supportsArguments
             self.path = path
             self.handler = handler
+            self.searcher = searcher
             self.height = nil
         }
     }
@@ -348,6 +350,29 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         case #selector(NSResponder.insertNewline(_:)):
             if let action = activeAction {
+                 // Check if we have live results and one is selected
+                 if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
+                     let selectedResult = actions[selectedIndex]
+                     if let handler = selectedResult.handler {
+                         handler("") // Argument usually already baked in or irrelevant for result execution
+                         // Close window
+                         activeAction = nil
+                         inputField.stringValue = previousSearchText
+                         inputField.placeholderString = "nerw"
+                         setIcons([])
+                         delegate?.didPressEscape() // Or hide()
+                         return true
+                     } else if let path = selectedResult.path {
+                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                         activeAction = nil
+                         inputField.stringValue = previousSearchText
+                         inputField.placeholderString = "nerw"
+                         setIcons([])
+                         delegate?.didPressEscape()
+                         return true
+                     }
+                 }
+
                  if let handler = action.handler {
                      handler(inputField.stringValue)
                      // Restore state after submit
@@ -398,8 +423,14 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // MARK: - Search
 
     private func search(query: String) {
-        // If in Argument Mode, query is the argument. (For now, we just let the user type)
-        if activeAction != nil {
+        // If in Argument Mode
+        if let action = activeAction {
+            if let searcher = action.searcher {
+                // Perform live search using the action's searcher
+                let results = searcher(query)
+                self.actions = results
+                updateActions()
+            }
             return
         }
 
@@ -411,14 +442,41 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         
         var newActions: [Action] = []
         
-        // 0. Built-in Extensions (Google, etc.)
-        if let google = GoogleSearch.shared.check(query: query) {
+        // 0. Built-in Extensions (Google, Find File, etc.)
+        
+        // Find File
+        if let find = FindFile.shared.check(query: query) {
             newActions.append(Action(
-                icon: NSImage(systemSymbolName: google.iconName, accessibilityDescription: nil),
-                title: google.title,
-                subtitle: google.subtitle,
-                supportsArguments: google.supportsArguments,
-                handler: google.handler
+                icon: find.icon ?? (find.iconName != nil ? NSImage(systemSymbolName: find.iconName!, accessibilityDescription: nil) : nil),
+                title: find.title,
+                subtitle: find.subtitle,
+                supportsArguments: find.supportsArguments,
+                handler: find.handler,
+                searcher: { arg in
+                    // Map BuiltinResult -> Action
+                    guard let results = find.searcher?(arg) else { return [] }
+                    return results.map { res in
+                        Action(
+                            icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
+                            title: res.title,
+                            subtitle: res.subtitle,
+                            supportsArguments: res.supportsArguments,
+                            handler: res.handler
+                        )
+                    }
+                }
+            ))
+        }
+
+        // Search Engine (Google, Bing, etc.)
+        if let engineResult = SearchEngine.shared.check(query: query) {
+            newActions.append(Action(
+                icon: engineResult.icon ?? (engineResult.iconName != nil ? NSImage(systemSymbolName: engineResult.iconName!, accessibilityDescription: nil) : nil),
+                title: engineResult.title,
+                subtitle: engineResult.subtitle,
+                supportsArguments: engineResult.supportsArguments,
+                handler: engineResult.handler,
+                searcher: nil // Search engines typically don't have live search without api keys
             ))
         }
 
