@@ -18,8 +18,9 @@ class PopupWindowController: NSObject {
         contentViewController.delegate = self
 
         // Calculate window size
-        let width = PopupContentViewController.LayoutMetrics.windowWidth
-        let initialHeight = PopupContentViewController.LayoutMetrics.baseHeight
+        let metrics = PopupContentViewController.LayoutMetrics.self
+        let width = metrics.Window.width
+        let initialHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
 
         // Create panel
         panel = PopupPanel(
@@ -109,14 +110,23 @@ extension PopupWindowController: PopupContentDelegate {
 
         if count > 0 {
             // Calculate total height dynamically based on all components
-            let topPart = metrics.SearchInput.top + metrics.SearchInput.height
-            let separatorPart = metrics.Separator.topPadding + metrics.Separator.height
-            let bottomPart = metrics.Results.bottomPadding
+            // Search Field Section
+            let searchSection = metrics.SearchField.top + metrics.SearchField.height
             
-            let newHeight = topPart + separatorPart + resultsHeight + bottomPart
+            // Separator Section (Top margin + Height + Bottom margin)
+            let separatorSection = metrics.Separator.top + metrics.Separator.height + metrics.Separator.bottom
+            
+            // Results Section (Results height + Bottom margin matching top margin)
+            let bottomPadding = metrics.SearchField.top
+            let resultsSection = resultsHeight + bottomPadding
+            
+            let newHeight = searchSection + separatorSection + resultsSection
             updateHeight(newHeight)
         } else {
-            updateHeight(metrics.baseHeight)
+            // Shrink view height (SearchField.top + SearchField.height + SearchField.bottom)
+            // SearchField.bottom acts as the bottom padding in shrink view
+            let shrinkHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
+            updateHeight(shrinkHeight)
         }
     }
 }

@@ -12,50 +12,61 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 {
     // MARK: - Layout Configuration
     struct LayoutMetrics {
-        static let windowWidth: CGFloat = 650 // Total width of the popup window
-        static let baseHeight: CGFloat = 10   // Height of the window when no results are shown (Top + Search + Bottom)
-        static let cornerRadius: CGFloat = 16 // Corner radius for the main popup window
-
-        struct Icon {
-            static let size: CGFloat = 24            // Width and height of search icons
-            static let spacing: CGFloat = 8           // Spacing between multiple icons in the stack
-            static let containerHeight: CGFloat = 32  // Height of the container holding the icons
-            static let leading: CGFloat = 20          // Left padding from window edge to icons
+        struct Window {
+            static let width: CGFloat = 650
+            static let cornerRadius: CGFloat = 16
         }
 
-        struct SearchInput {
-            static let fontSize: CGFloat = 22  // Text size for the search input field
-            static let height: CGFloat = 32    // Height of the search input field
-            static let top: CGFloat = 16       // Top padding from window edge to search input
-            static let leading: CGFloat = 16   // Spacing between the icon container and search input
-            static let trailing: CGFloat = 20  // Right padding from search input to window edge
+        struct SearchField {
+            static let height: CGFloat = 32
+            static let fontSize: CGFloat = 22
+            static let top: CGFloat = 16        // Margin from window top
+            static let bottom: CGFloat = 16     // Margin from window bottom (in shrink view)
+            static let leading: CGFloat = 16    // Margin from icon container
+            static let trailing: CGFloat = 20   // Margin from window trailing edge
+        }
+
+        struct IconContainer {
+            static let height: CGFloat = 32
+            static let iconSize: CGFloat = 24
+            static let spacing: CGFloat = 8
+            static let leading: CGFloat = 20    // Margin from window leading edge
         }
 
         struct Separator {
-            static let horizontalPadding: CGFloat = 20 // Side padding for the horizontal line
-            static let topPadding: CGFloat = 16        // Spacing between search input bottom and separator
-            static let height: CGFloat = 2             // Thickness of the separator line
+            static let height: CGFloat = 1
+            static let top: CGFloat = 16        // Margin from SearchField bottom
+            static let bottom: CGFloat = 0      // Margin to Results top
+            static let leading: CGFloat = 20
+            static let trailing: CGFloat = 20
         }
 
         struct Results {
-            static let rowHeight: CGFloat = 50      // Height of each individual result row
-            static let bottomPadding: CGFloat = 16  // Padding at the very bottom when results are shown
-            static let maxVisibleRows: Int = 5      // Maximum number of rows to show before scrolling
+            static let rowHeight: CGFloat = 50
+            static let maxVisibleRows: Int = 5
+            static let bottom: CGFloat = 0     // Margin from window bottom
         }
 
         struct Cell {
-            static let cornerRadius: CGFloat = 8     // Corner radius for the selection highlight bubble
-            static let verticalMargin: CGFloat = 2   // Vertical spacing between selection highlight and row edge
-            static let horizontalMargin: CGFloat = 20 // Horizontal padding for the selection highlight bubble
+            static let cornerRadius: CGFloat = 8
 
-            static let iconSize: CGFloat = 28    // Size of the icon within a result cell
-            static let iconLeading: CGFloat = 10 // Left padding inside the selection highlight to the icon
-            static let iconSpacing: CGFloat = 6  // Space between icon and the title/subtitle text
+            struct Margin {
+                static let vertical: CGFloat = 2
+                static let horizontal: CGFloat = 20
+            }
 
-            static let titleTop: CGFloat = 6           // Top padding inside the cell to the title text
-            static let subtitleTop: CGFloat = 1        // Spacing between title bottom and subtitle top
-            static let titleFontSize: CGFloat = 14     // Font size for the result title
-            static let subtitleFontSize: CGFloat = 11  // Font size for the result subtitle
+            struct Icon {
+                static let size: CGFloat = 28
+                static let leading: CGFloat = 10
+                static let trailing: CGFloat = 6 // Spacing to text
+            }
+
+            struct Text {
+                static let titleTop: CGFloat = 6
+                static let subtitleTop: CGFloat = 1
+                static let titleSize: CGFloat = 14
+                static let subtitleSize: CGFloat = 11
+            }
         }
     }
 
@@ -81,9 +92,11 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     }
 
     override func loadView() {
+        // Initial height calculation for shrink view
+        let initialHeight = LayoutMetrics.SearchField.top + LayoutMetrics.SearchField.height + LayoutMetrics.SearchField.bottom
         view = NSView(
             frame: NSRect(
-                x: 0, y: 0, width: LayoutMetrics.windowWidth, height: LayoutMetrics.baseHeight))
+                x: 0, y: 0, width: LayoutMetrics.Window.width, height: initialHeight))
         view.wantsLayer = true
         setupViews()
     }
@@ -95,7 +108,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         backgroundView.state = .active
         backgroundView.blendingMode = .behindWindow
         backgroundView.wantsLayer = true
-        backgroundView.layer?.cornerRadius = LayoutMetrics.cornerRadius
+        backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
         backgroundView.layer?.masksToBounds = true
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(backgroundView)
@@ -103,7 +116,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Icon Container
         iconContainer = NSStackView()
         iconContainer.orientation = .horizontal
-        iconContainer.spacing = LayoutMetrics.Icon.spacing
+        iconContainer.spacing = LayoutMetrics.IconContainer.spacing
         iconContainer.alignment = .centerY
         iconContainer.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(iconContainer)
@@ -114,16 +127,16 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
         defaultSearchIcon.contentTintColor = .secondaryLabelColor
         defaultSearchIcon.translatesAutoresizingMaskIntoConstraints = false
-        defaultSearchIcon.widthAnchor.constraint(equalToConstant: LayoutMetrics.Icon.size)
+        defaultSearchIcon.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
             .isActive = true
-        defaultSearchIcon.heightAnchor.constraint(equalToConstant: LayoutMetrics.Icon.size)
+        defaultSearchIcon.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
             .isActive = true
         iconContainer.addArrangedSubview(defaultSearchIcon)
 
         // Input field
         inputField = NSTextField()
-        inputField.placeholderString = "Search or type a command..."
-        inputField.font = .systemFont(ofSize: LayoutMetrics.SearchInput.fontSize, weight: .light)
+        inputField.placeholderString = "zabb"
+        inputField.font = .systemFont(ofSize: LayoutMetrics.SearchField.fontSize, weight: .light)
         inputField.isBordered = false
         inputField.drawsBackground = false
         inputField.focusRingType = .none
@@ -152,7 +165,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("result"))
         // Calculate available width for the column
         let columnWidth =
-            LayoutMetrics.windowWidth - (LayoutMetrics.Separator.horizontalPadding * 2)
+            LayoutMetrics.Window.width - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
         column.width = columnWidth
         resultsTableView.addTableColumn(column)
 
@@ -172,34 +185,35 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             iconContainer.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.Icon.leading),
+                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading),
             iconContainer.centerYAnchor.constraint(equalTo: inputField.centerYAnchor),
             iconContainer.heightAnchor.constraint(
-                equalToConstant: LayoutMetrics.Icon.containerHeight),
+                equalToConstant: LayoutMetrics.IconContainer.height),
 
             inputField.topAnchor.constraint(
-                equalTo: backgroundView.topAnchor, constant: LayoutMetrics.SearchInput.top),
+                equalTo: backgroundView.topAnchor, constant: LayoutMetrics.SearchField.top),
             inputField.leadingAnchor.constraint(
-                equalTo: iconContainer.trailingAnchor, constant: LayoutMetrics.SearchInput.leading),
+                equalTo: iconContainer.trailingAnchor, constant: LayoutMetrics.SearchField.leading),
             inputField.trailingAnchor.constraint(
                 equalTo: backgroundView.trailingAnchor,
-                constant: -LayoutMetrics.SearchInput.trailing),
-            inputField.heightAnchor.constraint(equalToConstant: LayoutMetrics.SearchInput.height),
+                constant: -LayoutMetrics.SearchField.trailing),
+            inputField.heightAnchor.constraint(equalToConstant: LayoutMetrics.SearchField.height),
 
             separatorView.topAnchor.constraint(
-                equalTo: inputField.bottomAnchor, constant: LayoutMetrics.Separator.topPadding),
+                equalTo: inputField.bottomAnchor, constant: LayoutMetrics.Separator.top),
             separatorView.leadingAnchor.constraint(
                 equalTo: backgroundView.leadingAnchor,
-                constant: LayoutMetrics.Separator.horizontalPadding),
+                constant: LayoutMetrics.Separator.leading),
             separatorView.trailingAnchor.constraint(
                 equalTo: backgroundView.trailingAnchor,
-                constant: -LayoutMetrics.Separator.horizontalPadding),
+                constant: -LayoutMetrics.Separator.trailing),
+            separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
 
-            scrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: 0),
+            scrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
             scrollView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
             scrollView.bottomAnchor.constraint(
-                equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottomPadding
+                equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottom
             ),
         ])
     }
@@ -234,8 +248,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 iv.image = image
                 iv.contentTintColor = .secondaryLabelColor
                 iv.translatesAutoresizingMaskIntoConstraints = false
-                iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.Icon.size).isActive = true
-                iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.Icon.size).isActive = true
+                iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
+                iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
                 iconContainer.addArrangedSubview(iv)
             }
         }
