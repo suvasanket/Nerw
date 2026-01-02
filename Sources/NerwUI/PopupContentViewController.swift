@@ -1,5 +1,6 @@
 // PopupContentViewController.swift
 import Cocoa
+import NerwCore
 
 protocol PopupContentDelegate: AnyObject {
     func didPressEscape()
@@ -53,7 +54,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
             struct Margin {
                 static let vertical: CGFloat = 2
-                static let horizontal: CGFloat = 20
+                static let horizontal: CGFloat = 0
             }
 
             struct Icon {
@@ -165,11 +166,15 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         resultsTableView.delegate = self
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("result"))
-        // Calculate available width for the column
-        let columnWidth =
-            LayoutMetrics.Window.width - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
+        // Result alignment fix:
+        // Left side aligns natively (implicit padding ~20pt).
+        // To fix right overflow and match separator width, we subtract margins (20+20=40pt).
+        let columnWidth = LayoutMetrics.Window.width - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
         column.width = columnWidth
+        column.resizingMask = .autoresizingMask
         resultsTableView.addTableColumn(column)
+        resultsTableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        resultsTableView.sizeLastColumnToFit()
 
         scrollView = NSScrollView()
         scrollView.documentView = resultsTableView

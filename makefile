@@ -1,11 +1,12 @@
 APP=Nerw
-SOURCES=Sources/Nerw/*.swift
+BUILD_DIR=.build/debug
 
 main:
-	swiftc -o $(APP) $(SOURCES) -framework Cocoa -framework Carbon
+	swift build
 
 clean:
-	rm -f $(APP)
+	swift package reset
+	rm -rf .build
 
 run: main
-	./$(APP)
+	$(BUILD_DIR)/$(APP)

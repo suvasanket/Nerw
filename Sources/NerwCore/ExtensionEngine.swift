@@ -6,14 +6,14 @@ struct LoadedExtension {
     let path: URL
 }
 
-class ExtensionEngine {
-    static let shared = ExtensionEngine()
+public class ExtensionEngine {
+    public static let shared = ExtensionEngine()
     
     var context: JSContext?
     var loadedExtensions: [LoadedExtension] = []
     
     // Public getter for UI
-    var extensions: [ExtensionManifest] {
+    public var extensions: [ExtensionManifest] {
         loadedExtensions.map { $0.manifest }
     }
     
@@ -45,7 +45,7 @@ class ExtensionEngine {
         context?.setObject(log, forKeyedSubscript: "syslog" as NSString)
     }
     
-    func reload() {
+    public func reload() {
         setupContext()
         loadExtensions()
     }
@@ -77,7 +77,7 @@ class ExtensionEngine {
         }
     }
     
-    func runExtension(id: String, query: String, completion: @escaping ([ExtensionResult]) -> Void) {
+    public func runExtension(id: String, query: String, completion: @escaping ([ExtensionResult]) -> Void) {
         guard let ext = loadedExtensions.first(where: { $0.manifest.id == id }) else {
             completion([])
             return

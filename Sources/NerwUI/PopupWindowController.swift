@@ -1,13 +1,13 @@
 // PopupWindowController.swift
 import Cocoa
 
-class PopupWindowController: NSObject {
+public class PopupWindowController: NSObject {
     private var panel: PopupPanel!
     private var contentViewController: PopupContentViewController!
 
-    var isVisible: Bool { panel.isVisible }
+    public var isVisible: Bool { panel.isVisible }
 
-    override init() {
+    public override init() {
         super.init()
         setupPanel()
     }
@@ -61,24 +61,24 @@ class PopupWindowController: NSObject {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    func toggle() {
+    public func toggle() {
         isVisible ? hide() : show()
     }
 
-    func show() {
+    public func show() {
         centerOnScreen()
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(contentViewController.inputField)
     }
 
-    func hide() {
+    public func hide() {
         panel.orderOut(nil)
         contentViewController.reset()
         // Return focus to the previous application
         NSApp.hide(nil)
     }
 
-    func updateHeight(_ height: CGFloat) {
+    public func updateHeight(_ height: CGFloat) {
         var frame = panel.frame
         let diff = height - frame.height
         frame.origin.y -= diff
