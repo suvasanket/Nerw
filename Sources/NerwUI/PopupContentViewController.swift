@@ -92,23 +92,33 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
 
+    // State Machine for Input
+    enum InputState {
+        case search
+        case argument(action: Action, step: Int, collectedArgs: [String])
+    }
+    private var inputState: InputState = .search
+
     struct Action {
         let id: String
         let icon: NSImage?
         let title: String
         let subtitle: String
         let height: CGFloat? // Dynamic height support if needed
+
         let supportsArguments: Bool
+        let argumentNames: [String]?
         let path: String? // For apps
         let handler: ((String) -> Void)?
         let searcher: ((String) -> [Action])?
         
-        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
+        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, argumentNames: [String]? = nil, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
             self.id = id
             self.icon = icon
             self.title = title
             self.subtitle = subtitle
             self.supportsArguments = supportsArguments
+            self.argumentNames = argumentNames
             self.path = path
             self.handler = handler
             self.searcher = searcher
@@ -292,12 +302,89 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     }
 
     func reset() {
+        inputState = .search
+        activeAction = nil
         inputField.stringValue = ""
         setIcons([])
         actions = []
-        activeAction = nil
         previousSearchText = ""
         selectedIndex = 0
+        updateActions()
+    }
+
+    private func resetToSearch() {
+        inputState = .search
+        activeAction = nil
+        inputField.stringValue = previousSearchText
+        inputField.placeholderString = "nerw"
+        setIcons([])
+        search(query: previousSearchText)
+    }
+
+    private func handleTab() -> Bool {
+        switch inputState {
+        case .search:
+            guard !actions.isEmpty else { return false }
+            let selectedAction = actions[selectedIndex]
+            guard selectedAction.supportsArguments else { return false }
+
+            // Enter Argument Mode (Step 0)
+            previousSearchText = inputField.stringValue
+            enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+            return true
+
+        case .argument(let action, let step, var args):
+            // Check if there is a next argument
+            if let names = action.argumentNames, step < names.count - 1 {
+                // Collect current arg value
+                args.append(inputField.stringValue)
+                // Move to next step
+                enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
+                return true
+            } else {
+                return false
+            }
+        }
+    }
+
+    private func handleBacktab() -> Bool {
+        if case .argument(let action, let step, var args) = inputState {
+            if step > 0 {
+                // Go back to previous step
+                let prevVal = args.popLast() ?? ""
+                inputField.stringValue = prevVal
+                enterArgumentMode(action: action, step: step - 1, collectedArgs: args)
+            } else {
+                // Exit argument mode
+                resetToSearch()
+            }
+            return true
+        }
+        return false
+    }
+
+    private func enterArgumentMode(action: Action, step: Int, collectedArgs: [String]) {
+        // Update State
+        inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
+        activeAction = action // Keep for legacy check compatibility
+
+        // Update UI
+        inputField.stringValue = "" // Clear for new arg
+
+        // Update Placeholder based on argument name (Feedback)
+        if let names = action.argumentNames, step < names.count {
+            inputField.placeholderString = names[step]
+        } else {
+            inputField.placeholderString = action.title
+        }
+        
+        // Ensure icon is consistent (don't add tab hint icon)
+        if let icon = action.icon {
+            setIcons([icon])
+        }
+
+        // Clear list to focus on input
+        actions = []
         updateActions()
     }
 
@@ -312,7 +399,31 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         -> Bool
     {
         switch commandSelector {
+        case #selector(NSResponder.deleteBackward(_:)):
+             if inputField.stringValue.isEmpty {
+                 if case .argument = inputState {
+                     return handleBacktab()
+                 }
+                 if activeAction != nil {
+                      resetToSearch()
+                      return true
+                 }
+             }
+             return false
+
+        case #selector(NSResponder.insertTab(_:)):
+            // Handle Tab navigation
+            return handleTab()
+
+        case #selector(NSResponder.insertBacktab(_:)):
+            // Handle Shift+Tab
+            return handleBacktab()
+
         case #selector(NSResponder.cancelOperation(_:)):
+            if case .argument = inputState {
+                resetToSearch()
+                return true
+            }
             if activeAction != nil {
                 // Restore previous state
                 activeAction = nil
@@ -351,6 +462,54 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return false
 
         case #selector(NSResponder.insertNewline(_:)):
+            // Check if we are in argument mode (Multi-Step)
+            if case .argument(let action, let step, var args) = inputState {
+                // Collect current arg
+                args.append(inputField.stringValue)
+                
+                // Check if this was the last step
+                // Check if this was the last step
+                let isLastStep: Bool
+                if let names = action.argumentNames {
+                    isLastStep = step >= names.count - 1
+                } else {
+                    // Default to single step if no names provided
+                    isLastStep = true
+                }
+
+                if isLastStep {
+                    // Final Submission
+                    if action.id == "nerw.builtin.addengine", args.count >= 2 {
+                        let url = args[0]
+                        let trigger = args[1]
+                        SearchEngine.shared.addEngine(url: url, trigger: trigger)
+                        
+                        // Close after adding
+                        activeAction = nil
+                        inputField.stringValue = previousSearchText
+                        inputField.placeholderString = "nerw"
+                        setIcons([])
+                        delegate?.didPressEscape()
+                        return true
+                    }
+                    
+                    // General Handler
+                    action.handler?(args.joined(separator: " "))
+                    
+                    // Close
+                    activeAction = nil
+                    inputField.stringValue = previousSearchText
+                    inputField.placeholderString = "nerw"
+                    setIcons([])
+                    delegate?.didPressEscape()
+                    return true
+                } else {
+                    // Move to next step
+                    enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
+                    return true
+                }
+            }
+
             if let action = activeAction {
                  // Check if we have live results and one is selected
                  if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
@@ -403,6 +562,13 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             } else if !actions.isEmpty {
                 let selectedAction = actions[selectedIndex]
                 
+                // If the selected action supports arguments (and we are not yet in argument mode), ENTER ARGUMENT MODE
+                if selectedAction.supportsArguments {
+                     previousSearchText = inputField.stringValue
+                     enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+                     return true
+                }
+                
                 // Record Usage
                 FrecencyManager.shared.recordUsage(id: selectedAction.id)
                 
@@ -445,14 +611,29 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             }
             return
         }
+        
+        var newActions: [Action] = []
+
+        if query.lowercased() == "add search engine" || query.lowercased() == "add" {
+            newActions.append(Action(
+                id: "nerw.builtin.addengine",
+                icon: NSImage(systemSymbolName: "plus.circle", accessibilityDescription: nil),
+                title: "Add Search Engine",
+                subtitle: "Add a custom search engine",
+                supportsArguments: true,
+                argumentNames: ["Search URL (use %s)", "Trigger Keyword"],
+                handler: { _ in }, // Handled via multi-step logic
+                searcher: nil
+            ))
+        }
 
         guard !query.isEmpty else {
-            actions = []
+            actions = newActions // Show "Add" if query matches "add", else empty
             updateActions()
             return
         }
         
-        var newActions: [Action] = []
+
         
         // 0. Built-in Extensions (Google, Find File, etc.)
         
