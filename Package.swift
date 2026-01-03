@@ -24,7 +24,7 @@ let package = Package(
         ),
         .target(
             name: "NerwBuiltin",
-            dependencies: ["NerwCore"],
+            dependencies: ["NerwCore", "NerwSearchBackend"],
             path: "Sources/NerwBuiltin"
         ),
         .target(

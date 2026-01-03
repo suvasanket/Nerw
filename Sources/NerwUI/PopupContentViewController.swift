@@ -577,7 +577,27 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 let selectedAction = actions[selectedIndex]
                 
                 // If the selected action supports arguments (and we are not yet in argument mode), ENTER ARGUMENT MODE
+                // If the selected action supports arguments (and we are not yet in argument mode), ENTER ARGUMENT MODE
                 if selectedAction.supportsArguments {
+                     // Direct Execution check:
+                     // If action accepts raw string arguments (argumentNames == nil)
+                     // AND the input is not empty
+                     // We use the current input as the argument immediately.
+                     if selectedAction.argumentNames == nil && !inputField.stringValue.isEmpty {
+                         selectedAction.handler?(inputField.stringValue)
+                         
+                         // Record Usage
+                         FrecencyManager.shared.recordUsage(id: selectedAction.id)
+                         
+                         // Close
+                         activeAction = nil
+                         inputField.stringValue = previousSearchText
+                         inputField.placeholderString = "nerw"
+                         setIcons([])
+                         delegate?.didPressEscape()
+                         return true
+                     }
+
                      previousSearchText = inputField.stringValue
                      enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
                      return true
@@ -586,7 +606,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 // Record Usage
                 FrecencyManager.shared.recordUsage(id: selectedAction.id)
                 
-                if let appPath = selectedAction.path {
+                if let handler = selectedAction.handler {
+                    // Action has a handler (e.g. Smart Suggestions)
+                    handler(inputField.stringValue) // Pass current text just in case, though often unused for void handlers
+                    
+                    // Close
+                    activeAction = nil
+                    inputField.stringValue = previousSearchText
+                    inputField.placeholderString = "nerw"
+                    setIcons([])
+                    delegate?.didPressEscape()
+                } else if let appPath = selectedAction.path {
                      // Launch Application
                      NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
                      // Hide window
@@ -727,6 +757,18 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             ))
         }
 
+        // Check Nerw Extension (Config)
+        if let result = NerwExtension.shared.check(query: query) {
+            newActions.append(Action(
+                id: "nerw.builtin.extension." + result.title,
+                icon: result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil,
+                title: result.title,
+                subtitle: result.subtitle,
+                supportsArguments: result.supportsArguments,
+                handler: result.handler
+            ))
+        }
+
         // Search Engine (Google, Bing, etc.)
         if let engineResult = SearchEngine.shared.check(query: query) {
             newActions.append(Action(
@@ -809,9 +851,49 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Use default Fuse order (relevance)
         let sortedAppActions = appActions 
         
-        // Re-combine
-        self.actions = newActions + sortedAppActions
-        self.actions = newActions + sortedAppActions
+        // Smart Suggestions
+        var suggestionActions: [Action] = []
+        let words = query.split(separator: " ")
+        
+        // Always fetch configured default suggestions
+        let suggestions = SearchEngine.shared.getSuggestions(for: query)
+        suggestionActions = suggestions.map { res in
+             Action(
+                 id: "nerw.suggestion." + res.title,
+                 icon: res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil,
+                 title: res.title,
+                 subtitle: res.subtitle,
+                 supportsArguments: false,
+                 handler: res.handler
+             )
+        }
+
+        // Final Composition
+        let explicitActions = newActions + sortedAppActions
+        var finalActions: [Action] = []
+        
+        // Check if any explicit action contains the query (e.g. "System Se" matches "System Settings")
+        // This ensures partial matches keep the local result at top.
+        let hasRelevantMatch = explicitActions.contains { action in
+            return action.title.localizedCaseInsensitiveContains(query)
+        }
+        
+        // Prioritize suggestions if query is long enough AND no relevant match found
+        let shouldPrioritizeSuggestions = words.count >= ConfigManager.shared.config.SearchEngineSuggestThreshold && !hasRelevantMatch
+        
+        if !suggestionActions.isEmpty {
+            if shouldPrioritizeSuggestions {
+                // High Priority: Suggestions (Top) + Explicit (Bottom)
+                finalActions = suggestionActions + explicitActions
+            } else {
+                // Low Priority: Explicit (Top) + Suggestions (Bottom)
+                finalActions = explicitActions + suggestionActions
+            }
+        } else {
+            finalActions = explicitActions
+        }
+        
+        self.actions = finalActions
 
         selectedIndex = 0
         updateActions()

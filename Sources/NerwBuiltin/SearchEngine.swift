@@ -14,9 +14,8 @@ public class SearchEngine {
 
     public private(set) var engines: [Engine] = [
         Engine(name: "Google Search", triggers: ["google", "goo"], urlTemplate: "https://www.google.com/search?q=%@", iconName: "magnifyingglass"),
-        Engine(name: "Bing Search", triggers: ["bing"], urlTemplate: "https://www.bing.com/search?q=%@", iconName: "magnifyingglass"),
         Engine(name: "DuckDuckGo Search", triggers: ["duck", "ddg"], urlTemplate: "https://duckduckgo.com/?q=%@", iconName: "magnifyingglass"),
-        Engine(name: "Yahoo Search", triggers: ["yahoo"], urlTemplate: "https://search.yahoo.com/search?p=%@", iconName: "magnifyingglass")
+        Engine(name: "Bing Search", triggers: ["bing"], urlTemplate: "https://www.bing.com/search?q=%@", iconName: "magnifyingglass"),
     ]
 
     private let customEnginesKey = "NerwCustomEngines"
@@ -119,5 +118,44 @@ public class SearchEngine {
         }
 
         return nil
+    }
+
+    public func getSuggestions(for query: String) -> [BuiltinResult] {
+        var results: [BuiltinResult] = []
+
+
+        // Helper to create result
+        func createResult(name: String, icon: String?, urlTemplate: String) -> BuiltinResult {
+             return BuiltinResult(
+                 title: name,
+                 subtitle: "Search for '\(query)'",
+                 iconName: icon,
+                 supportsArguments: false // Direct execution
+             ) { _ in
+                 let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                 // Handle standard format
+                 let urlString = String(format: urlTemplate, encodedQuery)
+                 if let url = URL(string: urlString) {
+                     NSWorkspace.shared.open(url)
+                 }
+             }
+        }
+
+        // Standard Engines
+        for engine in engines {
+            results.append(createResult(name: engine.name, icon: engine.iconName, urlTemplate: engine.urlTemplate))
+        }
+
+        // Custom Engines
+        for engine in customEngines {
+            results.append(createResult(name: engine.name, icon: engine.icon, urlTemplate: engine.urlTemplate))
+        }
+
+        // Filter results based on configuration
+        results = results.filter { result in
+             return ConfigManager.shared.config.defaultSearchEngine.contains(result.title)
+        }
+        
+        return results
     }
 }

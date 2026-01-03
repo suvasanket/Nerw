@@ -2,8 +2,7 @@ import Foundation
 
 public class FrecencyManager {
     public static let shared = FrecencyManager()
-    public static var enabled: Bool = false // Feature toggle
-
+    
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "com.nerw.frecency", attributes: .concurrent)
 
@@ -39,7 +38,7 @@ public class FrecencyManager {
     /// Algorithm: Score = (Count * 100) / (DecayFactor ^ DaysSinceLastUse)
     /// DecayFactor = 2.0 (Double score halves every day)
     public func score(for id: String) -> Double {
-        queue.sync {
+        return queue.sync {
             guard let data = scores[id] else { return 0.0 }
 
             let now = Date().timeIntervalSince1970
