@@ -19,7 +19,7 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "NerwCore",
-            dependencies: [],
+            dependencies: ["Ifrit"],
             path: "Sources/NerwCore"
         ),
         .target(
@@ -42,6 +42,6 @@ let package = Package(
             name: "Nerw",
             dependencies: ["NerwCore", "NerwUI", "NerwBuiltin"],
             path: "Sources/Nerw"
-        )
+        ),
     ]
 )

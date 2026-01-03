@@ -93,6 +93,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private var selectedIndex: Int = 0
 
     struct Action {
+        let id: String
         let icon: NSImage?
         let title: String
         let subtitle: String
@@ -102,7 +103,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         let handler: ((String) -> Void)?
         let searcher: ((String) -> [Action])?
         
-        init(icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
+        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
+            self.id = id
             self.icon = icon
             self.title = title
             self.subtitle = subtitle
@@ -355,6 +357,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                      let selectedResult = actions[selectedIndex]
                      if let handler = selectedResult.handler {
                          handler("") // Argument usually already baked in or irrelevant for result execution
+                         // Record Usage
+                         FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                         
                          // Close window
                          activeAction = nil
                          inputField.stringValue = previousSearchText
@@ -363,6 +368,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                          delegate?.didPressEscape() // Or hide()
                          return true
                      } else if let path = selectedResult.path {
+                         // Record Usage
+                         FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                         
                          NSWorkspace.shared.open(URL(fileURLWithPath: path))
                          activeAction = nil
                          inputField.stringValue = previousSearchText
@@ -394,6 +402,10 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                  }
             } else if !actions.isEmpty {
                 let selectedAction = actions[selectedIndex]
+                
+                // Record Usage
+                FrecencyManager.shared.recordUsage(id: selectedAction.id)
+                
                 if let appPath = selectedAction.path {
                      // Launch Application
                      NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
@@ -447,6 +459,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Find File
         if let find = FindFile.shared.check(query: query) {
             newActions.append(Action(
+                id: "nerw.builtin.findfile",
                 icon: find.icon ?? (find.iconName != nil ? NSImage(systemSymbolName: find.iconName!, accessibilityDescription: nil) : nil),
                 title: find.title,
                 subtitle: find.subtitle,
@@ -457,6 +470,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                     guard let results = find.searcher?(arg) else { return [] }
                     return results.map { res in
                         Action(
+                            id: "nerw.builtin.findfile." + res.title, // Simple sub-ID
                             icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
                             title: res.title,
                             subtitle: res.subtitle,
@@ -471,6 +485,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Search Engine (Google, Bing, etc.)
         if let engineResult = SearchEngine.shared.check(query: query) {
             newActions.append(Action(
+                id: "nerw.builtin." + engineResult.title,
                 icon: engineResult.icon ?? (engineResult.iconName != nil ? NSImage(systemSymbolName: engineResult.iconName!, accessibilityDescription: nil) : nil),
                 title: engineResult.title,
                 subtitle: engineResult.subtitle,
@@ -500,6 +515,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                           }
                           
                           return Action(
+                             id: "nerw.ext.\(extensionManifest.id).\(res.title)",
                              icon: image,
                              title: res.title, 
                              subtitle: res.subtitle ?? extensionManifest.name,
@@ -532,6 +548,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         let appActions = searchResults.map { result in
             let app = allApps[result.index]
             return Action(
+                id: "nerw.app." + app.path,
                 icon: NSWorkspace.shared.icon(forFile: app.path), // Lazy load icon here
                 title: app.name,
                 subtitle: "Application",
@@ -541,7 +558,22 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
         
         // Combine Built-in (Google) + App Results
-        self.actions = newActions + appActions
+
+        
+        // Sort by Frecency
+        // For built-ins/apps, higher score should be first.
+        // We might want to keep exact matches or high-relevance fuzzy matches on top though.
+        // For now, let's just sort blindly by score, but maybe keep 'newActions' (explicit triggers) on top?
+        // Explicit triggers usually mean user typed "google", so that should probably win.
+        // Frecency applies well to the 'AppSearch' part.
+        
+        // Let's sort appActions by frecency before combining
+        let sortedAppActions = appActions.sorted { (a, b) -> Bool in
+            FrecencyManager.shared.score(for: a.id) > FrecencyManager.shared.score(for: b.id)
+        }
+        
+        // Re-combine
+        self.actions = newActions + sortedAppActions
 
         selectedIndex = 0
         updateActions()

@@ -2,11 +2,14 @@ import Foundation
 import JavaScriptCore
 import AppKit
 
+import Ifrit
+
 @objc protocol NerwAPIExports: JSExport {
     func fetch(_ url: String) -> JSValue
     func copyToClipboard(_ text: String)
     func open(_ url: String)
     func log(_ message: String)
+    var cache: CacheBridge { get }
 }
 
 @objc class NerwAPI: NSObject, NerwAPIExports {
@@ -66,5 +69,40 @@ import AppKit
     
     func log(_ message: String) {
         print("[Extension Log] \(message)")
+    }
+    
+    var cache: CacheBridge {
+        return CacheBridge(context: context)
+    }
+}
+
+@objc protocol CacheExports: JSExport {
+    func set(_ key: String, _ value: JSValue)
+    func get(_ key: String) -> JSValue
+    func remove(_ key: String)
+}
+
+@objc class CacheBridge: NSObject, CacheExports {
+    weak var context: JSContext?
+    
+    init(context: JSContext?) {
+        self.context = context
+    }
+    
+    func set(_ key: String, _ value: JSValue) {
+        if let object = value.toObject() {
+            Ifrit.CacheManager.shared.set(object, forKey: key)
+        }
+    }
+    
+    func get(_ key: String) -> JSValue {
+        if let value = Ifrit.CacheManager.shared.get(forKey: key) {
+            return JSValue(object: value, in: context)
+        }
+        return JSValue(undefinedIn: context)
+    }
+    
+    func remove(_ key: String) {
+        Ifrit.CacheManager.shared.remove(forKey: key)
     }
 }
