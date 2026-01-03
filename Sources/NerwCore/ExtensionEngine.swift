@@ -68,7 +68,7 @@ public class ExtensionEngine {
              ]
              
              for path in potentialPaths {
-                 print("[Debug] Checking path: \(path.path)")
+
                  loadExtensions(from: path)
              }
         }

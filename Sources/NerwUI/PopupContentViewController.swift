@@ -1,5 +1,6 @@
 // PopupContentViewController.swift
 import Cocoa
+import NerwSearchBackend
 import NerwCore
 import NerwBuiltin
 import NerwSearchBackend
@@ -261,11 +262,39 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottom
         )
         scrollViewBottomConstraint.isActive = true
+        
+        applyTheming()
+    }
+    
+    private func applyTheming() {
+        let config = ConfigManager.shared.config.uiConfig
+        
+        // Background
+        if let bgHex = config?.mainBackgroundColor, let bgColor = NSColor(hex: bgHex) {
+             backgroundView.layer?.backgroundColor = bgColor.cgColor
+        }
+        
+        // Font & Text Color
+        let fontSize = LayoutMetrics.SearchField.fontSize
+        if let fontName = config?.font, let font = NSFont(name: fontName, size: fontSize) {
+             inputField.font = font
+        }
+        
+        if let fgHex = config?.mainForegroundColor, let fgColor = NSColor(hex: fgHex) {
+             inputField.textColor = fgColor
+             defaultSearchIcon.contentTintColor = fgColor
+        }
+        
+        if let hintHex = config?.hintColor, let hintColor = NSColor(hex: hintHex) {
+             let placeholder = NSMutableAttributedString(string: inputField.placeholderString ?? "nerw")
+             placeholder.addAttribute(.foregroundColor, value: hintColor, range: NSRange(location: 0, length: placeholder.length))
+             inputField.placeholderAttributedString = placeholder
+        }
     }
 
     func toggleDebugMode() {
         isDebugMode.toggle()
-        print("Debug mode: \(isDebugMode)")
+
 
         let views: [NSView?] = [
             backgroundView, iconContainer, inputField, separatorView, scrollView,
@@ -419,7 +448,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         if components.count >= 2 {
             // Potential Prefix Trigger
             let possibleTrigger = String(components[0])
-            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? NerwExtension.shared.findByTrigger(possibleTrigger) {
+            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? NerwExtension.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) {
                 detectedTrigger = possibleTrigger
                 extractedArg = String(components[1])
             }
@@ -430,7 +459,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             let trimmed = query.trimmingCharacters(in: .whitespaces)
             let suffixComponents = trimmed.components(separatedBy: " ")
             if let lastWord = suffixComponents.last, !lastWord.isEmpty {
-                 if let _ = SearchEngine.shared.findByTrigger(lastWord) ?? NerwExtension.shared.findByTrigger(lastWord) {
+                 if let _ = SearchEngine.shared.findByTrigger(lastWord) ?? NerwExtension.shared.findByTrigger(lastWord) ?? FindFile.shared.findByTrigger(lastWord) {
                      detectedTrigger = lastWord
                      // Arg is everything before the trigger
                      if let range = trimmed.range(of: lastWord, options: .backwards) {
@@ -442,15 +471,30 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         
         if let trigger = detectedTrigger, let arg = extractedArg {
             // Activate Trigger
-            if let result = SearchEngine.shared.findByTrigger(trigger) ?? NerwExtension.shared.findByTrigger(trigger) {
+            if let result = SearchEngine.shared.findByTrigger(trigger) ?? NerwExtension.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) {
                 if result.supportsArguments {
                      activateArgumentMode(for: Action(
                         id: "nerw.smart." + result.title,
-                        icon: result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil, // Simplified icon loading
+                        icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
                         title: result.title,
                         subtitle: result.subtitle,
                         supportsArguments: true,
-                        handler: result.handler
+                        handler: result.handler,
+                        searcher: result.searcher != nil ? { query, completion in
+                            result.searcher!(query) { results in
+                                let actions = results.map { res in
+                                    Action(
+                                        id: "nerw.smart.result." + res.title,
+                                        icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
+                                        title: res.title,
+                                        subtitle: res.subtitle,
+                                        supportsArguments: res.supportsArguments,
+                                        handler: res.handler
+                                    )
+                                }
+                                completion(actions)
+                            }
+                        } : nil
                      ), initialArg: arg)
                      return
                 }
@@ -469,6 +513,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
          // Switch to Argument Mode
          inputState = .argument(action: action, step: 0, collectedArgs: [])
          inputField.stringValue = initialArg
+         inputField.currentEditor()?.moveToEndOfLine(nil)
          inputField.placeholderString = action.title
          if let icon = action.icon {
              setIcons([icon])
@@ -831,7 +876,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         if let result = NerwExtension.shared.check(query: query) {
             newActions.append(Action(
                 id: "nerw.builtin.extension." + result.title,
-                icon: result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil,
+                icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
                 title: result.title,
                 subtitle: result.subtitle,
                 supportsArguments: result.supportsArguments,
@@ -930,7 +975,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         suggestionActions = suggestions.map { res in
              Action(
                  id: "nerw.suggestion." + res.title,
-                 icon: res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil,
+                 icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
                  title: res.title,
                  subtitle: res.subtitle,
                  supportsArguments: false,

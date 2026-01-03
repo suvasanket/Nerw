@@ -1,9 +1,21 @@
 import Foundation
 
+public struct UIConfig: Codable {
+    public var font: String?
+    public var mainBackgroundColor: String?
+    public var selectionBackgroundColor: String?
+    public var mainForegroundColor: String?
+    public var selectionForegroundColor: String?
+    public var hintColor: String?
+    
+    public init() {}
+}
+
 public struct Config: Codable {
     public var SearchEngineSuggestThreshold: Int = 3
-    public var defaultSearchEngine: [String] = ["Google Search"]
+    public var defaultSearchEngine: [String] = ["google"]
     public var globalKeybind: String = "Cmd+Shift+Space"
+    public var uiConfig: UIConfig?
     
     public init() {}
 }

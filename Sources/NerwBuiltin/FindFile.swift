@@ -69,7 +69,9 @@ public class FindFile {
             task.arguments = ["-c", script]
 
             let pipe = Pipe()
+
             task.standardOutput = pipe
+            task.standardError = FileHandle.nullDevice
 
             do {
                 try task.run()
@@ -120,6 +122,7 @@ public class FindFile {
          task.arguments = ["-c", script]
          let pipe = Pipe()
          task.standardOutput = pipe
+         task.standardError = FileHandle.nullDevice
          try? task.run()
 
          let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -127,5 +130,26 @@ public class FindFile {
              let url = URL(fileURLWithPath: output)
              NSWorkspace.shared.activateFileViewerSelecting([url])
          }
+    }
+    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+        let triggers = ["find", "file"]
+        let lowerTrigger = trigger.lowercased()
+        
+        guard triggers.contains(lowerTrigger) else { return nil }
+        
+        let finderIcon = NSWorkspace.shared.icon(forFile: "/System/Library/CoreServices/Finder.app")
+        
+        return BuiltinResult(
+            title: "Find File",
+            subtitle: "Search and Reveal in Finder",
+            icon: finderIcon,
+            supportsArguments: true,
+            handler: { argument in
+                 self.findAndReveal(query: argument)
+            },
+            searcher: { argument, completion in
+                self.liveSearch(query: argument, completion: completion)
+            }
+        )
     }
 }

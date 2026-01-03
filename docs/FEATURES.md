@@ -16,6 +16,7 @@ Nerw intelligently routes your query to the best provider:
     - Bing (`bing [query]`)
     - DuckDuckGo (`duck [query]`)
     - Yahoo (`yahoo [query]`)
+    - **Adaptive Defaults**: If you have multiple default engines, Nerw learns your preference per query (e.g. preferring GitHub for code queries).
 3.  **Calculator**: (Planned/Upcoming) Basic math operations.
 4.  **Files**: searching for files `find [query]`
 
