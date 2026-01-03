@@ -8,7 +8,7 @@ public struct BuiltinResult {
     public let supportsArguments: Bool
     public let handler: (String) -> Void
     public let searcher: ((String) -> [BuiltinResult])?
-    
+
     public init(title: String, subtitle: String, iconName: String? = nil, icon: NSImage? = nil, supportsArguments: Bool, handler: @escaping (String) -> Void, searcher: ((String) -> [BuiltinResult])? = nil) {
         self.title = title
         self.subtitle = subtitle

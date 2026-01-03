@@ -608,6 +608,47 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return true
 
         default:
+            // Handle manual keybindings for standard editing and custom shortcuts
+            // because this is an accessory app without a main menu.
+            if let event = NSApp.currentEvent {
+                // Ctrl+C to close
+                 if event.modifierFlags.contains(.control) {
+                    if let chars = event.charactersIgnoringModifiers, chars == "c" {
+                        delegate?.didPressEscape()
+                        return true
+                    }
+                }
+                
+                // Cmd+A/C/V
+                if event.modifierFlags.contains(.command) {
+                    guard let chars = event.charactersIgnoringModifiers else { return false }
+                    switch chars {
+                    case "a":
+                        textView.selectAll(nil)
+                        return true
+                    case "c":
+                        textView.copy(nil)
+                        return true
+                    case "v":
+                        textView.pasteAsPlainText(nil)
+                        return true
+                    case "x":
+                        textView.cut(nil)
+                        return true
+                    case "z":
+                        if let undoManager = textView.undoManager {
+                             if event.modifierFlags.contains(.shift) {
+                                  if undoManager.canRedo { undoManager.redo() }
+                             } else {
+                                  if undoManager.canUndo { undoManager.undo() }
+                             }
+                        }
+                        return true
+                    default:
+                        break
+                    }
+                }
+            }
             return false
         }
     }
@@ -755,19 +796,12 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Combine Built-in (Google) + App Results
 
         
-        // Sort by Frecency
-        // For built-ins/apps, higher score should be first.
-        // We might want to keep exact matches or high-relevance fuzzy matches on top though.
-        // For now, let's just sort blindly by score, but maybe keep 'newActions' (explicit triggers) on top?
-        // Explicit triggers usually mean user typed "google", so that should probably win.
-        // Frecency applies well to the 'AppSearch' part.
-        
-        // Let's sort appActions by frecency before combining
-        let sortedAppActions = appActions.sorted { (a, b) -> Bool in
-            FrecencyManager.shared.score(for: a.id) > FrecencyManager.shared.score(for: b.id)
-        }
+        // Sort by Frecency - DISABLED
+        // Use default Fuse order (relevance)
+        let sortedAppActions = appActions 
         
         // Re-combine
+        self.actions = newActions + sortedAppActions
         self.actions = newActions + sortedAppActions
 
         selectedIndex = 0

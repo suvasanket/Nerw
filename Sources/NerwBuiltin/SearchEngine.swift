@@ -20,7 +20,7 @@ public class SearchEngine {
     ]
 
     private let customEnginesKey = "NerwCustomEngines"
-    
+
     struct CustomEngine {
         let name: String
         let trigger: String
@@ -63,7 +63,7 @@ public class SearchEngine {
     public func addEngine(url: String, trigger: String) {
         // Convert %s to %@ for format string
         let template = url.replacingOccurrences(of: "%s", with: "%@")
-        
+
         // Simple name generation
         let name: String
         if let host = URL(string: url.replacingOccurrences(of: "%s", with: "test"))?.host {
@@ -71,7 +71,7 @@ public class SearchEngine {
         } else {
             name = trigger.capitalized
         }
-        
+
         let newEngine = CustomEngine(name: name, trigger: trigger, urlTemplate: template, icon: "magnifyingglass")
         customEngines.append(newEngine)
         saveCustomEngines()
@@ -97,7 +97,7 @@ public class SearchEngine {
                 }
             }
         }
-        
+
         // Check Custom Engines
         for engine in customEngines {
              if engine.trigger.starts(with: lowerQuery) {
