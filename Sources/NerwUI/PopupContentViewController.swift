@@ -406,7 +406,77 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
     func controlTextDidChange(_ obj: Notification) {
         let query = inputField.stringValue
+        
+        // Smart Trigger Logic
+        // 1. Prefix: "Trigger Arg"
+        // 2. Suffix: "Arg Trigger " (Must end with space)
+        
+        var detectedTrigger: String?
+        var extractedArg: String?
+        
+        // Check Prefix
+        let components = query.split(separator: " ", maxSplits: 1)
+        if components.count >= 2 {
+            // Potential Prefix Trigger
+            let possibleTrigger = String(components[0])
+            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? NerwExtension.shared.findByTrigger(possibleTrigger) {
+                detectedTrigger = possibleTrigger
+                extractedArg = String(components[1])
+            }
+        }
+        
+        // Check Suffix (Only if no prefix found and query ends with space)
+        if detectedTrigger == nil && query.hasSuffix(" ") {
+            let trimmed = query.trimmingCharacters(in: .whitespaces)
+            let suffixComponents = trimmed.components(separatedBy: " ")
+            if let lastWord = suffixComponents.last, !lastWord.isEmpty {
+                 if let _ = SearchEngine.shared.findByTrigger(lastWord) ?? NerwExtension.shared.findByTrigger(lastWord) {
+                     detectedTrigger = lastWord
+                     // Arg is everything before the trigger
+                     if let range = trimmed.range(of: lastWord, options: .backwards) {
+                         extractedArg = String(trimmed[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+                     }
+                 }
+            }
+        }
+        
+        if let trigger = detectedTrigger, let arg = extractedArg {
+            // Activate Trigger
+            if let result = SearchEngine.shared.findByTrigger(trigger) ?? NerwExtension.shared.findByTrigger(trigger) {
+                if result.supportsArguments {
+                     activateArgumentMode(for: Action(
+                        id: "nerw.smart." + result.title,
+                        icon: result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil, // Simplified icon loading
+                        title: result.title,
+                        subtitle: result.subtitle,
+                        supportsArguments: true,
+                        handler: result.handler
+                     ), initialArg: arg)
+                     return
+                }
+            }
+        }
+
         search(query: query)
+    }
+    
+    private func activateArgumentMode(for action: Action, initialArg: String) {
+        // Save state (restore point usually handled by selection, but here we jump straight in)
+        // We might want to clear previous state if any
+         previousSearchText = "" // Or keep as is? Let's clear to avoid confusion on back
+         activeAction = action
+         
+         // Switch to Argument Mode
+         inputState = .argument(action: action, step: 0, collectedArgs: [])
+         inputField.stringValue = initialArg
+         inputField.placeholderString = action.title
+         if let icon = action.icon {
+             setIcons([icon])
+         }
+         
+         // Clear list
+         actions = []
+         updateActions()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)

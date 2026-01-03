@@ -158,4 +158,41 @@ public class SearchEngine {
         
         return results
     }
+    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+        let lowerTrigger = trigger.lowercased()
+        
+        // Check Hardcoded Engines
+        if let engine = engines.first(where: { $0.triggers.contains(lowerTrigger) }) {
+            return BuiltinResult(
+                title: engine.name,
+                subtitle: "Search web using \(engine.name)",
+                iconName: engine.iconName,
+                supportsArguments: true
+            ) { argument in
+                let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                if let url = URL(string: urlString) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+        
+        // Check Custom Engines
+        if let engine = customEngines.first(where: { $0.trigger == lowerTrigger }) {
+             return BuiltinResult(
+                 title: engine.name,
+                 subtitle: "Search web using \(engine.name) (\(engine.trigger))",
+                 iconName: engine.icon,
+                 supportsArguments: true
+             ) { argument in
+                 let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                 let urlString = String(format: engine.urlTemplate, encodedQuery)
+                 if let url = URL(string: urlString) {
+                     NSWorkspace.shared.open(url)
+                 }
+             }
+        }
+        
+        return nil
+    }
 }
