@@ -59,9 +59,31 @@ The `main(query)` function is the entry point.
     "title": "Main Title",
     "subtitle": "Secondary text (optional)",
     "icon": "star.fill", // SF Symbol name (optional)
-    "action": "https://google.com" // URL to open or value to copy
+    "action": "https://google.com", // URL to open or value to copy
+
+    // Multi-Argument Wizard
+    // If present, selecting this item enters Argument Mode.
+    // The user presses Tab to advance through these named steps.
+    "argumentNames": ["Title", "Description"],
+
+    // Modifier Key Actions
+    // Alternative actions when holding keys
+    "mods": {
+        "cmd": "https://alternative.url", // Open this on Cmd+Enter
+        "ctrl": "copy", // Copy the action value on Ctrl+Enter
+        "opt": "other value"
+    }
 }
 ```
+
+### Argument Wizard
+If you provide `argumentNames`, the user will be prompted to enter arguments sequentially.
+When the user finishes and presses Enter, your extension's `main` function (or the `action` handler) receives the arguments joined by spaces.
+*Note: Currently, extensions are re-queried or valid actions are executed with the full string.*
+
+### Modifiers
+Supported keys for `mods`: `cmd` (Command), `ctrl` (Control), `opt` (Option).
+The value can be a URL or text to copy.
 
 ---
 
@@ -157,10 +179,10 @@ function main(query) {
         nerw.fetch("https://jsonplaceholder.typicode.com/todos")
             .then(jsonString => {
                 const todos = JSON.parse(jsonString);
-                
+
                 // Filter by query
                 const filtered = todos.filter(t => t.title.includes(query));
-                
+
                 // Map to Nerw results
                 const results = filtered.map(t => ({
                     title: t.title,
@@ -168,7 +190,7 @@ function main(query) {
                     icon: t.completed ? "checkmark.circle.fill" : "circle",
                     action: "https://jsonplaceholder.typicode.com/todos/" + t.id
                 }));
-                
+
                 resolve(results);
             })
             .catch(err => {
