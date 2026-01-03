@@ -312,6 +312,20 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         updateActions()
     }
 
+    private func updateSelectionIcon() {
+        guard case .search = inputState else { return }
+
+        if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
+            let action = actions[selectedIndex]
+            if action.supportsArguments {
+                let tab = NSImage(systemSymbolName: "arrow.right.to.line", accessibilityDescription: nil) ?? NSImage()
+                setIcons([tab])
+                return
+            }
+        }
+        setIcons([])
+    }
+
     private func resetToSearch() {
         inputState = .search
         activeAction = nil
@@ -777,6 +791,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
 
         delegate?.didUpdateResults(count: actions.count)
+        updateSelectionIcon()
     }
 
     private func moveSelection(by delta: Int) {
@@ -785,6 +800,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         resultsTableView.selectRowIndexes(
             IndexSet(integer: selectedIndex), byExtendingSelection: false)
         resultsTableView.scrollRowToVisible(selectedIndex)
+        updateSelectionIcon()
     }
 
     // MARK: - NSTableViewDataSource
