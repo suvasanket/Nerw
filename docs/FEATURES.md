@@ -73,4 +73,4 @@ Designed for mouse-free usage:
 ## ⚡ Performance
 - **Native Swift**: Built with AppKit for maximum performance.
 - **Low Footprint**: Minimal resource usage (`.accessory` activation policy).
-- **Fast Fuzzy Search**: Uses the integrated `Ifrit` search library (Fuse implementation).
+- **Fast Fuzzy Search**: Uses the integrated `NerwSearchBackend` search library (Fuse implementation).

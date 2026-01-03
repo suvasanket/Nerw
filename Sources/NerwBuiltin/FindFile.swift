@@ -5,6 +5,9 @@ public class FindFile {
 
     private init() {}
 
+    // Debounce timer
+    private var searchWorkItem: DispatchWorkItem?
+
     public func check(query: String) -> BuiltinResult? {
         let triggers = ["find", "file"]
         let lowerQuery = query.lowercased()
@@ -24,64 +27,89 @@ public class FindFile {
             handler: { argument in
                  self.findAndReveal(query: argument)
             },
-            searcher: { argument in
-                return self.liveSearch(query: argument)
+            searcher: { argument, completion in
+                self.liveSearch(query: argument, completion: completion)
             }
         )
     }
 
     // Existing fallback handler for "Enter" without selection
     private func findAndReveal(query: String) {
-        // ... (Keep existing logic if needed, or rely on live search results)
         // If user just types and hits enter without selecting, we can do the top 1 approach.
         let script = "mdfind -name '\(query)' | head -n 1"
         runSearch(script: script)
     }
 
-    private func liveSearch(query: String) -> [BuiltinResult] {
-        guard !query.isEmpty else { return [] }
+    private func liveSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+        // Cancel previous pending search
+        searchWorkItem?.cancel()
 
+        guard !query.isEmpty else {
+            completion([])
+            return
+        }
+
+        // Create new work item (Debounce 0.2s)
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.performSearch(query: query, completion: completion)
+        }
+
+        searchWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+    }
+
+    private func performSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
         // Search for top 10 files
         let script = "mdfind -name '\(query)' | head -n 10"
 
-        // We need to run this synchronously for now to return [BuiltinResult]
-        // Ideally this should be async but our current signature is sync.
-        // Given mdfind is fast and we limit output, it might be okay.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.launchPath = "/bin/bash"
+            task.arguments = ["-c", script]
 
-        let task = Process()
-        task.launchPath = "/bin/bash"
-        task.arguments = ["-c", script]
+            let pipe = Pipe()
+            task.standardOutput = pipe
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
+            do {
+                try task.run()
+            } catch {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
 
-        do {
-            try task.run()
-        } catch {
-            return []
-        }
+            task.waitUntilExit()
 
-        task.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return [] }
+            let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
-        let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            let results = paths.map { path -> BuiltinResult in
+                let url = URL(fileURLWithPath: path)
+                let icon = NSWorkspace.shared.icon(forFile: path)
+                let name = url.lastPathComponent
 
-        return paths.map { path in
-            let url = URL(fileURLWithPath: path)
-            let icon = NSWorkspace.shared.icon(forFile: path)
-            let name = url.lastPathComponent
+                // We must use main thread for icon if possible, but NSWorkspace.icon is thread-safe.
+                // However, constructing BuiltinResult is fine on bg thread.
 
-            return BuiltinResult(
-                title: name,
-                subtitle: path,
-                icon: icon,
-                supportsArguments: false,
-                handler: { _ in
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                }
-            )
+                return BuiltinResult(
+                    title: name,
+                    subtitle: path,
+                    icon: icon,
+                    supportsArguments: false,
+                    handler: { _ in
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
+                )
+            }
+
+            DispatchQueue.main.async {
+                completion(results)
+            }
         }
     }
 

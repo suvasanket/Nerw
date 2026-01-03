@@ -2,7 +2,7 @@ import Foundation
 import JavaScriptCore
 import AppKit
 
-import Ifrit
+import NerwSearchBackend
 
 @objc protocol NerwAPIExports: JSExport {
     func fetch(_ url: String) -> JSValue
@@ -91,18 +91,18 @@ import Ifrit
     
     func set(_ key: String, _ value: JSValue) {
         if let object = value.toObject() {
-            Ifrit.CacheManager.shared.set(object, forKey: key)
+            NerwSearchBackend.CacheManager.shared.set(object, forKey: key)
         }
     }
     
     func get(_ key: String) -> JSValue {
-        if let value = Ifrit.CacheManager.shared.get(forKey: key) {
+        if let value = NerwSearchBackend.CacheManager.shared.get(forKey: key) {
             return JSValue(object: value, in: context)
         }
         return JSValue(undefinedIn: context)
     }
     
     func remove(_ key: String) {
-        Ifrit.CacheManager.shared.remove(forKey: key)
+        NerwSearchBackend.CacheManager.shared.remove(forKey: key)
     }
 }

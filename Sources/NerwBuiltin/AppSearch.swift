@@ -37,18 +37,15 @@ public class AppSearch {
         // We use `mdfind` CLI for simplicity as it's cleaner than MDQuery in Swift without runloop handling sometimes.
         // Actually, let's try `mdfind` first.
         if let spotlightResults = runMdfind() {
-            print("AppSearch: Using Spotlight Index (\(spotlightResults.count) apps)")
             return spotlightResults
         }
 
         // Strategy 2: fd (if installed)
         if let fdResults = runFd() {
-            print("AppSearch: Using fd (\(fdResults.count) apps)")
             return fdResults
         }
 
         // Strategy 3: find (Fallback)
-        print("AppSearch: Using find (Fallback)")
         return runFind()
     }
 

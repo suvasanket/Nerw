@@ -2,7 +2,7 @@
 import Cocoa
 import NerwCore
 import NerwBuiltin
-import Ifrit
+import NerwSearchBackend
 
 protocol PopupContentDelegate: AnyObject {
     func didPressEscape()
@@ -110,9 +110,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         let argumentNames: [String]?
         let path: String? // For apps
         let handler: ((String) -> Void)?
-        let searcher: ((String) -> [Action])?
+        let searcher: ((String, @escaping ([Action]) -> Void) -> Void)?
         
-        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, argumentNames: [String]? = nil, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String) -> [Action])? = nil) {
+        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, argumentNames: [String]? = nil, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String, @escaping ([Action]) -> Void) -> Void)? = nil) {
             self.id = id
             self.icon = icon
             self.title = title
@@ -660,9 +660,13 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         if let action = activeAction {
             if let searcher = action.searcher {
                 // Perform live search using the action's searcher
-                let results = searcher(query)
-                self.actions = results
-                updateActions()
+                searcher(query) { [weak self] results in
+                    guard let self = self else { return }
+                    // Ensure relevance (simple check: if activeAction is still same and query is somewhat fresh?)
+                    // Best effort: just update UI
+                    self.actions = results
+                    self.updateActions()
+                }
             }
             return
         }
@@ -701,18 +705,23 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 subtitle: find.subtitle,
                 supportsArguments: find.supportsArguments,
                 handler: find.handler,
-                searcher: { arg in
-                    // Map BuiltinResult -> Action
-                    guard let results = find.searcher?(arg) else { return [] }
-                    return results.map { res in
-                        Action(
-                            id: "nerw.builtin.findfile." + res.title, // Simple sub-ID
-                            icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                            title: res.title,
-                            subtitle: res.subtitle,
-                            supportsArguments: res.supportsArguments,
-                            handler: res.handler
-                        )
+                searcher: { arg, completion in
+                    guard let searcher = find.searcher else {
+                        completion([])
+                        return
+                    }
+                    searcher(arg) { results in
+                         let actions = results.map { res in
+                            Action(
+                                id: "nerw.builtin.findfile." + res.title, // Simple sub-ID
+                                icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
+                                title: res.title,
+                                subtitle: res.subtitle,
+                                supportsArguments: res.supportsArguments,
+                                handler: res.handler
+                            )
+                        }
+                        completion(actions)
                     }
                 }
             ))
@@ -773,7 +782,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         
         let allApps = AppSearch.shared.getAllApps()
         
-        // Ifrit (Fuse) Fuzzy Search on App Names
+        // NerwSearchBackend (Fuse) Fuzzy Search on App Names
         let fuse = Fuse()
         // Improve performance by only searching names
         let appNames = allApps.map { $0.name }

@@ -1,6 +1,6 @@
 import Cocoa
 
-import Ifrit
+import NerwSearchBackend
 
 public struct Engine {
     public let name: String

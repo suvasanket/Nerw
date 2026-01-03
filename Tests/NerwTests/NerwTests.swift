@@ -1,5 +1,5 @@
 import XCTest
-@testable import Ifrit
+@testable import NerwSearchBackend
 
 final class NerwTests: XCTestCase {
     

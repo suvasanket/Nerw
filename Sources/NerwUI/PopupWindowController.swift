@@ -112,7 +112,7 @@ extension PopupWindowController: PopupContentDelegate {
             contentViewController.toggleDebugMode()
             return
         }
-        print("Submitted: \(text)")
+        // print("Submitted: \(text)")
         // Handle submission
         hide()
     }
