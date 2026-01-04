@@ -61,7 +61,8 @@ public class PopupWindowController: NSObject {
         let searchBarHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
         
         // This is where we want the center of the Search Bar to be
-        let visualCenterY = screenRect.origin.y + screenRect.height / 2 + screenRect.height * 0.15
+        // 0.30 offset moves it higher up the screen (Recalling that screen Y origin is bottom)
+        let visualCenterY = screenRect.origin.y + screenRect.height / 2 + screenRect.height * 0.30
         
         // Calculate where the top of the window should be
         // CenterOfSearchBar = TopOfWindow - SearchBarHeight/2
