@@ -7,7 +7,6 @@ import Carbon.HIToolbox
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupController: PopupWindowController!
     private var statusItem: NSStatusItem?
-    private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Run as accessory (no dock icon)
@@ -48,31 +47,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func registerGlobalHotkey() {
-        // Remove existing monitor if re-registering
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-            eventMonitor = nil
-        }
-        
         let configString = ConfigManager.shared.config.globalKeybind
         let (modifiers, keyCode) = HotkeyParser.parse(configString) ?? (.command.union(.shift), 49) // Default: Cmd+Shift+Space
         
-        // Using NSEvent for global monitoring
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == modifiers && event.keyCode == keyCode {
-                DispatchQueue.main.async {
-                    self?.popupController.toggle()
-                }
-            }
-        }
-
-        // Also monitor local events when app is active
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == modifiers && event.keyCode == keyCode {
+        HotKeyManager.shared.register(keyCode: keyCode, modifiers: modifiers) { [weak self] in
+            DispatchQueue.main.async {
                 self?.popupController.toggle()
-                return nil
             }
-            return event
         }
     }
 }
