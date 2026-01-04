@@ -15,6 +15,7 @@ public struct Config: Codable {
     public var SearchEngineSuggestThreshold: Int = 3
     public var defaultSearchEngine: [String] = ["google"]
     public var globalKeybind: String = "Cmd+Shift+Space"
+    public var findFileOnSpace: Bool = true
     public var uiConfig: UIConfig?
     
     public init() {}

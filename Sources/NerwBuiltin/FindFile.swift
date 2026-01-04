@@ -1,9 +1,66 @@
 import Cocoa
+import NerwSearchBackend // For Fuse
 
 public class FindFile {
     public static let shared = FindFile()
 
-    private init() {}
+    private enum SearchStrategy {
+        case fd
+        case mdfind
+    }
+
+    private var strategy: SearchStrategy = .mdfind // Default to mdfind until checked
+    private var hasCheckedStrategy = false
+
+    // Smart Cache State
+    private var cachedPaths: [String] = []
+    private var lastQuery: String = ""
+    private let MAX_CACHE_SIZE = 3000
+
+    // Ignore Patterns
+    private let ignorePatterns = [
+        "node_modules",
+        ".git",
+        ".cache",
+        ".DS_Store",
+        ".vscode",
+        ".idea",
+        "build",
+        "dist",
+        "target", // Rust/Maven
+        "DerivedData", // Xcode
+        "__pycache__",
+        "venv",
+        ".env"
+    ]
+
+    private init() {
+        checkTools()
+    }
+
+    private func checkTools() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let process = Process()
+            process.launchPath = "/bin/zsh"
+            process.arguments = ["-c", "which fd"]
+
+            // Silence
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+
+            try? process.run()
+            process.waitUntilExit()
+
+            if process.terminationStatus == 0 {
+                self?.strategy = .fd
+                print("[FindFile] 'fd' detected.")
+            } else {
+                self?.strategy = .mdfind
+                print("[FindFile] 'fd' not found. Fallback to mdfind.")
+            }
+            self?.hasCheckedStrategy = true
+        }
+    }
 
     // Debounce timer
     private var searchWorkItem: DispatchWorkItem?
@@ -12,7 +69,6 @@ public class FindFile {
         let triggers = ["find", "file"]
         let lowerQuery = query.lowercased()
 
-        // Check if triggers start with query (e.g. "f", "fi", "find")
         guard triggers.contains(where: { $0.starts(with: lowerQuery) }) else {
             return nil
         }
@@ -24,8 +80,8 @@ public class FindFile {
             subtitle: "Search and Reveal in Finder",
             icon: finderIcon,
             supportsArguments: true,
-            handler: { argument in
-                 self.findAndReveal(query: argument)
+            handler: { _ in
+                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: NSHomeDirectory())
             },
             searcher: { argument, completion in
                 self.liveSearch(query: argument, completion: completion)
@@ -33,15 +89,29 @@ public class FindFile {
         )
     }
 
-    // Existing fallback handler for "Enter" without selection
-    private func findAndReveal(query: String) {
-        // If user just types and hits enter without selecting, we can do the top 1 approach.
-        let script = "mdfind -name '\(query)' | head -n 1"
-        runSearch(script: script)
+    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+        let triggers = ["find", "file"]
+        let lowerTrigger = trigger.lowercased()
+
+        guard triggers.contains(lowerTrigger) else { return nil }
+
+        let finderIcon = NSWorkspace.shared.icon(forFile: "/System/Library/CoreServices/Finder.app")
+
+        return BuiltinResult(
+            title: "Find File",
+            subtitle: "Search and Reveal in Finder",
+            icon: finderIcon,
+            supportsArguments: true,
+            handler: { _ in
+                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: NSHomeDirectory())
+            },
+            searcher: { argument, completion in
+                self.liveSearch(query: argument, completion: completion)
+            }
+        )
     }
 
     private func liveSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
-        // Cancel previous pending search
         searchWorkItem?.cancel()
 
         guard !query.isEmpty else {
@@ -49,37 +119,55 @@ public class FindFile {
             return
         }
 
-        // Create new work item (Debounce 0.2s)
+        // 1. Check Smart Cache (Main Thread Check for Safety/Speed)
+        // If query refined previous query AND we captured everything last time (<MAX)
+        if !cachedPaths.isEmpty && !lastQuery.isEmpty && query.lowercased().hasPrefix(lastQuery.lowercased()) && cachedPaths.count < MAX_CACHE_SIZE {
+            // Refine in-memory
+            // We run this on background to avoid blocking UI if cache is large (3000 items)
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                self.refineResults(query: query, paths: self.cachedPaths, completion: completion)
+            }
+            return
+        }
+
+        // 2. Fallback: Full Process Fetch
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-            self.performSearch(query: query, completion: completion)
+            self.performFetchAndSearch(query: query, completion: completion)
         }
 
         searchWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
-    private func performSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
-        // Search for top 10 files
-        let script = "mdfind -name '\(query)' | head -n 10"
+    private func performFetchAndSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+        let strategy = self.strategy
+        var script = ""
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Fetch up to MAX_CACHE_SIZE for potential refinement later
+        if strategy == .fd {
+            let excludes = ignorePatterns.map { "--exclude '\($0)'" }.joined(separator: " ")
+            let home = NSHomeDirectory()
+            script = "fd -i --max-results \(MAX_CACHE_SIZE) \(excludes) '\(query)' '\(home)'"
+        } else {
+            let home = NSHomeDirectory()
+            let grepExcludes = ignorePatterns.map { "| grep -v '\($0)'" }.joined(separator: " ")
+            script = "mdfind -onlyin '\(home)' -name '\(query)' \(grepExcludes) | head -n \(MAX_CACHE_SIZE)"
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
             let task = Process()
-            task.launchPath = "/bin/bash"
+            task.launchPath = "/bin/zsh"
             task.arguments = ["-c", script]
 
             let pipe = Pipe()
-
             task.standardOutput = pipe
-            task.standardError = FileHandle.nullDevice
+            task.standardError = pipe // Capture error too just in case
 
-            do {
-                try task.run()
-            } catch {
-                DispatchQueue.main.async { completion([]) }
-                return
-            }
-
+            try? task.run()
             task.waitUntilExit()
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -90,66 +178,173 @@ public class FindFile {
 
             let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
-            let results = paths.map { path -> BuiltinResult in
-                let url = URL(fileURLWithPath: path)
-                let icon = NSWorkspace.shared.icon(forFile: path)
-                let name = url.lastPathComponent
-
-                // We must use main thread for icon if possible, but NSWorkspace.icon is thread-safe.
-                // However, constructing BuiltinResult is fine on bg thread.
-
-                return BuiltinResult(
-                    title: name,
-                    subtitle: path,
-                    icon: icon,
-                    supportsArguments: false,
-                    handler: { _ in
-                        NSWorkspace.shared.activateFileViewerSelecting([url])
-                    }
-                )
+            // UPDATE CACHE
+            // Only cache if we didn't hit the limit (meaning specific enough) OR if it's a good base
+            // Actually, plan says: Cache always, but only use for refinement if count < MAX
+            DispatchQueue.main.async { // Write to state on Main Thread for safety
+                self.cachedPaths = paths
+                self.lastQuery = query.lowercased()
             }
 
-            DispatchQueue.main.async {
-                completion(results)
-            }
+            // Now Fuse Search/Rank the results we just fetched
+            self.refineResults(query: query, paths: paths, completion: completion)
         }
     }
 
-    // Helper
-    private func runSearch(script: String) {
-         let task = Process()
-         task.launchPath = "/bin/bash"
-         task.arguments = ["-c", script]
-         let pipe = Pipe()
-         task.standardOutput = pipe
-         task.standardError = FileHandle.nullDevice
-         try? task.run()
+    private func refineResults(query: String, paths: [String], completion: @escaping ([BuiltinResult]) -> Void) {
+        // Use Fuse to rank/filter
+        let fuse = Fuse()
+        // Fuse search expects [Fuseable], String is Fuseable
+        // Search
+        let searchResults = fuse.searchSync(query, in: paths)
 
-         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-         if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !output.isEmpty {
-             let url = URL(fileURLWithPath: output)
-             NSWorkspace.shared.activateFileViewerSelecting([url])
-         }
+        let topResults = searchResults.prefix(20) // Take top 20
+
+        let builtins = topResults.compactMap { result -> BuiltinResult? in
+            let path = paths[result.index]
+            let url = URL(fileURLWithPath: path)
+            let name = url.lastPathComponent
+
+            // Sanity Filter for mdfind if needed (double check)
+           if self.strategy == .mdfind {
+               let components = path.components(separatedBy: "/")
+               if components.contains(where: { self.ignorePatterns.contains($0) }) {
+                   return nil
+               }
+           }
+
+            return BuiltinResult(
+                title: name,
+                subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
+                icon: NSWorkspace.shared.icon(forFile: path),
+                supportsArguments: false,
+                handler: { _ in
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            )
+        }
+
+        DispatchQueue.main.async {
+            completion(builtins)
+        }
     }
-    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
-        let triggers = ["find", "file"]
-        let lowerTrigger = trigger.lowercased()
-        
-        guard triggers.contains(lowerTrigger) else { return nil }
-        
-        let finderIcon = NSWorkspace.shared.icon(forFile: "/System/Library/CoreServices/Finder.app")
-        
-        return BuiltinResult(
-            title: "Find File",
-            subtitle: "Search and Reveal in Finder",
-            icon: finderIcon,
-            supportsArguments: true,
-            handler: { argument in
-                 self.findAndReveal(query: argument)
-            },
-            searcher: { argument, completion in
-                self.liveSearch(query: argument, completion: completion)
-            }
+}
+
+// MARK: - Spotlight Runner (NSMetadataQuery)
+
+class SpotlightRunner: NSObject {
+    private let query: NSMetadataQuery
+    private var completion: (([BuiltinResult]) -> Void)?
+    private var hasCompleted = false
+
+    init(query queryString: String) {
+        self.query = NSMetadataQuery()
+        super.init()
+
+        // Setup Query
+        self.query.delegate = self
+
+        // Scopes: "Hot Folders"
+        // We can't easily specify "Desktop AND Documents" directly in scopes cleanly without restricting too much,
+        // so standard practice is UserHomeScope + Filtering path or multiple queries.
+        // Actually, NSMetadataQueryLocalComputerScope is fast if predicated correctly.
+        // Let's stick to Home Scope to start, it's safer.
+        self.query.searchScopes = [NSMetadataQueryUserHomeScope]
+
+        // Predicate: Name contains query AND NOT in Library
+        // We use keywords to construct a robust predicate
+        let namePred = NSPredicate(format: "%K CONTAINS[cd] %@", NSMetadataItemDisplayNameKey, queryString)
+
+        // Exclusion Predicate
+        // 1. Not in Library
+        let libPred = NSPredicate(format: "NOT %K CONTAINS '/Library/'", NSMetadataItemPathKey)
+        // 2. Not a folder (optional, maybe user wants folders? let's keep folders)
+        // 3. Not hidden (Files starting with .) is harder in predicate, handled by Spotlight usually.
+
+        self.query.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [namePred, libPred])
+
+        // Sort: Most Recently Modified First
+        self.query.sortDescriptors = [
+            NSSortDescriptor(key: NSMetadataItemContentModificationDateKey, ascending: false)
+        ]
+    }
+
+    func start(completion: @escaping ([BuiltinResult]) -> Void) {
+        self.completion = completion
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(queryDidFinish(_:)),
+            name: .NSMetadataQueryDidFinishGathering,
+            object: query
         )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(queryDidUpdate(_:)),
+            name: .NSMetadataQueryDidUpdate, // Get results as they come in?
+            object: query
+        )
+
+        query.start()
+
+        // Safety Timeout (2s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self, !self.hasCompleted else { return }
+            self.finish()
+        }
     }
+
+    func stop() {
+        query.stop()
+        NotificationCenter.default.removeObserver(self)
+        completion = nil
+    }
+
+    @objc private func queryDidFinish(_ notification: Notification) {
+        finish()
+    }
+
+    @objc private func queryDidUpdate(_ notification: Notification) {
+        // If we have enough results, we can stop early?
+        if query.resultCount > 20 {
+            query.stop()
+            finish()
+        }
+    }
+
+    private func finish() {
+        guard !hasCompleted else { return }
+        hasCompleted = true
+        query.stop() // Ensure stopped
+
+        var results: [BuiltinResult] = []
+        let count = min(query.resultCount, 20) // Max 20
+
+        for i in 0..<count {
+            guard let item = query.result(at: i) as? NSMetadataItem,
+                  let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
+
+            let url = URL(fileURLWithPath: path)
+            let name = item.value(forAttribute: NSMetadataItemDisplayNameKey) as? String ?? url.lastPathComponent
+
+            // Generate Result
+            let res = BuiltinResult(
+                title: name,
+                subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
+                icon: NSWorkspace.shared.icon(forFile: path),
+                supportsArguments: false,
+                handler: { _ in
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            )
+            results.append(res)
+        }
+
+        completion?(results)
+    }
+}
+
+extension SpotlightRunner: NSMetadataQueryDelegate {
+    // Optional delegate methods if needed
 }

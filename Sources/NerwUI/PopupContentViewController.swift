@@ -184,6 +184,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         inputField.textColor = .labelColor
         inputField.delegate = self
         inputField.translatesAutoresizingMaskIntoConstraints = false
+        inputField.onCtrlC = { [weak self] in
+            self?.delegate?.didPressEscape()
+        }
         backgroundView.addSubview(inputField)
 
         // Separator
@@ -444,7 +447,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // MARK: - NSTextFieldDelegate
 
     func controlTextDidChange(_ obj: Notification) {
-        let query = inputField.stringValue
+        var query = inputField.stringValue
+
+        // [New Feature] Space to Trigger Find File (Alfred Style)
+        if ConfigManager.shared.config.findFileOnSpace && query == " " {
+            // User typed space in empty field -> Trigger Find File
+            inputField.stringValue = "find "
+            // Move cursor to end
+            inputField.currentEditor()?.moveToEndOfLine(nil)
+            // Update local query var so rest of logic runs correctly
+            query = "find "
+        }
 
         // Smart Trigger Logic
         // 1. Prefix: "Trigger Arg"
@@ -454,7 +467,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         var extractedArg: String?
 
         // Check Prefix
-        let components = query.split(separator: " ", maxSplits: 1)
+        let components = query.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
         if components.count >= 2 {
             // Potential Prefix Trigger
             let possibleTrigger = String(components[0])
@@ -464,20 +477,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             }
         }
 
-        // Check Suffix (Only if no prefix found and query ends with space)
-        if detectedTrigger == nil && query.hasSuffix(" ") {
-            let trimmed = query.trimmingCharacters(in: .whitespaces)
-            let suffixComponents = trimmed.components(separatedBy: " ")
-            if let lastWord = suffixComponents.last, !lastWord.isEmpty {
-                 if let _ = SearchEngine.shared.findByTrigger(lastWord) ?? NerwExtension.shared.findByTrigger(lastWord) ?? FindFile.shared.findByTrigger(lastWord) {
-                     detectedTrigger = lastWord
-                     // Arg is everything before the trigger
-                     if let range = trimmed.range(of: lastWord, options: .backwards) {
-                         extractedArg = String(trimmed[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
-                     }
-                 }
-            }
-        }
+        // Suffix Trigger Removed as per user request (Prefix Only)
 
         if let trigger = detectedTrigger, let arg = extractedArg {
             // Activate Trigger
@@ -1085,6 +1085,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
 // MARK: - ThemedTextField
 class ThemedTextField: NSTextField {
+    var onCtrlC: (() -> Void)?
+
     var placeholderColor: NSColor = .secondaryLabelColor {
         didSet {
             updatePlaceholder()
@@ -1095,6 +1097,17 @@ class ThemedTextField: NSTextField {
         didSet {
             updatePlaceholder()
         }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Universal Ctrl+C to Close
+        if event.modifierFlags.contains(.control),
+           let chars = event.charactersIgnoringModifiers,
+           chars == "c" {
+            onCtrlC?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 
     private var _rawPlaceholder: String?

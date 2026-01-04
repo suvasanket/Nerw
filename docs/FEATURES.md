@@ -17,8 +17,15 @@ Nerw intelligently routes your query to the best provider:
     - DuckDuckGo (`duck [query]`)
     - Yahoo (`yahoo [query]`)
     - **Adaptive Defaults**: If you have multiple default engines, Nerw learns your preference per query (e.g. preferring GitHub for code queries).
-3.  **Calculator**: (Planned/Upcoming) Basic math operations.
-4.  **Files**: searching for files `find [query]`
+3.  **Smart File Search**:
+    - **Trigger**: `find [query]`, `file [query]`, or simply press `Space` in an empty box.
+    - **Hybrid Engine**: automatically prioritizes `fd` (if installed) for blazing fast, developer-aware results (ignoring `node_modules`, etc.), falling back to a scoped native spotlight search.
+    - **Smart Caching**: Sub-queries (e.g., typing "down" then "downloads") are refined instantly in-memory without spawning new processes.
+4.  **Calculator**: (Planned/Upcoming) Basic math operations.
+
+### Trigger Rules
+- **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).
+- **No Suffix**: Typing triggers at the end (e.g. `report.pdf find`) is treated as literal text to prevent accidental activation.
 
 ### 🔌 Extensions System
 Extend Nerw with any executable (Script, Binary) that outputs JSON.

@@ -20,7 +20,7 @@ class ResultCellView: NSTableCellView {
 
     private func setupViews() {
         let metrics = PopupContentViewController.LayoutMetrics.Cell.self
-        
+
         containerView.wantsLayer = true
         containerView.layer?.cornerRadius = metrics.cornerRadius
         containerView.translatesAutoresizingMaskIntoConstraints = false
@@ -63,27 +63,27 @@ class ResultCellView: NSTableCellView {
 
     func configure(with action: PopupContentViewController.Action, isSelected: Bool) {
         let config = ConfigManager.shared.config.uiConfig
-        
+
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
         let selectedBgColor = NSColor(hex: config?.selectionBackgroundColor ?? "") ?? NSColor.black.withAlphaComponent(0.2)
-        
+
         // Font
         if let fontName = config?.font, let font = NSFont(name: fontName, size: PopupContentViewController.LayoutMetrics.Cell.Text.titleSize) {
             titleLabel.font = font
         }
-        
+
         iconView.image = action.icon
         iconView.contentTintColor = isSelected ? selectedTextColor : mainTextColor
-        
+
         titleLabel.stringValue = action.title
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
-        
+
         subtitleLabel.stringValue = action.subtitle
         subtitleLabel.textColor = isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
-        
-        containerView.layer?.backgroundColor = isSelected 
-            ? selectedBgColor.cgColor 
+
+        containerView.layer?.backgroundColor = isSelected
+            ? selectedBgColor.cgColor
             : NSColor.clear.cgColor
     }
 }
