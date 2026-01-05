@@ -440,6 +440,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         // Clear list to focus on input
         actions = []
         updateActions()
+
+        // Trigger initial search for suggestions (e.g. list volumes for "eject")
+        search(query: "")
     }
 
     // MARK: - NSTextFieldDelegate
@@ -469,7 +472,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         if components.count >= 2 {
             // Potential Prefix Trigger
             let possibleTrigger = String(components[0])
-            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) {
+            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) ?? System.shared.findByTrigger(possibleTrigger) {
                 detectedTrigger = possibleTrigger
                 extractedArg = String(components[1])
             }
@@ -479,7 +482,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         if let trigger = detectedTrigger, let arg = extractedArg {
             // Activate Trigger
-            if let result = SearchEngine.shared.findByTrigger(trigger) ?? Nerw.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) {
+            if let result = SearchEngine.shared.findByTrigger(trigger) ?? Nerw.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) ?? System.shared.findByTrigger(trigger) {
                 if result.supportsArguments {
                      activateArgumentMode(for: Action(
                         id: "nerw.smart." + result.title,
@@ -530,6 +533,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
          // Clear list
          actions = []
          updateActions()
+         
+         // Trigger search immediately with the passed argument (e.g. for "ps ", arg is empty string, which lists all)
+         search(query: initialArg)
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
@@ -917,6 +923,33 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 subtitle: result.subtitle,
                 supportsArguments: result.supportsArguments,
                 handler: result.handler
+            ))
+        }
+
+        // Check System Extension
+        if let system = System.shared.check(query: query) {
+            newActions.append(Action(
+                id: "nerw.builtin.system." + system.title,
+                icon: system.icon ?? (system.iconName != nil ? NSImage(systemSymbolName: system.iconName!, accessibilityDescription: nil) : nil),
+                title: system.title,
+                subtitle: system.subtitle,
+                supportsArguments: system.supportsArguments,
+                handler: system.handler,
+                searcher: system.searcher != nil ? { query, completion in
+                    system.searcher!(query) { results in
+                        let actions = results.map { res in
+                            Action(
+                                id: "nerw.builtin.system.result." + res.title,
+                                icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
+                                title: res.title,
+                                subtitle: res.subtitle,
+                                supportsArguments: res.supportsArguments,
+                                handler: res.handler
+                            )
+                        }
+                        completion(actions)
+                    }
+                } : nil
             ))
         }
 

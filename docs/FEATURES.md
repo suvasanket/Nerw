@@ -21,7 +21,12 @@ Nerw intelligently routes your query to the best provider:
     - **Trigger**: `find [query]`, `file [query]`, or simply press `Space` in an empty box.
     - **Hybrid Engine**: automatically prioritizes `fd` (if installed) for blazing fast, developer-aware results (ignoring `node_modules`, etc.), falling back to a scoped native spotlight search.
     - **Smart Caching**: Sub-queries (e.g., typing "down" then "downloads") are refined instantly in-memory without spawning new processes.
-4.  **Calculator**: (Planned/Upcoming) Basic math operations.
+4.  **System Commands**: Quick access to common macOS actions:
+    - `sleep` - Put your Mac to sleep  
+    - `empty downloads` - Move Downloads folder contents to Trash
+    - `eject [volume]` - Eject a specific volume (shows available volumes)
+    - `eject all` - Eject all external volumes
+5.  **Calculator**: (Planned/Upcoming) Basic math operations.
 
 ### Trigger Rules
 - **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).

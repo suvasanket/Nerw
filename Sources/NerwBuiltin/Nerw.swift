@@ -33,10 +33,29 @@ public class Nerw {
             }
         }
 
+        if "nerw quit".starts(with: lowerQuery) {
+            return BuiltinResult(
+                title: "Quit Nerw",
+                subtitle: "Terminate the application",
+                iconName: "power",
+                supportsArguments: false
+            ) { _ in
+                NSApp.terminate(nil)
+            }
+        }
+
         return nil
     }
     public func findByTrigger(_ trigger: String) -> BuiltinResult? {
         let lowerTrigger = trigger.lowercased()
+        if "nerw quit" == lowerTrigger {
+            return BuiltinResult(
+                title: "Quit Nerw",
+                subtitle: "Terminate the application",
+                iconName: "power",
+                supportsArguments: false
+            ) { _ in NSApp.terminate(nil) }
+        }
         if "reload config" == lowerTrigger {
             return BuiltinResult(
                 title: "Reload Config",
