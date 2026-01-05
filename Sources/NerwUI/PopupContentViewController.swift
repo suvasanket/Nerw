@@ -605,7 +605,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 
                 if let handler = selectedResult.handler {
                     handler("")
-                    FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                    // Record with query context for global frecency ranking
+                    FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: inputField.stringValue)
                     
                     // Close
                     activeAction = nil
@@ -615,15 +616,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                     delegate?.didPressEscape()
                     return true
                 } else if let path = selectedResult.path {
-                    FrecencyManager.shared.recordUsage(id: selectedResult.id)
-                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: inputField.stringValue)
                     
-                    // Close
+                    // Close FIRST for instant UI response
                     activeAction = nil
                     inputField.stringValue = previousSearchText
                     inputField.placeholderString = "nerw"
                     setIcons([])
                     delegate?.didPressEscape()
+                    
+                    // Launch after hide (async internally)
+                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
                     return true
                 }
             }
@@ -682,8 +685,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                      let selectedResult = actions[selectedIndex]
                      if let handler = selectedResult.handler {
                          handler("") // Argument usually already baked in or irrelevant for result execution
-                         // Record Usage
-                         FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                         // Record Usage with query context
+                         FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: previousSearchText)
 
                          // Close window
                          activeAction = nil
@@ -693,15 +696,18 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                          delegate?.didPressEscape() // Or hide()
                          return true
                      } else if let path = selectedResult.path {
-                         // Record Usage
-                         FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                         // Record Usage with query context
+                         FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: previousSearchText)
 
-                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                         // Close FIRST for instant UI response
                          activeAction = nil
                          inputField.stringValue = previousSearchText
                          inputField.placeholderString = "nerw"
                          setIcons([])
                          delegate?.didPressEscape()
+                         
+                         // Launch after hide
+                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
                          return true
                      }
                  }
@@ -738,8 +744,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                      if selectedAction.argumentNames == nil && !inputField.stringValue.isEmpty {
                          selectedAction.handler?(inputField.stringValue)
 
-                         // Record Usage
-                         FrecencyManager.shared.recordUsage(id: selectedAction.id)
+                         // Record Usage with query context
+                         FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
 
                          // Close
                          activeAction = nil
@@ -755,8 +761,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                      return true
                 }
 
-                // Record Usage
-                FrecencyManager.shared.recordUsage(id: selectedAction.id)
+                // Record Usage with query context
+                FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
 
                 if let handler = selectedAction.handler {
                     // Action has a handler (e.g. Smart Suggestions)
@@ -769,10 +775,10 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                     setIcons([])
                     delegate?.didPressEscape()
                 } else if let appPath = selectedAction.path {
-                     // Launch Application
-                     NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
-                     // Hide window
+                     // Hide window FIRST for instant UI response
                      delegate?.didPressEscape()
+                     // Launch Application after hide
+                     NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
                 } else {
                     delegate?.didSubmit(text: selectedAction.title)
                 }
@@ -994,7 +1000,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
             // Smart Suggestions
             var suggestionActions: [Action] = []
-            let words = currentQuery.split(separator: " ")
 
             // Always fetch configured default suggestions
             let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
@@ -1013,31 +1018,39 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 guard let self = self else { return }
                 guard self.inputField.stringValue == currentQuery else { return }
 
-                // Combine Built-in (Google) + App Results
-                // newActions is successfully captured from outer scope
-                let explicitActions = newActions + finalAppActions
+                // Combine ALL actions: Built-in + App Results + Suggestions
+                let allActions = newActions + finalAppActions + suggestionActions
                 var finalActions: [Action] = []
 
-                // Check if any explicit action contains the query (e.g. "System Se" matches "System Settings")
-                // This ensures partial matches keep the local result at top.
-                let hasRelevantMatch = explicitActions.contains { action in
-                    return action.title.localizedCaseInsensitiveContains(currentQuery)
-                }
-
-                // Prioritize suggestions if query is long enough AND no relevant match found
-                let shouldPrioritizeSuggestions = words.count >= ConfigManager.shared.config.SearchEngineSuggestThreshold && !hasRelevantMatch
-
-                if !suggestionActions.isEmpty {
-                    if shouldPrioritizeSuggestions {
-                        // High Priority: Suggestions (Top) + Explicit (Bottom)
-                        finalActions = suggestionActions + explicitActions
+                let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
+                
+                // GLOBAL FRECENCY RANKING
+                // Sort all actions by frecency score for this query - highest first
+                // Actions with frecency > 0 have been selected before for this exact query
+                var frecencyBoosted: [(action: Action, score: Double)] = []
+                var exactMatches: [Action] = []
+                var otherActions: [Action] = []
+                
+                for action in allActions {
+                    let frecencyScore = FrecencyManager.shared.score(for: action.id, query: currentQuery, sensitivity: .moderate)
+                    
+                    if frecencyScore > 0 {
+                        // This action was previously selected for this query - boost it
+                        frecencyBoosted.append((action, frecencyScore))
+                    } else if action.title.lowercased() == normalizedQuery {
+                        // Exact title match
+                        exactMatches.append(action)
                     } else {
-                        // Low Priority: Explicit (Top) + Suggestions (Bottom)
-                        finalActions = explicitActions + suggestionActions
+                        otherActions.append(action)
                     }
-                } else {
-                    finalActions = explicitActions
                 }
+                
+                // Sort frecency boosted by score (highest first)
+                frecencyBoosted.sort { $0.score > $1.score }
+                let boostedActions = frecencyBoosted.map { $0.action }
+
+                // Final order: Frecency Boosted (Top) > Exact Matches > Other Actions
+                finalActions = boostedActions + exactMatches + otherActions
 
                 self.actions = finalActions
                 self.selectedIndex = 0

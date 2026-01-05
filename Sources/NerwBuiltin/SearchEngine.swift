@@ -133,7 +133,6 @@ public class SearchEngine {
     public func getSuggestions(for query: String) -> [BuiltinResult] {
         var results: [BuiltinResult] = []
         let configDefaults = ConfigManager.shared.config.defaultSearchEngine
-        let useSmartRanking = configDefaults.count > 1
 
         // Helper to create result
         func createResult(name: String, urlTemplate: String) -> BuiltinResult {
@@ -148,13 +147,8 @@ public class SearchEngine {
                   icon: icon,
                   supportsArguments: false // Direct execution
               ) { _ in
-                  // Record usage if smart ranking is active
-                  if useSmartRanking {
-                      FrecencyManager.shared.recordUsage(id: "search_pref:\(query):\(name)")
-                  }
-
+                  // Frecency recording is handled globally in PopupContentViewController
                   let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                  // Handle standard format
                   let urlString = String(format: urlTemplate, encodedQuery)
                   if let url = URL(string: urlString) {
                       NSWorkspace.shared.open(url)
@@ -162,43 +156,24 @@ public class SearchEngine {
               }
         }
 
-        // Collect Candidates
-        struct Candidate {
-            let name: String
-            let urlTemplate: String
-            let score: Double
-        }
-
-        var candidates: [Candidate] = []
-
         // Standard Engines
         for engine in engines {
             if engine.triggers.contains(where: { configDefaults.contains($0) }) {
-                let score = useSmartRanking ? FrecencyManager.shared.score(for: "search_pref:\(query):\(engine.name)") : 0.0
-                candidates.append(Candidate(name: engine.name, urlTemplate: engine.urlTemplate, score: score))
+                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate))
             }
         }
 
         // Custom Engines
         for engine in customEngines {
             if configDefaults.contains(engine.trigger) {
-                let score = useSmartRanking ? FrecencyManager.shared.score(for: "search_pref:\(query):\(engine.name)") : 0.0
-                candidates.append(Candidate(name: engine.name, urlTemplate: engine.urlTemplate, score: score))
+                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate))
             }
         }
 
-        // Sort
-        if useSmartRanking {
-            candidates.sort { $0.score > $1.score }
-        }
-
-
-        // Map to Results
-        results = candidates.map { createResult(name: $0.name, urlTemplate: $0.urlTemplate) }
         print("Nerw: Generated \(results.count) suggestions for '\(query)'")
-
         return results
     }
+
 
     public func findByTrigger(_ trigger: String) -> BuiltinResult? {
         let lowerTrigger = trigger.lowercased()
