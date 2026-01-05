@@ -87,7 +87,7 @@ public class SearchEngine {
                 let domain = URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? engine.name
                 let icon = IconManager.shared.icon(for: domain)
                 if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-                
+
                 return BuiltinResult(
                     title: engine.name,
                     subtitle: "Search web using \(engine.name)",
@@ -140,7 +140,7 @@ public class SearchEngine {
              let domain = URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? name
              let icon = IconManager.shared.icon(for: domain)
              if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-             
+
              return BuiltinResult(
                   title: name,
                   subtitle: "Search for '\(query)'",
@@ -152,7 +152,7 @@ public class SearchEngine {
                   if useSmartRanking {
                       FrecencyManager.shared.recordUsage(id: "search_pref:\(query):\(name)")
                   }
-                  
+
                   let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                   // Handle standard format
                   let urlString = String(format: urlTemplate, encodedQuery)
@@ -168,7 +168,7 @@ public class SearchEngine {
             let urlTemplate: String
             let score: Double
         }
-        
+
         var candidates: [Candidate] = []
 
         // Standard Engines
@@ -186,27 +186,29 @@ public class SearchEngine {
                 candidates.append(Candidate(name: engine.name, urlTemplate: engine.urlTemplate, score: score))
             }
         }
-        
+
         // Sort
         if useSmartRanking {
             candidates.sort { $0.score > $1.score }
         }
-        
+
+
         // Map to Results
         results = candidates.map { createResult(name: $0.name, urlTemplate: $0.urlTemplate) }
-        
+        print("Nerw: Generated \(results.count) suggestions for '\(query)'")
+
         return results
     }
-    
+
     public func findByTrigger(_ trigger: String) -> BuiltinResult? {
         let lowerTrigger = trigger.lowercased()
-        
+
         // Check Hardcoded Engines
         if let engine = engines.first(where: { $0.triggers.contains(lowerTrigger) }) {
             let domain = URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? engine.name
             let icon = IconManager.shared.icon(for: domain)
             if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-            
+
             return BuiltinResult(
                 title: engine.name,
                 subtitle: "Search web using \(engine.name)",
@@ -221,13 +223,13 @@ public class SearchEngine {
                 }
             }
         }
-        
+
         // Check Custom Engines
         if let engine = customEngines.first(where: { $0.trigger == lowerTrigger }) {
              let domain = URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? engine.name
              let icon = IconManager.shared.icon(for: domain)
              if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-             
+
              return BuiltinResult(
                  title: engine.name,
                  subtitle: "Search web using \(engine.name) (\(engine.trigger))",
@@ -242,7 +244,7 @@ public class SearchEngine {
                  }
              }
         }
-        
+
         return nil
     }
 }

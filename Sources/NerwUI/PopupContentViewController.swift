@@ -184,9 +184,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         inputField.textColor = .labelColor
         inputField.delegate = self
         inputField.translatesAutoresizingMaskIntoConstraints = false
-        inputField.onCtrlC = { [weak self] in
-            self?.delegate?.didPressEscape()
-        }
         backgroundView.addSubview(inputField)
 
         // Separator
@@ -347,6 +344,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         inputState = .search
         activeAction = nil
         inputField.stringValue = ""
+        inputField.placeholderString = "nerw"
         setIcons([])
         actions = []
         previousSearchText = ""
@@ -471,7 +469,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         if components.count >= 2 {
             // Potential Prefix Trigger
             let possibleTrigger = String(components[0])
-            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? NerwExtension.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) {
+            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) {
                 detectedTrigger = possibleTrigger
                 extractedArg = String(components[1])
             }
@@ -481,7 +479,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         if let trigger = detectedTrigger, let arg = extractedArg {
             // Activate Trigger
-            if let result = SearchEngine.shared.findByTrigger(trigger) ?? NerwExtension.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) {
+            if let result = SearchEngine.shared.findByTrigger(trigger) ?? Nerw.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) {
                 if result.supportsArguments {
                      activateArgumentMode(for: Action(
                         id: "nerw.smart." + result.title,
@@ -601,6 +599,35 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return false
 
         case #selector(NSResponder.insertNewline(_:)):
+            // Priority: Execute Selected Result (if any)
+            if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
+                let selectedResult = actions[selectedIndex]
+                
+                if let handler = selectedResult.handler {
+                    handler("")
+                    FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                    
+                    // Close
+                    activeAction = nil
+                    inputField.stringValue = previousSearchText
+                    inputField.placeholderString = "nerw"
+                    setIcons([])
+                    delegate?.didPressEscape()
+                    return true
+                } else if let path = selectedResult.path {
+                    FrecencyManager.shared.recordUsage(id: selectedResult.id)
+                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    
+                    // Close
+                    activeAction = nil
+                    inputField.stringValue = previousSearchText
+                    inputField.placeholderString = "nerw"
+                    setIcons([])
+                    delegate?.didPressEscape()
+                    return true
+                }
+            }
+            
             // Check if we are in argument mode (Multi-Step)
             if case .argument(let action, let step, var args) = inputState {
                 // Collect current arg
@@ -766,13 +793,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             // Handle manual keybindings for standard editing and custom shortcuts
             // because this is an accessory app without a main menu.
             if let event = NSApp.currentEvent {
-                // Ctrl+C to close
-                 if event.modifierFlags.contains(.control) {
-                    if let chars = event.charactersIgnoringModifiers, chars == "c" {
-                        delegate?.didPressEscape()
-                        return true
-                    }
-                }
 
                 // Cmd+A/C/V
                 if event.modifierFlags.contains(.command) {
@@ -883,7 +903,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
 
         // Check Nerw Extension (Config)
-        if let result = NerwExtension.shared.check(query: query) {
+        if let result = Nerw.shared.check(query: query) {
             newActions.append(Action(
                 id: "nerw.builtin.extension." + result.title,
                 icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
@@ -1085,8 +1105,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
 // MARK: - ThemedTextField
 class ThemedTextField: NSTextField {
-    var onCtrlC: (() -> Void)?
-
     var placeholderColor: NSColor = .secondaryLabelColor {
         didSet {
             updatePlaceholder()
@@ -1097,17 +1115,6 @@ class ThemedTextField: NSTextField {
         didSet {
             updatePlaceholder()
         }
-    }
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // Universal Ctrl+C to Close
-        if event.modifierFlags.contains(.control),
-           let chars = event.charactersIgnoringModifiers,
-           chars == "c" {
-            onCtrlC?()
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
     }
 
     private var _rawPlaceholder: String?

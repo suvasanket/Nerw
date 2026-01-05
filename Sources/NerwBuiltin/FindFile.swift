@@ -219,7 +219,11 @@ public class FindFile {
                 icon: NSWorkspace.shared.icon(forFile: path),
                 supportsArguments: false,
                 handler: { _ in
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                    if NSApp.currentEvent?.modifierFlags.contains(.command) == true {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } else {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
             )
         }
@@ -230,121 +234,4 @@ public class FindFile {
     }
 }
 
-// MARK: - Spotlight Runner (NSMetadataQuery)
-
-class SpotlightRunner: NSObject {
-    private let query: NSMetadataQuery
-    private var completion: (([BuiltinResult]) -> Void)?
-    private var hasCompleted = false
-
-    init(query queryString: String) {
-        self.query = NSMetadataQuery()
-        super.init()
-
-        // Setup Query
-        self.query.delegate = self
-
-        // Scopes: "Hot Folders"
-        // We can't easily specify "Desktop AND Documents" directly in scopes cleanly without restricting too much,
-        // so standard practice is UserHomeScope + Filtering path or multiple queries.
-        // Actually, NSMetadataQueryLocalComputerScope is fast if predicated correctly.
-        // Let's stick to Home Scope to start, it's safer.
-        self.query.searchScopes = [NSMetadataQueryUserHomeScope]
-
-        // Predicate: Name contains query AND NOT in Library
-        // We use keywords to construct a robust predicate
-        let namePred = NSPredicate(format: "%K CONTAINS[cd] %@", NSMetadataItemDisplayNameKey, queryString)
-
-        // Exclusion Predicate
-        // 1. Not in Library
-        let libPred = NSPredicate(format: "NOT %K CONTAINS '/Library/'", NSMetadataItemPathKey)
-        // 2. Not a folder (optional, maybe user wants folders? let's keep folders)
-        // 3. Not hidden (Files starting with .) is harder in predicate, handled by Spotlight usually.
-
-        self.query.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [namePred, libPred])
-
-        // Sort: Most Recently Modified First
-        self.query.sortDescriptors = [
-            NSSortDescriptor(key: NSMetadataItemContentModificationDateKey, ascending: false)
-        ]
-    }
-
-    func start(completion: @escaping ([BuiltinResult]) -> Void) {
-        self.completion = completion
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(queryDidFinish(_:)),
-            name: .NSMetadataQueryDidFinishGathering,
-            object: query
-        )
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(queryDidUpdate(_:)),
-            name: .NSMetadataQueryDidUpdate, // Get results as they come in?
-            object: query
-        )
-
-        query.start()
-
-        // Safety Timeout (2s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            guard let self = self, !self.hasCompleted else { return }
-            self.finish()
-        }
-    }
-
-    func stop() {
-        query.stop()
-        NotificationCenter.default.removeObserver(self)
-        completion = nil
-    }
-
-    @objc private func queryDidFinish(_ notification: Notification) {
-        finish()
-    }
-
-    @objc private func queryDidUpdate(_ notification: Notification) {
-        // If we have enough results, we can stop early?
-        if query.resultCount > 20 {
-            query.stop()
-            finish()
-        }
-    }
-
-    private func finish() {
-        guard !hasCompleted else { return }
-        hasCompleted = true
-        query.stop() // Ensure stopped
-
-        var results: [BuiltinResult] = []
-        let count = min(query.resultCount, 20) // Max 20
-
-        for i in 0..<count {
-            guard let item = query.result(at: i) as? NSMetadataItem,
-                  let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
-
-            let url = URL(fileURLWithPath: path)
-            let name = item.value(forAttribute: NSMetadataItemDisplayNameKey) as? String ?? url.lastPathComponent
-
-            // Generate Result
-            let res = BuiltinResult(
-                title: name,
-                subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
-                icon: NSWorkspace.shared.icon(forFile: path),
-                supportsArguments: false,
-                handler: { _ in
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                }
-            )
-            results.append(res)
-        }
-
-        completion?(results)
-    }
-}
-
-extension SpotlightRunner: NSMetadataQueryDelegate {
-    // Optional delegate methods if needed
-}
+// MARK: - End of FindFile

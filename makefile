@@ -12,6 +12,10 @@ run: bundle
 	pkill -x Nerw || true
 	open $(BUNDLE_NAME)
 
+debug: bundle
+	pkill -x Nerw || true
+	./$(MACOS_DIR)/$(APP)
+
 BUNDLE_NAME=$(APP).app
 MACOS_DIR=$(BUNDLE_NAME)/Contents/MacOS
 RESOURCES_DIR=$(BUNDLE_NAME)/Contents/Resources
