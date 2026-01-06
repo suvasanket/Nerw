@@ -41,6 +41,7 @@ bundle: main
 	sips -z 1024 1024 $(ICON_SOURCE) --out $(ICON_SET)/icon_512x512@2x.png
 	iconutil -c icns $(ICON_SET)
 	cp AppIcon.icns $(ICON_DEST)
+	cp -r Resources/* $(RESOURCES_DIR)/ 2>/dev/null || :
 	rm -rf $(ICON_SET) AppIcon.icns
 
 clean-bundle:

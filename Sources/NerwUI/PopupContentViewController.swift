@@ -1058,32 +1058,37 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
                 
                 // GLOBAL FRECENCY RANKING
-                // Sort all actions by frecency score for this query - highest first
-                // Actions with frecency > 0 have been selected before for this exact query
+                // Sort all actions by frecency score for this query
+                // New Logic: Exact Matches > Frecency Boosted (Partial) > Others
+                
+                var exactMatches: [(action: Action, score: Double)] = []
                 var frecencyBoosted: [(action: Action, score: Double)] = []
-                var exactMatches: [Action] = []
                 var otherActions: [Action] = []
                 
                 for action in allActions {
                     let frecencyScore = FrecencyManager.shared.score(for: action.id, query: currentQuery, sensitivity: .moderate)
+                    let isExact = action.title.lowercased() == normalizedQuery
                     
-                    if frecencyScore > 0 {
-                        // This action was previously selected for this query - boost it
+                    if isExact {
+                        exactMatches.append((action, frecencyScore))
+                    } else if frecencyScore > 0 {
                         frecencyBoosted.append((action, frecencyScore))
-                    } else if action.title.lowercased() == normalizedQuery {
-                        // Exact title match
-                        exactMatches.append(action)
                     } else {
                         otherActions.append(action)
                     }
                 }
                 
-                // Sort frecency boosted by score (highest first)
+                // Sort Exact Matches by score (descending)
+                exactMatches.sort { $0.score > $1.score }
+                
+                // Sort Frecency Boosted by score (descending)
                 frecencyBoosted.sort { $0.score > $1.score }
+                
+                let exactActions = exactMatches.map { $0.action }
                 let boostedActions = frecencyBoosted.map { $0.action }
 
-                // Final order: Frecency Boosted (Top) > Exact Matches > Other Actions
-                finalActions = boostedActions + exactMatches + otherActions
+                // Final order: Exact Matches (Top) > Frecency Boosted (Non-Exact) > Other Actions
+                finalActions = exactActions + boostedActions + otherActions
 
                 self.actions = finalActions
                 self.selectedIndex = 0
