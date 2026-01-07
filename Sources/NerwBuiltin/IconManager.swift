@@ -20,16 +20,23 @@ public class IconManager {
     public func icon(for urlOrDomain: String) -> NSImage? {
         guard let domain = extractDomain(from: urlOrDomain) else { return nil }
 
-        // Check Memory
-        if let cached = memoryCache[domain] {
-            return cached
+        // Check Memory (Thread-Safe Read)
+        var cached: NSImage?
+        queue.sync {
+            cached = memoryCache[domain]
+        }
+        if let image = cached {
+            return image
         }
 
         // Check Disk
         let fileURL = iconDirectory.appendingPathComponent("\(domain).png")
         if fileManager.fileExists(atPath: fileURL.path),
            let image = NSImage(contentsOf: fileURL) {
-            memoryCache[domain] = image
+            // Update Memory (Thread-Safe Write)
+            queue.async(flags: .barrier) {
+                self.memoryCache[domain] = image
+            }
             return image
         }
 

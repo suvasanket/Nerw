@@ -385,8 +385,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private func resetToSearch() {
         inputState = .search
         activeAction = nil
-        inputField.placeholderString = "nerw"
         inputField.stringValue = previousSearchText
+        inputField.placeholderString = "nerw"
         setIcons([])
         search(query: previousSearchText)
     }
@@ -735,11 +735,26 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         // 2. Default App Search (Fallback) - Async
         let currentQuery = query
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // Cancel previous pending search to optimize efficiency
+        searchWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+
+            // Check for cancellation early
+            if self.searchWorkItem?.isCancelled == true { return }
+
             let allApps = AppSearch.shared.getAllApps()
+
+            // Check cancellation
+            if self.searchWorkItem?.isCancelled == true { return }
+
             let fuse = Fuse()
             let appNames = allApps.map { $0.name }
             let searchResults = fuse.searchSync(currentQuery, in: appNames)
+
+            // Check cancellation
+            if self.searchWorkItem?.isCancelled == true { return }
 
             let finalAppActions = searchResults.map { result -> NerwAction in
                 let app = allApps[result.index]
@@ -791,12 +806,44 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 frecencyBoosted.sort { $0.score > $1.score }
 
                 self.actions = exactMatches.map({$0.action}) + frecencyBoosted.map({$0.action}) + otherActions
+
+                // Smart Suggestions Logic
+                let config = ConfigManager.shared.config
+                let wordCount = normalizedQuery.split(separator: " ").count
+
+                // Condition 1: Word Count >= Threshold
+                if wordCount >= config.SearchEngineSuggestThreshold {
+                    // Condition 2: Top result is NOT an exact match
+                    if let first = self.actions.first, first.title.lowercased() != normalizedQuery {
+                        // Extract Search Suggestions from the list
+                        // Using ID prefix check as established in SearchEngine.swift
+                        let suggestionActions = self.actions.filter { action in
+                             // Matches ID patterns from SearchEngine: nerw.engine.*.suggestion or nerw.custom.*.suggestion
+                             return action.id.hasSuffix(".suggestion")
+                        }
+
+                        if !suggestionActions.isEmpty {
+                            // Remove them from current position
+                            let withoutSuggestions = self.actions.filter { action in !suggestionActions.contains(where: { s in s.id == action.id }) }
+
+                            // Prepend to top
+                            self.actions = suggestionActions + withoutSuggestions
+                        }
+                    }
+                }
+
                 self.selectedIndex = 0
                 self.userHasNavigated = false
                 self.updateActions()
             }
         }
+
+        searchWorkItem = workItem
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
+
+    // Tracks current search task
+    private var searchWorkItem: DispatchWorkItem?
 
     private func updateActions() {
         let hasActions = !actions.isEmpty
