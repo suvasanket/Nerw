@@ -1,6 +1,7 @@
 import Cocoa
 
 import NerwSearchBackend
+import NerwCore
 
 public struct Engine {
     public let name: String
@@ -78,7 +79,9 @@ public class SearchEngine {
         saveCustomEngines()
     }
 
-    public func check(query: String) -> BuiltinResult? {
+
+
+    public func check(query: String) -> NerwAction? {
         let lowerQuery = query.lowercased()
 
         // Check Hardcoded Engines
@@ -88,19 +91,21 @@ public class SearchEngine {
                 let icon = IconManager.shared.icon(for: domain)
                 if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-                return BuiltinResult(
+                return NerwAction(
+                    id: "nerw.engine.\(engine.name)",
                     title: engine.name,
                     subtitle: "Search web using \(engine.name)",
-                    iconName: icon == nil ? "globe" : nil,
-                    icon: icon,
-                    supportsArguments: true
-                ) { argument in
-                    let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                    let urlString = String(format: engine.urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
+                    icon: icon != nil ? .image(icon!) : .system("globe"),
+                    triggers: engine.triggers,
+                    arguments: ["Query"],
+                    handler: { argument in
+                        let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                        let urlString = String(format: engine.urlTemplate, encodedQuery)
+                        if let url = URL(string: urlString) {
+                            NSWorkspace.shared.open(url)
+                        }
                     }
-                }
+                )
             }
         }
 
@@ -111,62 +116,66 @@ public class SearchEngine {
                  let icon = IconManager.shared.icon(for: domain)
                  if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-                 return BuiltinResult(
+                 return NerwAction(
+                     id: "nerw.custom.\(engine.name)",
                      title: engine.name,
                      subtitle: "Search web using \(engine.name) (\(engine.trigger))",
-                     iconName: icon == nil ? "globe" : nil,
-                     icon: icon,
-                     supportsArguments: true
-                 ) { argument in
-                     let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                     let urlString = String(format: engine.urlTemplate, encodedQuery)
-                     if let url = URL(string: urlString) {
-                         NSWorkspace.shared.open(url)
+                     icon: icon != nil ? .image(icon!) : .system("globe"),
+                     triggers: [engine.trigger],
+                     arguments: ["Query"],
+                     handler: { argument in
+                         let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                         let urlString = String(format: engine.urlTemplate, encodedQuery)
+                         if let url = URL(string: urlString) {
+                             NSWorkspace.shared.open(url)
+                         }
                      }
-                 }
+                 )
              }
         }
 
         return nil
     }
 
-    public func getSuggestions(for query: String) -> [BuiltinResult] {
-        var results: [BuiltinResult] = []
+    public func getSuggestions(for query: String) -> [NerwAction] {
+        var results: [NerwAction] = []
         let configDefaults = ConfigManager.shared.config.defaultSearchEngine
 
         // Helper to create result
-        func createResult(name: String, urlTemplate: String) -> BuiltinResult {
+        func createResult(name: String, urlTemplate: String, idPrefix: String) -> NerwAction {
              let domain = URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? name
              let icon = IconManager.shared.icon(for: domain)
              if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-             return BuiltinResult(
+             return NerwAction(
+                  id: "\(idPrefix).\(name).suggestion",
                   title: name,
                   subtitle: "Search for '\(query)'",
-                  iconName: icon == nil ? "globe" : nil,
-                  icon: icon,
-                  supportsArguments: false // Direct execution
-              ) { _ in
-                  // Frecency recording is handled globally in PopupContentViewController
-                  let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                  let urlString = String(format: urlTemplate, encodedQuery)
-                  if let url = URL(string: urlString) {
-                      NSWorkspace.shared.open(url)
+                  icon: icon != nil ? .image(icon!) : .system("globe"),
+                  triggers: [],
+                  arguments: nil, // Direct execution
+                  handler: { _ in
+                      // Frecency recording is handled globally in PopupContentViewController
+                      let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                      let urlString = String(format: urlTemplate, encodedQuery)
+                      if let url = URL(string: urlString) {
+                          NSWorkspace.shared.open(url)
+                      }
                   }
-              }
+              )
         }
 
         // Standard Engines
         for engine in engines {
             if engine.triggers.contains(where: { configDefaults.contains($0) }) {
-                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate))
+                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate, idPrefix: "nerw.engine"))
             }
         }
 
         // Custom Engines
         for engine in customEngines {
             if configDefaults.contains(engine.trigger) {
-                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate))
+                results.append(createResult(name: engine.name, urlTemplate: engine.urlTemplate, idPrefix: "nerw.custom"))
             }
         }
 
@@ -175,7 +184,7 @@ public class SearchEngine {
     }
 
 
-    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+    public func findByTrigger(_ trigger: String) -> NerwAction? {
         let lowerTrigger = trigger.lowercased()
 
         // Check Hardcoded Engines
@@ -184,19 +193,21 @@ public class SearchEngine {
             let icon = IconManager.shared.icon(for: domain)
             if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.engine.\(engine.name)",
                 title: engine.name,
                 subtitle: "Search web using \(engine.name)",
-                iconName: icon == nil ? "globe" : nil,
-                icon: icon,
-                supportsArguments: true
-            ) { argument in
-                let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                if let url = URL(string: urlString) {
-                    NSWorkspace.shared.open(url)
+                icon: icon != nil ? .image(icon!) : .system("globe"),
+                triggers: engine.triggers,
+                arguments: ["Query"],
+                handler: { argument in
+                    let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    let urlString = String(format: engine.urlTemplate, encodedQuery)
+                    if let url = URL(string: urlString) {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
-            }
+            )
         }
 
         // Check Custom Engines
@@ -205,19 +216,21 @@ public class SearchEngine {
              let icon = IconManager.shared.icon(for: domain)
              if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-             return BuiltinResult(
+             return NerwAction(
+                 id: "nerw.custom.\(engine.name)",
                  title: engine.name,
                  subtitle: "Search web using \(engine.name) (\(engine.trigger))",
-                 iconName: icon == nil ? "globe" : nil,
-                 icon: icon,
-                 supportsArguments: true
-             ) { argument in
-                 let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                 let urlString = String(format: engine.urlTemplate, encodedQuery)
-                 if let url = URL(string: urlString) {
-                     NSWorkspace.shared.open(url)
+                 icon: icon != nil ? .image(icon!) : .system("globe"),
+                 triggers: [engine.trigger],
+                 arguments: ["Query"],
+                 handler: { argument in
+                     let encodedQuery = argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                     let urlString = String(format: engine.urlTemplate, encodedQuery)
+                     if let url = URL(string: urlString) {
+                         NSWorkspace.shared.open(url)
+                     }
                  }
-             }
+             )
         }
 
         return nil

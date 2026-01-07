@@ -1,5 +1,6 @@
 import Cocoa
 import CoreServices // For MDQuery
+import NerwCore
 
 public class FindFile {
     public static let shared = FindFile()
@@ -12,7 +13,7 @@ public class FindFile {
     private let maxResults = 50
 
     // Completion handler storage for live updates
-    private var currentCompletion: (([BuiltinResult]) -> Void)?
+    private var currentCompletion: (([NerwAction]) -> Void)?
 
     // MARK: - Exclusion Logic
 
@@ -49,7 +50,9 @@ public class FindFile {
 
     // MARK: - Entry Points
 
-    public func check(query: String) -> BuiltinResult? {
+    // MARK: - Entry Points
+
+    public func check(query: String) -> NerwAction? {
         let triggers = ["find", "file"]
         let lowerQuery = query.lowercased()
 
@@ -59,7 +62,7 @@ public class FindFile {
         return createBaseResult()
     }
 
-    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+    public func findByTrigger(_ trigger: String) -> NerwAction? {
         let triggers = ["find", "file"]
         let lowerTrigger = trigger.lowercased()
 
@@ -67,13 +70,15 @@ public class FindFile {
         return createBaseResult()
     }
 
-    private func createBaseResult() -> BuiltinResult {
+    private func createBaseResult() -> NerwAction {
         let finderIcon = NSWorkspace.shared.icon(forFile: "/System/Library/CoreServices/Finder.app")
-        return BuiltinResult(
+        return NerwAction(
+            id: "nerw.builtin.findfile",
             title: "Find File",
             subtitle: "Search and Reveal in Finder",
-            icon: finderIcon,
-            supportsArguments: true,
+            icon: .image(finderIcon),
+            triggers: ["find", "file"],
+            arguments: ["Filename"],
             handler: { _ in
                  NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: NSHomeDirectory())
             },
@@ -83,9 +88,11 @@ public class FindFile {
         )
     }
 
+    // ...
+
     // MARK: - Live Search Engine
 
-    private func liveSearch(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func liveSearch(query: String, completion: @escaping ([NerwAction]) -> Void) {
         // 1. Cleanup previous query
         stopCurrentQuery()
 
@@ -170,7 +177,7 @@ public class FindFile {
         let count = MDQueryGetResultCount(query)
         // Scan limit: check more items than we display because we filter some out
         let scanLimit = min(count, 5000)
-        var results: [BuiltinResult] = []
+        var results: [NerwAction] = []
 
         for i in 0..<scanLimit {
             if results.count >= maxResults { break }
@@ -186,11 +193,12 @@ public class FindFile {
                 let url = URL(fileURLWithPath: path)
                 let name = url.lastPathComponent
 
-                let result = BuiltinResult(
+                let result = NerwAction(
+                    id: "nerw.findfile.result.\(path.hashValue)", // Use hash or path for unique ID
                     title: name,
                     subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
-                    icon: NSWorkspace.shared.icon(forFile: path),
-                    supportsArguments: false,
+                    icon: .image(NSWorkspace.shared.icon(forFile: path)),
+                    arguments: nil,
                     handler: { _ in
                         if NSApp.currentEvent?.modifierFlags.contains(.command) == true {
                             NSWorkspace.shared.activateFileViewerSelecting([url])

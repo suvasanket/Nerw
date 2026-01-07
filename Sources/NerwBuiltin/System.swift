@@ -5,6 +5,9 @@ import CoreWLAN
 import IOBluetooth
 
 
+import NerwCore
+
+
 public class System {
     public static let shared = System()
 
@@ -33,46 +36,57 @@ public class System {
 
     // MARK: - Public API
 
-    public func check(query: String) -> BuiltinResult? {
+    public func check(query: String) -> NerwAction? {
         let lowerQuery = query.lowercased()
 
         // Empty Downloads
         if "empty downloads".starts(with: lowerQuery) && lowerQuery.count >= 6 {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.emptydownloads",
                 title: "Empty Downloads",
                 subtitle: "Move all Downloads folder contents to Trash",
-                icon: NSImage(named: "download"),
-                supportsArguments: false
-            ) { _ in self.emptyDownloads() }
+                icon: .image(NSImage(named: "download") ?? NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
+                triggers: ["empty downloads"],
+                arguments: nil,
+                handler: { _ in self.emptyDownloads() }
+            )
         }
 
         // Sleep
         if "sleep".starts(with: lowerQuery) {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.sleep",
                 title: "Sleep",
                 subtitle: "Put your Mac to sleep",
-                icon: NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: nil),
-                supportsArguments: false
-            ) { _ in self.sleep() }
+                icon: .system("moon.zzz.fill"),
+                triggers: ["sleep"],
+                arguments: nil,
+                handler: { _ in self.sleep() }
+            )
         }
 
         // Eject All
         if "eject all".starts(with: lowerQuery) && lowerQuery.count >= 6 {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.ejectall",
                 title: "Eject All",
                 subtitle: "Eject all external volumes",
-                icon: NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil),
-                supportsArguments: false
-            ) { _ in self.ejectAll() }
+                icon: .system("eject.fill"),
+                triggers: ["eject all"],
+                arguments: nil,
+                handler: { _ in self.ejectAll() }
+            )
         }
 
         // Eject (with argument)
         if "eject".starts(with: lowerQuery) && !query.contains("all") {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
-                icon: NSImage(named: "eject"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "eject") ?? NSImage(systemSymbolName: "eject", accessibilityDescription: nil)!),
+                triggers: ["eject"],
+                arguments: ["Volume Name"],
                 handler: { volumeName in
                     if !volumeName.isEmpty {
                         self.eject(volumeName: volumeName)
@@ -102,11 +116,13 @@ public class System {
 
         // Quit Process (Guard Railed)
         if "ps".starts(with: lowerQuery) || "process".starts(with: lowerQuery) {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.process",
                 title: "Quit Process",
                 subtitle: "Terminate a running application",
-                icon: NSImage(named: "quit"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "quit") ?? NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)!),
+                triggers: ["ps", "process"],
+                arguments: ["Process Name"],
                 handler: { appName in
                     self.quitProcess(name: appName)
                 },
@@ -118,11 +134,13 @@ public class System {
 
         // WiFi
         if "wifi".starts(with: lowerQuery) {
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.wifi",
                 title: "WiFi",
                 subtitle: "Toggle WiFi or Connect to Network",
-                icon: NSImage(named: "wifi"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "wifi") ?? NSImage(systemSymbolName: "wifi", accessibilityDescription: nil)!),
+                triggers: ["wifi"],
+                arguments: ["SSID"],
                 handler: { _ in self.toggleWifi() },
                 searcher: { query, completion in
                     self.listAndSearchNetworks(query: query, completion: completion)
@@ -132,11 +150,13 @@ public class System {
 
         // Bluetooth
         if "bluetooth".starts(with: lowerQuery) || "bt".starts(with: lowerQuery) && lowerQuery.count >= 2 {
-             return BuiltinResult(
+             return NerwAction(
+                id: "nerw.system.bluetooth",
                 title: "Bluetooth",
                 subtitle: "Toggle Bluetooth or Connect Device",
-                icon: NSImage(named: "bluetooth"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "bluetooth") ?? NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil)!),
+                triggers: ["bluetooth", "bt"],
+                arguments: ["Device Name"],
                 handler: { _ in self.toggleBluetooth() },
                 searcher: { query, completion in
                     self.listAndSearchBluetoothDevices(query: query, completion: completion)
@@ -147,40 +167,51 @@ public class System {
         return nil
     }
 
-    public func findByTrigger(_ trigger: String) -> BuiltinResult? {
+    public func findByTrigger(_ trigger: String) -> NerwAction? {
         let lowerTrigger = trigger.lowercased()
 
         switch lowerTrigger {
         case "empty downloads":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.emptydownloads",
                 title: "Empty Downloads",
                 subtitle: "Move all Downloads folder contents to Trash",
-                icon: NSImage(named: "download"),
-                supportsArguments: false
-            ) { _ in self.emptyDownloads() }
+                icon: .image(NSImage(named: "download") ?? NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
+                triggers: ["empty downloads"],
+                arguments: nil,
+                handler: { _ in self.emptyDownloads() }
+            )
 
         case "sleep":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.sleep",
                 title: "Sleep",
                 subtitle: "Put your Mac to sleep",
-                icon: NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: nil),
-                supportsArguments: false
-            ) { _ in self.sleep() }
+                icon: .system("moon.zzz.fill"),
+                triggers: ["sleep"],
+                arguments: nil,
+                handler: { _ in self.sleep() }
+            )
 
         case "eject all":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.ejectall",
                 title: "Eject All",
                 subtitle: "Eject all external volumes",
-                icon: NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil),
-                supportsArguments: false
-            ) { _ in self.ejectAll() }
+                icon: .system("eject.fill"),
+                triggers: ["eject all"],
+                arguments: nil,
+                handler: { _ in self.ejectAll() }
+            )
 
         case "eject":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
-                icon: NSImage(named: "eject"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "eject") ?? NSImage(systemSymbolName: "eject", accessibilityDescription: nil)!),
+                triggers: ["eject"],
+                arguments: ["Volume Name"],
                 handler: { volumeName in
                     if !volumeName.isEmpty {
                         self.eject(volumeName: volumeName)
@@ -192,21 +223,25 @@ public class System {
             )
 
         case "ps", "process":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.process",
                 title: "Quit Process",
                 subtitle: "Terminate a running application",
-                icon: NSImage(named: "quit"),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "quit") ?? NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)!),
+                triggers: ["ps", "process"],
+                arguments: ["Process Name"],
                 handler: { appName in self.quitProcess(name: appName) },
                 searcher: { query, completion in self.searchProcesses(query: query, completion: completion) }
             )
 
         case "wifi":
-            return BuiltinResult(
+            return NerwAction(
+                id: "nerw.system.wifi",
                 title: "WiFi",
                 subtitle: "Toggle WiFi or Connect to Network",
-                icon: NSImage(systemSymbolName: "wifi", accessibilityDescription: nil),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "wifi") ?? NSImage(systemSymbolName: "wifi", accessibilityDescription: nil)!),
+                triggers: ["wifi"],
+                arguments: ["SSID"],
                 handler: { _ in self.toggleWifi() },
                 searcher: { query, completion in
                     self.listAndSearchNetworks(query: query, completion: completion)
@@ -214,11 +249,13 @@ public class System {
             )
 
         case "bluetooth", "bt":
-             return BuiltinResult(
+             return NerwAction(
+                id: "nerw.system.bluetooth",
                 title: "Bluetooth",
                 subtitle: "Toggle Bluetooth or Connect Device",
-                icon: NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil),
-                supportsArguments: true,
+                icon: .image(NSImage(named: "bluetooth") ?? NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil)!),
+                triggers: ["bluetooth", "bt"],
+                arguments: ["Device Name"],
                 handler: { _ in self.toggleBluetooth() },
                 searcher: { query, completion in
                     self.listAndSearchBluetoothDevices(query: query, completion: completion)
@@ -302,7 +339,7 @@ public class System {
 
     // MARK: - Process Management
 
-    private func searchProcesses(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func searchProcesses(query: String, completion: @escaping ([NerwAction]) -> Void) {
         // Run on background thread
         DispatchQueue.global(qos: .userInitiated).async {
             // Use 'ps -x -o pid,command' to list all processes owned by the user
@@ -332,7 +369,7 @@ public class System {
                 // Critical processes to protect (Guard Rails)
                 let protectedProcesses = ["loginwindow", "launchd", "UserEventAgent", "distnoted", "cfprefsd", "Nerw"]
 
-                var results: [BuiltinResult] = []
+                var results: [NerwAction] = []
 
                 // Parse lines. output header is "  PID COMMAND"
                 let lines = output.components(separatedBy: .newlines).dropFirst() // Skip header
@@ -373,14 +410,16 @@ public class System {
                          icon = NSWorkspace.shared.icon(for: UTType.application)
                     }
 
-                    results.append(BuiltinResult(
+                    results.append(NerwAction(
+                        id: "nerw.system.process.\(pid)",
                         title: commandName,
                         subtitle: "PID: \(pid) • \(commandPath)",
-                        icon: icon,
-                        supportsArguments: false
-                    ) { _ in
-                        self.quitProcess(pid: pid, name: commandName)
-                    })
+                        icon: icon != nil ? .image(icon!) : .image(NSWorkspace.shared.icon(for: UTType.application)),
+                        triggers: [commandName],
+                        arguments: nil,
+                        handler: { _ in
+                            self.quitProcess(pid: pid, name: commandName)
+                        }))
                 }
 
                 // Limit results if query is empty to avoid overwhelming list (though typically query isn't empty)
@@ -430,9 +469,9 @@ public class System {
 
     // MARK: - Volume Search
 
-    private func searchVolumes(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func searchVolumes(query: String, completion: @escaping ([NerwAction]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            var results: [BuiltinResult] = []
+            var results: [NerwAction] = []
 
             let keys: [URLResourceKey] = [.volumeIsEjectableKey, .volumeNameKey]
             if let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) {
@@ -452,14 +491,17 @@ public class System {
                 }
 
                 results = filtered.map { (name, url) in
-                    return BuiltinResult(
+                    return NerwAction(
+                        id: "nerw.system.volume.\(name)",
                         title: name,
                         subtitle: url.path,
-                        icon: NSWorkspace.shared.icon(forFile: url.path),
-                        supportsArguments: false
-                    ) { _ in
-                        self.eject(volumeName: name)
-                    }
+                        icon: .image(NSWorkspace.shared.icon(forFile: url.path)),
+                        triggers: [name],
+                        arguments: nil,
+                        handler: { _ in
+                            self.eject(volumeName: name)
+                        }
+                    )
                 }
             }
 
@@ -471,18 +513,21 @@ public class System {
 
     // MARK: - Menu Bar Search
 
-    private func searchMenuItems(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func searchMenuItems(query: String, completion: @escaping ([NerwAction]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             guard AXIsProcessTrusted() else {
-                let result = BuiltinResult(
+                let result = NerwAction(
+                    id: "nerw.system.menusExp.permission",
                     title: "Accessibility Permissions Needed",
                     subtitle: "Press Enter to open System Settings",
-                    icon: NSImage(systemSymbolName: "hand.raised.fill", accessibilityDescription: nil),
-                    supportsArguments: false
-                ) { _ in
-                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                    NSWorkspace.shared.open(url)
-                }
+                    icon: .system("hand.raised.fill"),
+                    triggers: [],
+                    arguments: nil,
+                    handler: { _ in
+                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+                        NSWorkspace.shared.open(url)
+                    }
+                )
                 DispatchQueue.main.async { completion([result]) }
                 return
             }
@@ -509,15 +554,20 @@ public class System {
             // Crawl
             self.crawlMenu(element: menuBarElement, path: [], query: query.lowercased(), results: &foundItems)
 
-            let results = foundItems.map { item in
-                BuiltinResult(
+            let results = foundItems.map { item -> NerwAction in
+                // Generate a stable ID if possible, or random
+                let pathString = item.path.joined(separator: " > ")
+                return NerwAction(
+                    id: "nerw.system.menusExp.\(targetApp.processIdentifier).\(pathString.hashValue)",
                     title: item.title,
-                    subtitle: "\(targetApp.localizedName ?? "App") > \(item.path.joined(separator: " > "))",
-                    icon: NSImage(systemSymbolName: "menubar.arrow.down.rectangle", accessibilityDescription: nil),
-                    supportsArguments: false
-                ) { _ in
-                    self.performMenuAction(element: item.element, app: targetApp)
-                }
+                    subtitle: "\(targetApp.localizedName ?? "App") > \(pathString)",
+                    icon: .system("menubar.arrow.down.rectangle"),
+                    triggers: [],
+                    arguments: nil,
+                    handler: { _ in
+                        self.performMenuAction(element: item.element, app: targetApp)
+                    }
+                )
             }
 
             DispatchQueue.main.async {
@@ -667,7 +717,7 @@ public class System {
         runShellCommand(command: "networksetup -setairportpower en1 \(state)")
     }
 
-    private func listAndSearchNetworks(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func listAndSearchNetworks(query: String, completion: @escaping ([NerwAction]) -> Void) {
         print("[System] listAndSearchNetworks called. Query: '\(query)'")
         DispatchQueue.global(qos: .userInitiated).async {
              guard let interface = self.getWiFiInterface() else {
@@ -699,14 +749,17 @@ public class System {
 
                  let results = sorted.map { network in
                      let ssid = network.ssid ?? "Unknown"
-                     return BuiltinResult(
+                     return NerwAction(
+                         id: "nerw.system.wifi.\(ssid)",
                          title: ssid,
                          subtitle: "Signal: \(network.rssiValue) dBm • Security: \(self.securityString(network))",
-                         icon: NSImage(systemSymbolName: "wifi", accessibilityDescription: nil),
-                         supportsArguments: false
-                     ) { _ in
-                         self.connectToWifi(network: network)
-                     }
+                         icon: .system("wifi"),
+                         triggers: [ssid],
+                         arguments: nil,
+                         handler: { _ in
+                             self.connectToWifi(network: network)
+                         }
+                     )
                  }
 
                  DispatchQueue.main.async { 
@@ -812,7 +865,7 @@ public class System {
         }
     }
 
-    private func listAndSearchBluetoothDevices(query: String, completion: @escaping ([BuiltinResult]) -> Void) {
+    private func listAndSearchBluetoothDevices(query: String, completion: @escaping ([NerwAction]) -> Void) {
         if !ensureBlueutilInstalled() {
             DispatchQueue.main.async { completion([]) }
             return
@@ -840,14 +893,17 @@ public class System {
                     let name = device.name ?? device.address
                     let status = device.connected ? "Connected" : "Disconnected"
 
-                    return BuiltinResult(
+                    return NerwAction(
+                        id: "nerw.system.bt.\(device.address)",
                         title: name,
                         subtitle: "\(status) • \(device.address)",
-                        icon: NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil), // Standard BT icon
-                        supportsArguments: false
-                    ) { _ in
-                        self.toggleConnectBluetooth(device: device)
-                    }
+                        icon: .system("iphone.gen3.radiowaves.left.and.right"),
+                        triggers: [name],
+                        arguments: nil,
+                        handler: { _ in
+                            self.toggleConnectBluetooth(device: device)
+                        }
+                    )
                 }
 
                 DispatchQueue.main.async { completion(results) }

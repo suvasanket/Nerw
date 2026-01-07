@@ -1,6 +1,7 @@
 // ResultCellView.swift
 import Cocoa
 import NerwSearchBackend
+import NerwCore
 
 class ResultCellView: NSTableCellView {
     private let iconView = NSImageView()
@@ -61,7 +62,9 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
-    func configure(with action: PopupContentViewController.Action, isSelected: Bool, isExplicitNavigation: Bool = false) {
+
+
+    func configure(with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false) {
         let config = ConfigManager.shared.config.uiConfig
 
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
@@ -82,7 +85,17 @@ class ResultCellView: NSTableCellView {
             titleLabel.font = font
         }
 
-        iconView.image = action.icon
+        if let iconType = action.icon {
+            switch iconType {
+            case .system(let name):
+                iconView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+            case .image(let img):
+                iconView.image = img
+            }
+        } else {
+            iconView.image = nil
+        }
+        
         iconView.contentTintColor = isSelected ? selectedTextColor : mainTextColor
 
         titleLabel.stringValue = action.title

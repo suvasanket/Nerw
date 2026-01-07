@@ -1,5 +1,6 @@
 import Cocoa
 import NerwCore
+import CoreServices
 
 public class AppSearch {
     public static let shared = AppSearch()
@@ -7,8 +8,6 @@ public class AppSearch {
     public struct AppInfo {
         public let name: String
         public let path: String
-        // Icon is NOT stored here to avoid loading overhead individually.
-        // UI loads it using NSWorkspace.icon(forFile: path)
     }
 
     private var cachedApps: [AppInfo] = []
@@ -33,10 +32,8 @@ public class AppSearch {
     }
 
     private func performSearch() -> [AppInfo] {
-        // Strategy 1: Spotlight Index (mdfind) - FASTEST & NATIVE
-        // We use `mdfind` CLI for simplicity as it's cleaner than MDQuery in Swift without runloop handling sometimes.
-        // Actually, let's try `mdfind` first.
-        if let spotlightResults = runMdfind() {
+        // Strategy 1: Snapshot MDQuery (Native API) - FASTEST & NATIVE
+        if let spotlightResults = runMDQuerySearch() {
             return spotlightResults
         }
 
@@ -51,28 +48,55 @@ public class AppSearch {
 
     // MARK: - Strategies
 
-    private func runMdfind() -> [AppInfo]? {
-        // kMDItemContentType == 'com.apple.application-bundle'
-        // We scope to typical application directories to avoid random build artifacts or deep system internals
-        let scope = "-onlyin /Applications -onlyin /System/Applications -onlyin /Users"
-        let command = "mdfind \(scope) \"kMDItemContentType == 'com.apple.application-bundle'\""
-        guard let output = runShell(command) else { return nil }
+    private func runMDQuerySearch() -> [AppInfo]? {
+        let queryString = "kMDItemContentType == 'com.apple.application-bundle'" as CFString
 
-        // Output is newline separated paths
-        let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        if paths.isEmpty { return nil }
-
-        return paths.compactMap { path in
-            // Filter out helper apps (apps inside other apps)
-            // If the path contains ".app/" somewhere in the middle, it's likely a helper.
-            // e.g. /Applications/Xcode.app/Contents/Developer/.../Something.app
-            if path.range(of: ".app/", options: .caseInsensitive) != nil {
-                return nil
-            }
-
-            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-            return AppInfo(name: name, path: path)
+        // Create Query
+        // Scopes: Applications, System Apps, User Apps
+        // Note: MDQuery automatically respects permissions and user scope usually.
+        // We can optionally set explicit scope if needed, but default is usually good.
+        guard let mdQuery = MDQueryCreate(kCFAllocatorDefault, queryString, nil, nil) else {
+            print("[AppSearch] Failed to create MDQuery")
+            return nil
         }
+
+        // Set explicit scope to match previous logic (broad app locations)
+        let searchScopes: [CFURL] = [
+            URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/System/Applications"),
+            URL(fileURLWithPath: "/Users")
+        ] as [CFURL]
+        MDQuerySetSearchScope(mdQuery, searchScopes as CFArray, 0)
+
+        // Execute Synchronously ensures we get results immediately for this "snapshot"
+        if !MDQueryExecute(mdQuery, CFOptionFlags(kMDQuerySynchronous.rawValue)) {
+             print("[AppSearch] MDQueryExecute failed")
+             return nil
+        }
+
+        let count = MDQueryGetResultCount(mdQuery)
+        var results: [AppInfo] = []
+
+        for i in 0..<count {
+            guard let rawPtr = MDQueryGetResultAtIndex(mdQuery, i) else { continue }
+            let item = Unmanaged<MDItem>.fromOpaque(rawPtr).takeUnretainedValue()
+
+            if let path = MDItemCopyAttribute(item, kMDItemPath) as? String {
+                // Filter out helper apps (apps inside other apps)
+                if path.range(of: ".app/", options: .caseInsensitive) != nil {
+                    continue
+                }
+
+                let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+                results.append(AppInfo(name: name, path: path))
+            }
+        }
+
+        // MDQuery doesn't need explicit "Release" in Swift ARC usually,
+        // but MDQueryStop is good practice if it were async.
+        // Generational Analysis: ARC handles MDQueryRef? Yes, usually treated as CFType.
+
+        return results.isEmpty ? nil : results
     }
 
     private func runFd() -> [AppInfo]? {

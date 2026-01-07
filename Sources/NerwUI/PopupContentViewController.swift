@@ -88,8 +88,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
     private var isDebugMode = false
 
-    private var actions: [Action] = []
-    private var activeAction: Action?
+    private var actions: [NerwAction] = []
+    private var activeAction: NerwAction?
     private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
     private var userHasNavigated: Bool = false
@@ -97,36 +97,11 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // State Machine for Input
     enum InputState {
         case search
-        case argument(action: Action, step: Int, collectedArgs: [String])
+        case argument(action: NerwAction, step: Int, collectedArgs: [String])
     }
     private var inputState: InputState = .search
 
-    struct Action {
-        let id: String
-        let icon: NSImage?
-        let title: String
-        let subtitle: String
-        let height: CGFloat? // Dynamic height support if needed
-
-        let supportsArguments: Bool
-        let argumentNames: [String]?
-        let path: String? // For apps
-        let handler: ((String) -> Void)?
-        let searcher: ((String, @escaping ([Action]) -> Void) -> Void)?
-
-        init(id: String, icon: NSImage?, title: String, subtitle: String, supportsArguments: Bool, argumentNames: [String]? = nil, path: String? = nil, handler: ((String) -> Void)? = nil, searcher: ((String, @escaping ([Action]) -> Void) -> Void)? = nil) {
-            self.id = id
-            self.icon = icon
-            self.title = title
-            self.subtitle = subtitle
-            self.supportsArguments = supportsArguments
-            self.argumentNames = argumentNames
-            self.path = path
-            self.handler = handler
-            self.searcher = searcher
-            self.height = nil
-        }
-    }
+    // Action struct replaced by NerwAction from NerwCore
 
     override func loadView() {
         // Initial height calculation for shrink view
@@ -377,16 +352,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         delegate?.didPressEscape()
     }
 
-    private func executeResult(_ result: Action, query: String) -> Bool {
+    private func executeResult(_ result: NerwAction, query: String) -> Bool {
          if let handler = result.handler {
-             handler("")
+             handler("") // Should we pass query here? Builtins expect arg, but if triggered directly, default is empty or query?
+             // Actually, handler signature is (String) -> Void.
+             // If this action was selected directly, we might not have an argument yet.
+             // But if it supportsArguments and we forced execution, maybe it takes current query?
+             // But for AppSearch, handler ignores arg.
+             // For System actions like toggleWifi, it ignores arg.
+
              FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
              closeSession()
-             return true
-         } else if let path = result.path {
-             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-             closeSession()
-             NSWorkspace.shared.open(URL(fileURLWithPath: path))
              return true
          }
          return false
@@ -409,8 +385,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private func resetToSearch() {
         inputState = .search
         activeAction = nil
-        inputField.stringValue = previousSearchText
         inputField.placeholderString = "nerw"
+        inputField.stringValue = previousSearchText
         setIcons([])
         search(query: previousSearchText)
     }
@@ -429,7 +405,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         case .argument(let action, let step, var args):
             // Check if there is a next argument
-            if let names = action.argumentNames, step < names.count - 1 {
+            if let names = action.arguments, step < names.count - 1 {
                 // Collect current arg value
                 args.append(inputField.stringValue)
                 // Move to next step
@@ -457,7 +433,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         return false
     }
 
-    private func enterArgumentMode(action: Action, step: Int, collectedArgs: [String]) {
+    private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
         // Update State
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action // Keep for legacy check compatibility
@@ -466,15 +442,20 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         inputField.stringValue = "" // Clear for new arg
 
         // Update Placeholder based on argument name (Feedback)
-        if let names = action.argumentNames, step < names.count {
+        if let names = action.arguments, step < names.count {
             inputField.placeholderString = names[step]
         } else {
             inputField.placeholderString = action.title
         }
 
-        // Ensure icon is consistent (don't add tab hint icon)
+        // Ensure icon is consistent
         if let icon = action.icon {
-            setIcons([icon])
+            switch icon {
+            case .system(let name):
+                setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+            case .image(let img):
+                setIcons([img])
+            }
         }
 
         // Clear list to focus on input
@@ -511,31 +492,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                             System.shared.findByTrigger(possibleTrigger) {
 
                 if result.supportsArguments {
-                     activateArgumentMode(for: Action(
-                        id: "nerw.smart." + result.title,
-                        icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
-                        title: result.title,
-                        subtitle: result.subtitle,
-                        supportsArguments: true,
-                        handler: result.handler,
-                        searcher: result.searcher.map { searcher in
-                            { query, completion in
-                                searcher(query) { results in
-                                    let mappedActions = results.map { res in
-                                        Action(
-                                            id: "nerw.smart.result." + res.title,
-                                            icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                                            title: res.title,
-                                            subtitle: res.subtitle,
-                                            supportsArguments: res.supportsArguments,
-                                            handler: res.handler
-                                        )
-                                    }
-                                    completion(mappedActions)
-                                }
-                            }
-                        }
-                     ), initialArg: arg)
+                     activateArgumentMode(for: result, initialArg: arg)
                      return
                 }
             }
@@ -544,7 +501,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         search(query: query)
     }
 
-    private func activateArgumentMode(for action: Action, initialArg: String) {
+    private func activateArgumentMode(for action: NerwAction, initialArg: String) {
          // Switch to Argument Mode
          activeAction = action
          inputState = .argument(action: action, step: 0, collectedArgs: [])
@@ -552,7 +509,12 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
          inputField.currentEditor()?.moveToEndOfLine(nil)
          inputField.placeholderString = action.title
          if let icon = action.icon {
-             setIcons([icon])
+            switch icon {
+            case .system(let name):
+                setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+            case .image(let img):
+                setIcons([img])
+            }
          }
 
          // Clear list & trigger search
@@ -610,7 +572,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             if case .argument(let action, let step, var args) = inputState {
                 args.append(inputField.stringValue)
 
-                let isLastStep = (action.argumentNames == nil) || (step >= (action.argumentNames?.count ?? 0) - 1)
+                let isLastStep = (action.arguments == nil) || (step >= (action.arguments?.count ?? 0) - 1)
 
                 if isLastStep {
                     // Final Submission
@@ -649,7 +611,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 let selectedAction = actions[selectedIndex]
 
                 if selectedAction.supportsArguments {
-                     if selectedAction.argumentNames == nil && !inputField.stringValue.isEmpty {
+                     if selectedAction.arguments == nil && !inputField.stringValue.isEmpty {
                          // Direct execution with current input as argument
                          selectedAction.handler?(inputField.stringValue)
                          FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
@@ -718,16 +680,16 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return
         }
 
-        var newActions: [Action] = []
+        var newActions: [NerwAction] = []
 
         if query.lowercased() == "add search engine" || query.lowercased() == "add" {
-            newActions.append(Action(
+            newActions.append(NerwAction(
                 id: "nerw.builtin.addengine",
-                icon: NSImage(systemSymbolName: "plus.circle", accessibilityDescription: nil),
                 title: "Add Search Engine",
                 subtitle: "Add a custom search engine",
-                supportsArguments: true,
-                argumentNames: ["Search URL (use %s)", "Trigger Keyword"],
+                icon: .system("plus.circle"),
+                triggers: ["add search engine", "add"],
+                arguments: ["Search URL (use %s)", "Trigger Keyword"],
                 handler: { _ in },
                 searcher: nil
             ))
@@ -740,37 +702,18 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
 
         // 0. Built-in Extensions & Search Engines
-        // Helper to map BuiltinResult to Action
-        func mapBuiltin(_ result: BuiltinResult, idPrefix: String) -> Action {
-            Action(
-                id: idPrefix + "." + result.title,
-                icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
-                title: result.title,
-                subtitle: result.subtitle,
-                supportsArguments: result.supportsArguments,
-                handler: result.handler,
-                searcher: result.searcher.map { searcher in
-                    { query, completion in
-                        searcher(query) { results in
-                            completion(results.map { mapBuiltin($0, idPrefix: idPrefix + ".result") })
-                        }
-                    }
-                }
-            )
-        }
 
         if let find = FindFile.shared.check(query: query) {
-            newActions.append(mapBuiltin(find, idPrefix: "nerw.builtin.findfile"))
+            newActions.append(find)
         }
         if let result = Nerw.shared.check(query: query) {
-            newActions.append(mapBuiltin(result, idPrefix: "nerw.builtin.extension"))
+            newActions.append(result)
         }
         if let system = System.shared.check(query: query) {
-            newActions.append(mapBuiltin(system, idPrefix: "nerw.builtin.system"))
+            newActions.append(system)
         }
         if let engineResult = SearchEngine.shared.check(query: query) {
-            // Search engines typically don't have live searchers here
-            newActions.append(mapBuiltin(engineResult, idPrefix: "nerw.builtin"))
+            newActions.append(engineResult)
         }
 
         // 1. Check for Extension Triggers
@@ -783,25 +726,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
              // Run Extension
               ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { [weak self] extResults in
                   DispatchQueue.main.async {
-                      let extActions = extResults.map { res in
-                          var image: NSImage?
-                          if let iconName = res.icon {
-                              image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
-                          }
-                          if image == nil {
-                              image = NSImage(systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
-                          }
-
-                          return Action(
-                             id: "nerw.ext.\(extensionManifest.id).\(res.title)",
-                             icon: image,
-                             title: res.title,
-                             subtitle: res.subtitle ?? extensionManifest.name,
-                             supportsArguments: true,
-                             path: nil
-                          )
-                      }
-                      self?.actions = newActions + extActions
+                      self?.actions = newActions + extResults
                       self?.updateActions()
                   }
               }
@@ -816,36 +741,37 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             let appNames = allApps.map { $0.name }
             let searchResults = fuse.searchSync(currentQuery, in: appNames)
 
-            let finalAppActions = searchResults.map { result -> Action in
+            let finalAppActions = searchResults.map { result -> NerwAction in
                 let app = allApps[result.index]
-                 return Action(
+                 return NerwAction(
                     id: "nerw.app." + app.path,
-                    icon: NSWorkspace.shared.icon(forFile: app.path),
                     title: app.name,
                     subtitle: "Application",
-                    supportsArguments: false,
-                    path: app.path
+                    icon: .image(NSWorkspace.shared.icon(forFile: app.path)),
+                    triggers: [app.name],
+                    arguments: nil,
+                    handler: { _ in
+                         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
+                    }
                 )
             }
 
             // Smart Suggestions
             let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
-            let suggestionActions = suggestions.map { res in
-                 mapBuiltin(res, idPrefix: "nerw.suggestion")
-            }
+            // suggestions are already NerwAction
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 guard self.inputField.stringValue == currentQuery else { return }
 
                 // Combine ALL actions: Built-in + App Results + Suggestions
-                let allActions = newActions + finalAppActions + suggestionActions
+                let allActions = newActions + finalAppActions + suggestions
 
                 // GLOBAL FRECENCY RANKING
                 let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
-                var exactMatches: [(action: Action, score: Double)] = []
-                var frecencyBoosted: [(action: Action, score: Double)] = []
-                var otherActions: [Action] = []
+                var exactMatches: [(action: NerwAction, score: Double)] = []
+                var frecencyBoosted: [(action: NerwAction, score: Double)] = []
+                var otherActions: [NerwAction] = []
 
                 for action in allActions {
                     let frecencyScore = FrecencyManager.shared.score(for: action.id, query: currentQuery, sensitivity: .moderate)
