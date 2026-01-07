@@ -3,7 +3,6 @@ import Cocoa
 import NerwSearchBackend
 import NerwCore
 import NerwBuiltin
-import NerwSearchBackend
 
 protocol PopupContentDelegate: AnyObject {
     func didPressEscape()
@@ -18,14 +17,14 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     struct LayoutMetrics {
         struct Window {
             static let width: CGFloat = 650
-            static let cornerRadius: CGFloat = 16
+            static let cornerRadius: CGFloat = 28
         }
 
         struct SearchField {
             static let height: CGFloat = 32
             static let fontSize: CGFloat = 22
-            static let top: CGFloat = 16        // Margin from window top
-            static let bottom: CGFloat = 16     // Margin from window bottom (in shrink view)
+            static let top: CGFloat = 12        // Margin from window top
+            static let bottom: CGFloat = 12     // Margin from window bottom (in shrink view)
             static let leading: CGFloat = 12    // Margin from icon container
             static let trailing: CGFloat = 20   // Margin from window trailing edge
         }
@@ -39,7 +38,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         struct Separator {
             static let height: CGFloat = 1
-            static let top: CGFloat = 16        // Margin from SearchField bottom
+            static let top: CGFloat = 8        // Margin from SearchField bottom
             static let bottom: CGFloat = 0      // Margin to Results top
             static let leading: CGFloat = 20
             static let trailing: CGFloat = 20
@@ -53,10 +52,10 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
 
         struct Cell {
-            static let cornerRadius: CGFloat = 8
+            static let cornerRadius: CGFloat = 20
 
             struct Margin {
-                static let vertical: CGFloat = 2
+                static let vertical: CGFloat = 3
                 static let horizontal: CGFloat = 0
             }
 
@@ -84,6 +83,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private var scrollView: NSScrollView!
     private var separatorView: NSBox!
     private var backgroundView: NSVisualEffectView!
+    private var tintView: NSView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
 
     private var isDebugMode = false
@@ -92,6 +92,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private var activeAction: Action?
     private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
+    private var userHasNavigated: Bool = false
 
     // State Machine for Input
     enum InputState {
@@ -138,20 +139,35 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     }
 
     private func setupViews() {
-        // Background blur
+        // Background - NSVisualEffectView for blur
         backgroundView = NSVisualEffectView()
-        backgroundView.material = .underWindowBackground // Slightly cleaner substrate for custom color
-        backgroundView.state = .active
+        backgroundView.material = .hudWindow
+        backgroundView.appearance = NSAppearance(named: .vibrantDark)
         backgroundView.blendingMode = .behindWindow
+        backgroundView.state = .active
         backgroundView.wantsLayer = true
         backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
         backgroundView.layer?.masksToBounds = true
-        // Set default background color: Black with 30% opacity (transparency)
-        backgroundView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
-        backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
-        backgroundView.layer?.masksToBounds = true
+        backgroundView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        backgroundView.layer?.borderWidth = 0.8
+
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(backgroundView)
+
+        // Tint View - Pitch Black Overlay
+        tintView = NSView()
+        tintView.wantsLayer = true
+        tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        tintView.translatesAutoresizingMaskIntoConstraints = false
+        backgroundView.addSubview(tintView)
+
+        // Constraint Tint to Background
+        NSLayoutConstraint.activate([
+            tintView.topAnchor.constraint(equalTo: backgroundView.topAnchor),
+            tintView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
+            tintView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
+            tintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor)
+        ])
 
         // Icon Container
         iconContainer = NSStackView()
@@ -255,8 +271,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 constant: -LayoutMetrics.Separator.trailing),
             separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
 
-            separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
-
             scrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
             scrollView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
@@ -305,7 +319,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     func toggleDebugMode() {
         isDebugMode.toggle()
 
-
         let views: [NSView?] = [
             backgroundView, iconContainer, inputField, separatorView, scrollView,
         ]
@@ -343,13 +356,40 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     func reset() {
         inputState = .search
         activeAction = nil
-        inputField.stringValue = ""
         inputField.placeholderString = "nerw"
+        inputField.stringValue = ""
         setIcons([])
         actions = []
         previousSearchText = ""
         selectedIndex = 0
+        userHasNavigated = false
         updateActions()
+    }
+
+    // MARK: - Helpers
+    private func closeSession(restoreText: Bool = true) {
+        activeAction = nil
+        inputField.placeholderString = "nerw"
+        if restoreText {
+            inputField.stringValue = previousSearchText
+        }
+        setIcons([])
+        delegate?.didPressEscape()
+    }
+
+    private func executeResult(_ result: Action, query: String) -> Bool {
+         if let handler = result.handler {
+             handler("")
+             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
+             closeSession()
+             return true
+         } else if let path = result.path {
+             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
+             closeSession()
+             NSWorkspace.shared.open(URL(fileURLWithPath: path))
+             return true
+         }
+         return false
     }
 
     private func updateSelectionIcon() {
@@ -452,37 +492,24 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         // [New Feature] Space to Trigger Find File (Alfred Style)
         if ConfigManager.shared.config.findFileOnSpace && query == " " {
-            // User typed space in empty field -> Trigger Find File
             inputField.stringValue = "find "
-            // Move cursor to end
             inputField.currentEditor()?.moveToEndOfLine(nil)
-            // Update local query var so rest of logic runs correctly
             query = "find "
         }
 
         // Smart Trigger Logic
-        // 1. Prefix: "Trigger Arg"
-        // 2. Suffix: "Arg Trigger " (Must end with space)
-
-        var detectedTrigger: String?
-        var extractedArg: String?
-
-        // Check Prefix
         let components = query.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
+
         if components.count >= 2 {
-            // Potential Prefix Trigger
             let possibleTrigger = String(components[0])
-            if let _ = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger) ?? System.shared.findByTrigger(possibleTrigger) {
-                detectedTrigger = possibleTrigger
-                extractedArg = String(components[1])
-            }
-        }
+            let arg = String(components[1])
 
-        // Suffix Trigger Removed as per user request (Prefix Only)
+            // Unified check for built-in providers
+            if let result = SearchEngine.shared.findByTrigger(possibleTrigger) ??
+                            Nerw.shared.findByTrigger(possibleTrigger) ??
+                            FindFile.shared.findByTrigger(possibleTrigger) ??
+                            System.shared.findByTrigger(possibleTrigger) {
 
-        if let trigger = detectedTrigger, let arg = extractedArg {
-            // Activate Trigger
-            if let result = SearchEngine.shared.findByTrigger(trigger) ?? Nerw.shared.findByTrigger(trigger) ?? FindFile.shared.findByTrigger(trigger) ?? System.shared.findByTrigger(trigger) {
                 if result.supportsArguments {
                      activateArgumentMode(for: Action(
                         id: "nerw.smart." + result.title,
@@ -491,21 +518,23 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                         subtitle: result.subtitle,
                         supportsArguments: true,
                         handler: result.handler,
-                        searcher: result.searcher != nil ? { query, completion in
-                            result.searcher!(query) { results in
-                                let actions = results.map { res in
-                                    Action(
-                                        id: "nerw.smart.result." + res.title,
-                                        icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                                        title: res.title,
-                                        subtitle: res.subtitle,
-                                        supportsArguments: res.supportsArguments,
-                                        handler: res.handler
-                                    )
+                        searcher: result.searcher.map { searcher in
+                            { query, completion in
+                                searcher(query) { results in
+                                    let mappedActions = results.map { res in
+                                        Action(
+                                            id: "nerw.smart.result." + res.title,
+                                            icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
+                                            title: res.title,
+                                            subtitle: res.subtitle,
+                                            supportsArguments: res.supportsArguments,
+                                            handler: res.handler
+                                        )
+                                    }
+                                    completion(mappedActions)
                                 }
-                                completion(actions)
                             }
-                        } : nil
+                        }
                      ), initialArg: arg)
                      return
                 }
@@ -516,12 +545,8 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     }
 
     private func activateArgumentMode(for action: Action, initialArg: String) {
-        // Save state (restore point usually handled by selection, but here we jump straight in)
-        // We might want to clear previous state if any
-         previousSearchText = "" // Or keep as is? Let's clear to avoid confusion on back
-         activeAction = action
-
          // Switch to Argument Mode
+         activeAction = action
          inputState = .argument(action: action, step: 0, collectedArgs: [])
          inputField.stringValue = initialArg
          inputField.currentEditor()?.moveToEndOfLine(nil)
@@ -530,11 +555,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
              setIcons([icon])
          }
 
-         // Clear list
+         // Clear list & trigger search
          actions = []
          updateActions()
-         
-         // Trigger search immediately with the passed argument (e.g. for "ps ", arg is empty string, which lists all)
          search(query: initialArg)
     }
 
@@ -569,114 +592,37 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             }
             if activeAction != nil {
                 // Restore previous state
-                activeAction = nil
-                inputField.stringValue = previousSearchText
-                inputField.placeholderString = "nerw"
-                setIcons([]) // Reset to default icon
-                search(query: previousSearchText) // Re-trigger search
+                resetToSearch()
                 return true
             }
             delegate?.didPressEscape()
             return true
 
-        case #selector(NSResponder.insertTab(_:)):
-            if activeAction == nil && !actions.isEmpty {
-                let selectedAction = actions[selectedIndex]
-
-                // Only allow argument mode if supported
-                guard selectedAction.supportsArguments else { return false }
-
-                // Save state
-                previousSearchText = inputField.stringValue
-                activeAction = selectedAction
-
-                // Switch to Argument Mode
-                inputField.stringValue = ""
-                inputField.placeholderString = selectedAction.title
-                if let icon = selectedAction.icon {
-                    setIcons([icon])
-                }
-
-                // Clear list
-                actions = []
-                updateActions()
-                return true
-            }
-            return false
-
         case #selector(NSResponder.insertNewline(_:)):
-            // Priority: Execute Selected Result (if any)
+            // 1. Priority: Execute Selected Result (if actionable)
             if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
-                let selectedResult = actions[selectedIndex]
-                
-                if let handler = selectedResult.handler {
-                    handler("")
-                    // Record with query context for global frecency ranking
-                    FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: inputField.stringValue)
-                    
-                    // Close
-                    activeAction = nil
-                    inputField.stringValue = previousSearchText
-                    inputField.placeholderString = "nerw"
-                    setIcons([])
-                    delegate?.didPressEscape()
-                    return true
-                } else if let path = selectedResult.path {
-                    FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: inputField.stringValue)
-                    
-                    // Close FIRST for instant UI response
-                    activeAction = nil
-                    inputField.stringValue = previousSearchText
-                    inputField.placeholderString = "nerw"
-                    setIcons([])
-                    delegate?.didPressEscape()
-                    
-                    // Launch after hide (async internally)
-                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                if executeResult(actions[selectedIndex], query: inputField.stringValue) {
                     return true
                 }
             }
-            
-            // Check if we are in argument mode (Multi-Step)
+
+            // 2. Check if we are in argument mode (Multi-Step)
             if case .argument(let action, let step, var args) = inputState {
-                // Collect current arg
                 args.append(inputField.stringValue)
 
-                // Check if this was the last step
-                // Check if this was the last step
-                let isLastStep: Bool
-                if let names = action.argumentNames {
-                    isLastStep = step >= names.count - 1
-                } else {
-                    // Default to single step if no names provided
-                    isLastStep = true
-                }
+                let isLastStep = (action.argumentNames == nil) || (step >= (action.argumentNames?.count ?? 0) - 1)
 
                 if isLastStep {
                     // Final Submission
                     if action.id == "nerw.builtin.addengine", args.count >= 2 {
-                        let url = args[0]
-                        let trigger = args[1]
-                        SearchEngine.shared.addEngine(url: url, trigger: trigger)
-
-                        // Close after adding
-                        activeAction = nil
-                        inputField.stringValue = previousSearchText
-                        inputField.placeholderString = "nerw"
-                        setIcons([])
-                        delegate?.didPressEscape()
+                        SearchEngine.shared.addEngine(url: args[0], trigger: args[1])
+                        closeSession()
                         return true
                     }
 
                     // General Handler
                     action.handler?(args.joined(separator: " "))
-
-                    // Close
-                    activeAction = nil
-                    inputField.stringValue = previousSearchText
-                    inputField.placeholderString = "nerw"
-                    setIcons([])
-                    delegate?.didPressEscape()
+                    closeSession()
                     return true
                 } else {
                     // Move to next step
@@ -685,107 +631,41 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 }
             }
 
+            // 3. Active Action Submission (No result selected from list)
             if let action = activeAction {
-                 // Check if we have live results and one is selected
-                 if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
-                     let selectedResult = actions[selectedIndex]
-                     if let handler = selectedResult.handler {
-                         handler("") // Argument usually already baked in or irrelevant for result execution
-                         // Record Usage with query context
-                         FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: previousSearchText)
-
-                         // Close window
-                         activeAction = nil
-                         inputField.stringValue = previousSearchText
-                         inputField.placeholderString = "nerw"
-                         setIcons([])
-                         delegate?.didPressEscape() // Or hide()
-                         return true
-                     } else if let path = selectedResult.path {
-                         // Record Usage with query context
-                         FrecencyManager.shared.recordUsage(id: selectedResult.id, forQuery: previousSearchText)
-
-                         // Close FIRST for instant UI response
-                         activeAction = nil
-                         inputField.stringValue = previousSearchText
-                         inputField.placeholderString = "nerw"
-                         setIcons([])
-                         delegate?.didPressEscape()
-                         
-                         // Launch after hide
-                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
-                         return true
-                     }
-                 }
-
                  if let handler = action.handler {
                      handler(inputField.stringValue)
-                     // Restore state after submit
-                     activeAction = nil
-                     inputField.stringValue = previousSearchText
-                     inputField.placeholderString = "nerw"
-                     setIcons([])
-                     search(query: previousSearchText)
+                     // Restore state after submit (Stay open if handler logic implies it, but reset UI)
+                     resetToSearch()
                  } else {
-                     // Execute Action with Argument (Default legacy behavior)
                      delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
-
-                     // Restore state after submit
-                     activeAction = nil
-                     inputField.stringValue = previousSearchText
-                     inputField.placeholderString = "nerw"
-                     setIcons([])
-                     search(query: previousSearchText)
+                     resetToSearch()
                  }
-            } else if !actions.isEmpty {
+                 return true
+            }
+
+            // 4. Default Search Action
+            if !actions.isEmpty {
                 let selectedAction = actions[selectedIndex]
 
-                // If the selected action supports arguments (and we are not yet in argument mode), ENTER ARGUMENT MODE
-                // If the selected action supports arguments (and we are not yet in argument mode), ENTER ARGUMENT MODE
                 if selectedAction.supportsArguments {
-                     // Direct Execution check:
-                     // If action accepts raw string arguments (argumentNames == nil)
-                     // AND the input is not empty
-                     // We use the current input as the argument immediately.
                      if selectedAction.argumentNames == nil && !inputField.stringValue.isEmpty {
+                         // Direct execution with current input as argument
                          selectedAction.handler?(inputField.stringValue)
-
-                         // Record Usage with query context
                          FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
-
-                         // Close
-                         activeAction = nil
-                         inputField.stringValue = previousSearchText
-                         inputField.placeholderString = "nerw"
-                         setIcons([])
-                         delegate?.didPressEscape()
+                         closeSession()
                          return true
                      }
-
+                     // Enter argument mode
                      previousSearchText = inputField.stringValue
                      enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
                      return true
                 }
 
-                // Record Usage with query context
-                FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
-
-                if let handler = selectedAction.handler {
-                    // Action has a handler (e.g. Smart Suggestions)
-                    handler(inputField.stringValue) // Pass current text just in case, though often unused for void handlers
-
-                    // Close
-                    activeAction = nil
-                    inputField.stringValue = previousSearchText
-                    inputField.placeholderString = "nerw"
-                    setIcons([])
-                    delegate?.didPressEscape()
-                } else if let appPath = selectedAction.path {
-                     // Hide window FIRST for instant UI response
-                     delegate?.didPressEscape()
-                     // Launch Application after hide
-                     NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
-                } else {
+                // Standard Execution (if not already handled in step 1, e.g. might have been skipped if step 1 only checked handler/path?)
+                // Step 1 calls executeResult which checks handler/path.
+                // If we are here, it means executeResult returned false (no handler/path).
+                if !executeResult(selectedAction, query: inputField.stringValue) {
                     delegate?.didSubmit(text: selectedAction.title)
                 }
             } else {
@@ -802,38 +682,24 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             return true
 
         default:
-            // Handle manual keybindings for standard editing and custom shortcuts
-            // because this is an accessory app without a main menu.
-            if let event = NSApp.currentEvent {
-
-                // Cmd+A/C/V
-                if event.modifierFlags.contains(.command) {
-                    guard let chars = event.charactersIgnoringModifiers else { return false }
-                    switch chars {
-                    case "a":
-                        textView.selectAll(nil)
-                        return true
-                    case "c":
-                        textView.copy(nil)
-                        return true
-                    case "v":
-                        textView.pasteAsPlainText(nil)
-                        return true
-                    case "x":
-                        textView.cut(nil)
-                        return true
-                    case "z":
-                        if let undoManager = textView.undoManager {
-                             if event.modifierFlags.contains(.shift) {
-                                  if undoManager.canRedo { undoManager.redo() }
-                             } else {
-                                  if undoManager.canUndo { undoManager.undo() }
-                             }
+            // Handle manual keybindings
+            if let event = NSApp.currentEvent, event.modifierFlags.contains(.command) {
+                guard let chars = event.charactersIgnoringModifiers else { return false }
+                switch chars {
+                case "a": textView.selectAll(nil); return true
+                case "c": textView.copy(nil); return true
+                case "v": textView.pasteAsPlainText(nil); return true
+                case "x": textView.cut(nil); return true
+                case "z":
+                    if let undoManager = textView.undoManager {
+                        if event.modifierFlags.contains(.shift) {
+                            if undoManager.canRedo { undoManager.redo() }
+                        } else {
+                            if undoManager.canUndo { undoManager.undo() }
                         }
-                        return true
-                    default:
-                        break
                     }
+                    return true
+                default: break
                 }
             }
             return false
@@ -843,17 +709,11 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     // MARK: - Search
 
     private func search(query: String) {
-        // If in Argument Mode
-        if let action = activeAction {
-            if let searcher = action.searcher {
-                // Perform live search using the action's searcher
-                searcher(query) { [weak self] results in
-                    guard let self = self else { return }
-                    // Ensure relevance (simple check: if activeAction is still same and query is somewhat fresh?)
-                    // Best effort: just update UI
-                    self.actions = results
-                    self.updateActions()
-                }
+        // If in Argument Mode with active searcher
+        if let action = activeAction, let searcher = action.searcher {
+            searcher(query) { [weak self] results in
+                self?.actions = results
+                self?.updateActions()
             }
             return
         }
@@ -868,102 +728,49 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                 subtitle: "Add a custom search engine",
                 supportsArguments: true,
                 argumentNames: ["Search URL (use %s)", "Trigger Keyword"],
-                handler: { _ in }, // Handled via multi-step logic
+                handler: { _ in },
                 searcher: nil
             ))
         }
 
         guard !query.isEmpty else {
-            actions = newActions // Show "Add" if query matches "add", else empty
+            actions = newActions
             updateActions()
             return
         }
 
-
-
-        // 0. Built-in Extensions (Google, Find File, etc.)
-
-        // Find File
-        if let find = FindFile.shared.check(query: query) {
-            newActions.append(Action(
-                id: "nerw.builtin.findfile",
-                icon: find.icon ?? (find.iconName != nil ? NSImage(systemSymbolName: find.iconName!, accessibilityDescription: nil) : nil),
-                title: find.title,
-                subtitle: find.subtitle,
-                supportsArguments: find.supportsArguments,
-                handler: find.handler,
-                searcher: { arg, completion in
-                    guard let searcher = find.searcher else {
-                        completion([])
-                        return
-                    }
-                    searcher(arg) { results in
-                         let actions = results.map { res in
-                            Action(
-                                id: "nerw.builtin.findfile." + res.title, // Simple sub-ID
-                                icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                                title: res.title,
-                                subtitle: res.subtitle,
-                                supportsArguments: res.supportsArguments,
-                                handler: res.handler
-                            )
-                        }
-                        completion(actions)
-                    }
-                }
-            ))
-        }
-
-        // Check Nerw Extension (Config)
-        if let result = Nerw.shared.check(query: query) {
-            newActions.append(Action(
-                id: "nerw.builtin.extension." + result.title,
+        // 0. Built-in Extensions & Search Engines
+        // Helper to map BuiltinResult to Action
+        func mapBuiltin(_ result: BuiltinResult, idPrefix: String) -> Action {
+            Action(
+                id: idPrefix + "." + result.title,
                 icon: result.icon ?? (result.iconName != nil ? NSImage(systemSymbolName: result.iconName!, accessibilityDescription: nil) : nil),
                 title: result.title,
                 subtitle: result.subtitle,
                 supportsArguments: result.supportsArguments,
-                handler: result.handler
-            ))
-        }
-
-        // Check System Extension
-        if let system = System.shared.check(query: query) {
-            newActions.append(Action(
-                id: "nerw.builtin.system." + system.title,
-                icon: system.icon ?? (system.iconName != nil ? NSImage(systemSymbolName: system.iconName!, accessibilityDescription: nil) : nil),
-                title: system.title,
-                subtitle: system.subtitle,
-                supportsArguments: system.supportsArguments,
-                handler: system.handler,
-                searcher: system.searcher != nil ? { query, completion in
-                    system.searcher!(query) { results in
-                        let actions = results.map { res in
-                            Action(
-                                id: "nerw.builtin.system.result." + res.title,
-                                icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                                title: res.title,
-                                subtitle: res.subtitle,
-                                supportsArguments: res.supportsArguments,
-                                handler: res.handler
-                            )
+                handler: result.handler,
+                searcher: result.searcher.map { searcher in
+                    { query, completion in
+                        searcher(query) { results in
+                            completion(results.map { mapBuiltin($0, idPrefix: idPrefix + ".result") })
                         }
-                        completion(actions)
                     }
-                } : nil
-            ))
+                }
+            )
         }
 
-        // Search Engine (Google, Bing, etc.)
+        if let find = FindFile.shared.check(query: query) {
+            newActions.append(mapBuiltin(find, idPrefix: "nerw.builtin.findfile"))
+        }
+        if let result = Nerw.shared.check(query: query) {
+            newActions.append(mapBuiltin(result, idPrefix: "nerw.builtin.extension"))
+        }
+        if let system = System.shared.check(query: query) {
+            newActions.append(mapBuiltin(system, idPrefix: "nerw.builtin.system"))
+        }
         if let engineResult = SearchEngine.shared.check(query: query) {
-            newActions.append(Action(
-                id: "nerw.builtin." + engineResult.title,
-                icon: engineResult.icon ?? (engineResult.iconName != nil ? NSImage(systemSymbolName: engineResult.iconName!, accessibilityDescription: nil) : nil),
-                title: engineResult.title,
-                subtitle: engineResult.subtitle,
-                supportsArguments: engineResult.supportsArguments,
-                handler: engineResult.handler,
-                searcher: nil // Search engines typically don't have live search without api keys
-            ))
+            // Search engines typically don't have live searchers here
+            newActions.append(mapBuiltin(engineResult, idPrefix: "nerw.builtin"))
         }
 
         // 1. Check for Extension Triggers
@@ -990,12 +797,10 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                              icon: image,
                              title: res.title,
                              subtitle: res.subtitle ?? extensionManifest.name,
-                             supportsArguments: true, // Extensions usually support args
+                             supportsArguments: true,
                              path: nil
                           )
                       }
-
-                      // Combine existing actions (Google) with extension results
                       self?.actions = newActions + extActions
                       self?.updateActions()
                   }
@@ -1003,22 +808,14 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
              return
         }
 
-        // 2. Default App Search (Fallback)
-        // If extension matched, we return above. If not, continue here.
-
-        // 2. Default App Search (Fallback) - Async to prevent UI blocking
+        // 2. Default App Search (Fallback) - Async
         let currentQuery = query
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let allApps = AppSearch.shared.getAllApps()
-
-            // NerwSearchBackend (Fuse) Fuzzy Search on App Names
             let fuse = Fuse()
-            // Improve performance by only searching names
             let appNames = allApps.map { $0.name }
-
             let searchResults = fuse.searchSync(currentQuery, in: appNames)
 
-            // Map back to Action
             let finalAppActions = searchResults.map { result -> Action in
                 let app = allApps[result.index]
                  return Action(
@@ -1032,19 +829,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             }
 
             // Smart Suggestions
-            var suggestionActions: [Action] = []
-
-            // Always fetch configured default suggestions
             let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
-            suggestionActions = suggestions.map { res in
-                 Action(
-                     id: "nerw.suggestion." + res.title,
-                     icon: res.icon ?? (res.iconName != nil ? NSImage(systemSymbolName: res.iconName!, accessibilityDescription: nil) : nil),
-                     title: res.title,
-                     subtitle: res.subtitle,
-                     supportsArguments: false,
-                     handler: res.handler
-                 )
+            let suggestionActions = suggestions.map { res in
+                 mapBuiltin(res, idPrefix: "nerw.suggestion")
             }
 
             DispatchQueue.main.async { [weak self] in
@@ -1053,22 +840,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
                 // Combine ALL actions: Built-in + App Results + Suggestions
                 let allActions = newActions + finalAppActions + suggestionActions
-                var finalActions: [Action] = []
 
-                let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
-                
                 // GLOBAL FRECENCY RANKING
-                // Sort all actions by frecency score for this query
-                // New Logic: Exact Matches > Frecency Boosted (Partial) > Others
-                
+                let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
                 var exactMatches: [(action: Action, score: Double)] = []
                 var frecencyBoosted: [(action: Action, score: Double)] = []
                 var otherActions: [Action] = []
-                
+
                 for action in allActions {
                     let frecencyScore = FrecencyManager.shared.score(for: action.id, query: currentQuery, sensitivity: .moderate)
                     let isExact = action.title.lowercased() == normalizedQuery
-                    
+
                     if isExact {
                         exactMatches.append((action, frecencyScore))
                     } else if frecencyScore > 0 {
@@ -1077,25 +859,17 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                         otherActions.append(action)
                     }
                 }
-                
-                // Sort Exact Matches by score (descending)
+
+                // Sort Exact Matches & Frecency Boosted by score (descending)
                 exactMatches.sort { $0.score > $1.score }
-                
-                // Sort Frecency Boosted by score (descending)
                 frecencyBoosted.sort { $0.score > $1.score }
-                
-                let exactActions = exactMatches.map { $0.action }
-                let boostedActions = frecencyBoosted.map { $0.action }
 
-                // Final order: Exact Matches (Top) > Frecency Boosted (Non-Exact) > Other Actions
-                finalActions = exactActions + boostedActions + otherActions
-
-                self.actions = finalActions
+                self.actions = exactMatches.map({$0.action}) + frecencyBoosted.map({$0.action}) + otherActions
                 self.selectedIndex = 0
+                self.userHasNavigated = false
                 self.updateActions()
             }
         }
-
     }
 
     private func updateActions() {
@@ -1104,7 +878,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         scrollView.isHidden = !hasActions
         scrollView.hasVerticalScroller = actions.count > LayoutMetrics.Results.maxVisibleRows
 
-        // Update bottom constraint dynamically
         scrollViewBottomConstraint.constant = hasActions ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
 
         resultsTableView.reloadData()
@@ -1121,6 +894,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private func moveSelection(by delta: Int) {
         guard !actions.isEmpty else { return }
         selectedIndex = (selectedIndex + delta + actions.count) % actions.count
+        userHasNavigated = true
         resultsTableView.selectRowIndexes(
             IndexSet(integer: selectedIndex), byExtendingSelection: false)
         resultsTableView.scrollRowToVisible(selectedIndex)
@@ -1140,7 +914,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     {
         let action = actions[row]
         let cell = ResultCellView()
-        cell.configure(with: action, isSelected: row == selectedIndex)
+        cell.configure(with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated)
         return cell
     }
 

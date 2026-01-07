@@ -61,12 +61,21 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
-    func configure(with action: PopupContentViewController.Action, isSelected: Bool) {
+    func configure(with action: PopupContentViewController.Action, isSelected: Bool, isExplicitNavigation: Bool = false) {
         let config = ConfigManager.shared.config.uiConfig
 
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
-        let selectedBgColor = NSColor(hex: config?.selectionBackgroundColor ?? "") ?? NSColor.black.withAlphaComponent(0.2)
+        
+        // Background Logic
+        // Active (Moved): System Accent
+        let activeBg = NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85) 
+                        ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
+        
+        // Passive (Default): Grey/White Alpha
+        let passiveBg = NSColor.white.withAlphaComponent(0.12)
+        
+        let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
         // Font
         if let fontName = config?.font, let font = NSFont(name: fontName, size: PopupContentViewController.LayoutMetrics.Cell.Text.titleSize) {
@@ -83,7 +92,7 @@ class ResultCellView: NSTableCellView {
         subtitleLabel.textColor = isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
 
         containerView.layer?.backgroundColor = isSelected
-            ? selectedBgColor.cgColor
+            ? finalBgColor.cgColor
             : NSColor.clear.cgColor
     }
 }
