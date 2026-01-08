@@ -139,56 +139,56 @@ public class ExtensionEngine {
 
         for i in 0..<count {
             if let item = value.atIndex(i),
-               let dict = item.toDictionary() as? [String: Any] {
-
-                let title = dict["title"] as? String ?? "No Title"
-                let subtitle = dict["subtitle"] as? String ?? ""
-                let iconName = dict["icon"] as? String
-                let actionValue = dict["action"] as? String
-                // let args = dict["args"] // Future?
-
-                let icon: NerwAction.IconType?
-                if let name = iconName {
-                    // Check if path or system
-                    // For now assume system symbol if simple string
-                    if name.hasPrefix("/") {
-                         // path
-                         if let img = NSImage(contentsOfFile: name) {
-                             icon = .image(img)
-                         } else {
-                             icon = nil
-                         }
-                    } else {
-                         icon = .system(name)
-                    }
-                } else {
-                    icon = .system("puzzlepiece.extension")
-                }
-
-                results.append(NerwAction(
-                    id: "nerw.ext.\(extensionId).\(title)", // Or use a unique ID from ext if provided
-                    title: title,
-                    subtitle: subtitle,
-                    icon: icon,
-                    triggers: [], // Extensions usually triggered by their main trigger, results are sub-items
-                    arguments: actionValue != nil ? nil : ["Argument"], // If no explicit action, maybe it accepts args? Or is it a leaf?
-                    // Logic: If result has an 'action' field, it might mean "do this".
-                    // But usually in Alfred/Raycast, results are selectable.
-                    // If we want to support chaining, we need more info.
-                    // For now, simple leaf execution.
-                    handler: { _ in
-                         // How to execute interaction?
-                         // Maybe call back into JS? 'onAction'?
-                         // Or just open URL if action is URL?
-                         if let act = actionValue {
-                             if let url = URL(string: act) {
-                                 NSWorkspace.shared.open(url)
-                             }
-                         }
-                    }
-                ))
+               let dict = item.toDictionary() as? [String: Any],
+               let action = parseItem(dict, extensionId: extensionId) {
+                results.append(action)
             }
         }
         return results
+    }
+
+    private func parseItem(_ dict: [String: Any], extensionId: String) -> NerwAction? {
+        let title = dict["title"] as? String ?? "No Title"
+        let subtitle = dict["subtitle"] as? String ?? ""
+        let iconName = dict["icon"] as? String
+        let actionValue = dict["action"] as? String
+        
+        // Recursive Quick Action parsing
+        var quickAction: NerwAction? = nil
+        if let quickActionDict = dict["quickAction"] as? [String: Any] {
+            quickAction = parseItem(quickActionDict, extensionId: extensionId)
+        }
+
+        let icon: NerwAction.IconType?
+        if let name = iconName {
+            if name.hasPrefix("/") {
+                 if let img = NSImage(contentsOfFile: name) {
+                     icon = .image(img)
+                 } else {
+                     icon = nil
+                 }
+            } else {
+                 icon = .system(name)
+            }
+        } else {
+            icon = .system("puzzlepiece.extension")
+        }
+
+        return NerwAction(
+            id: "nerw.ext.\(extensionId).\(title)",
+            title: title,
+            subtitle: subtitle,
+            icon: icon,
+            triggers: [],
+            arguments: actionValue != nil ? nil : ["Argument"],
+            handler: { _ in
+                 if let act = actionValue {
+                     if let url = URL(string: act) {
+                         NSWorkspace.shared.open(url)
+                     }
+                 }
+            },
+            quickAction: quickAction
+        )
     }
 }

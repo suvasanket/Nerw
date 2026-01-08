@@ -66,6 +66,14 @@ The `main(query)` function is the entry point.
     // The user presses Tab to advance through these named steps.
     "argumentNames": ["Title", "Description"],
 
+    // Quick Action (Secondary Action)
+    // Available via Tab key. Supports recursive structure.
+    "quickAction": {
+        "title": "Sub Action Title",
+        "action": "value_or_url",
+        "icon": "bolt.fill"
+    },
+
     // Modifier Key Actions
     // Alternative actions when holding keys
     "mods": {

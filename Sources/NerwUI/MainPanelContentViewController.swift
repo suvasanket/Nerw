@@ -100,7 +100,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case argument(action: NerwAction, step: Int, collectedArgs: [String])
     }
     private var inputState: InputState = .search
-    
+
     // Tracks current search task
     private var searchWorkItem: DispatchWorkItem?
 
@@ -368,6 +368,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
             let action = actions[selectedIndex]
+
+            // Prioritize Quick Action (Bolt) if present - often implies specific enhanced capability
+            if action.quickAction != nil {
+                 let bolt = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil) ?? NSImage()
+                 setIcons([bolt])
+                 return
+            }
+
             if action.supportsArguments {
                 let tab = NSImage(systemSymbolName: "arrow.right.to.line", accessibilityDescription: nil) ?? NSImage()
                 setIcons([tab])
@@ -380,8 +388,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func resetToSearch() {
         inputState = .search
         activeAction = nil
-        inputField.stringValue = previousSearchText
+
+        // GUARD: update the placeholder first
         inputField.placeholderString = "nerw"
+        inputField.stringValue = previousSearchText
+        // GUARD: then th field value
+
         setIcons([])
         search(query: previousSearchText)
     }
@@ -391,12 +403,41 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .search:
             guard !actions.isEmpty else { return false }
             let selectedAction = actions[selectedIndex]
-            guard selectedAction.supportsArguments else { return false }
 
-            // Enter Argument Mode (Step 0)
-            previousSearchText = inputField.stringValue
-            enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
-            return true
+            // 1. Argument Support (Primary Drill-down)
+            if selectedAction.supportsArguments {
+                previousSearchText = inputField.stringValue
+                enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+                return true
+            }
+
+            // 2. Quick Action (Secondary Action via Tab)
+            if let quickActionBox = selectedAction.quickAction {
+                let quickAction = quickActionBox.value
+                if quickAction.supportsArguments {
+                    activateArgumentMode(for: quickAction, initialArg: "")
+                } else {
+                    // Direct Swap to Quick Action? Or Execute?
+                    // For "Quit", usually we want to see it.
+                    activeAction = quickAction
+                    inputField.stringValue = ""
+                    inputField.placeholderString = quickAction.title
+
+                    if let icon = quickAction.icon {
+                        switch icon {
+                        case .system(let name):
+                            setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+                        case .image(let img):
+                            setIcons([img])
+                        }
+                    }
+                    actions = []
+                    updateActions()
+                }
+                return true
+            }
+
+            return false
 
         case .argument(let action, let step, var args):
             // Check if there is a next argument
@@ -431,7 +472,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
         // Update State
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
-        activeAction = action 
+        activeAction = action
 
         // Update UI
         inputField.stringValue = "" // Clear for new arg
@@ -747,6 +788,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             let finalAppActions = searchResults.map { result -> NerwAction in
                 let app = allApps[result.index]
+
+                var quickAction: NerwAction? = nil
+                if app.name == "Activity Monitor" {
+                    quickAction = NerwAction(
+                        id: "nerw.quick.process",
+                        title: "Quit Process",
+                        subtitle: "Search and terminate running processes",
+                        icon: .system("xmark.circle"),
+                        triggers: [],
+                        arguments: ["Process Name"],
+                        handler: { _ in }, // Searcher handles selection logic mostly
+                        searcher: { query, completion in
+                            QuickAction.shared.searchProcesses(query: query, completion: completion)
+                        }
+                    )
+                }
+
                  return NerwAction(
                     id: "nerw.app." + app.path,
                     title: app.name,
@@ -756,7 +814,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     arguments: nil,
                     handler: { _ in
                          NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-                    }
+                    },
+                    quickAction: quickAction
                 )
             }
 

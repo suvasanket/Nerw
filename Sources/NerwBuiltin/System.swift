@@ -114,24 +114,6 @@ public class System {
         }
         */
 
-        // Quit Process (Guard Railed)
-        if "ps".starts(with: lowerQuery) || "process".starts(with: lowerQuery) {
-            return NerwAction(
-                id: "nerw.system.process",
-                title: "Quit Process",
-                subtitle: "Terminate a running application",
-                icon: .image(NSImage(named: "quit") ?? NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)!),
-                triggers: ["ps", "process"],
-                arguments: ["Process Name"],
-                handler: { appName in
-                    self.quitProcess(name: appName)
-                },
-                searcher: { query, completion in
-                    self.searchProcesses(query: query, completion: completion)
-                }
-            )
-        }
-
         // WiFi
         if "wifi".starts(with: lowerQuery) {
             return NerwAction(
@@ -222,17 +204,8 @@ public class System {
                 }
             )
 
-        case "ps", "process":
-            return NerwAction(
-                id: "nerw.system.process",
-                title: "Quit Process",
-                subtitle: "Terminate a running application",
-                icon: .image(NSImage(named: "quit") ?? NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)!),
-                triggers: ["ps", "process"],
-                arguments: ["Process Name"],
-                handler: { appName in self.quitProcess(name: appName) },
-                searcher: { query, completion in self.searchProcesses(query: query, completion: completion) }
-            )
+        // Quit Process - Removed
+
 
         case "wifi":
             return NerwAction(
@@ -337,135 +310,8 @@ public class System {
         }
     }
 
-    // MARK: - Process Management
+    // MARK: - Process Management (Moved to QuickAction)
 
-    private func searchProcesses(query: String, completion: @escaping ([NerwAction]) -> Void) {
-        // Run on background thread
-        DispatchQueue.global(qos: .userInitiated).async {
-            // Use 'ps -x -o pid,command' to list all processes owned by the user
-            // -x: processes owned by user
-            // -o pid,command: output format
-            let task = Process()
-            task.launchPath = "/bin/ps"
-            task.arguments = ["-x", "-o", "pid,command"]
-
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = Pipe() // Ignore error
-
-            do {
-                try task.run()
-                task.waitUntilExit()
-
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                guard let output = String(data: data, encoding: .utf8) else {
-                    DispatchQueue.main.async { completion([]) }
-                    return
-                }
-
-                let lowerQuery = query.lowercased()
-                let currentPid = ProcessInfo.processInfo.processIdentifier
-
-                // Critical processes to protect (Guard Rails)
-                let protectedProcesses = ["loginwindow", "launchd", "UserEventAgent", "distnoted", "cfprefsd", "Nerw"]
-
-                var results: [NerwAction] = []
-
-                // Parse lines. output header is "  PID COMMAND"
-                let lines = output.components(separatedBy: .newlines).dropFirst() // Skip header
-
-                for line in lines {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    guard !trimmed.isEmpty else { continue }
-
-                    // Split PID and Command. PID is first non-space token.
-                    let components = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-                    guard components.count == 2,
-                          let pid = Int(components[0]),
-                          pid != currentPid // Don't allow killing self
-                    else { continue }
-
-                    let commandPath = String(components[1])
-                    let commandName = commandPath.components(separatedBy: "/").last ?? commandPath
-
-                    // Guard Rails Filter
-                    if protectedProcesses.contains(commandName) { continue }
-
-                    // Filter match
-                    if !query.isEmpty && !commandName.lowercased().contains(lowerQuery) {
-                        continue
-                    }
-
-                    // Icon
-                    var icon: NSImage? = nil
-                    if commandPath.hasSuffix(".app") || commandPath.contains(".app/") {
-                        // Attempt to find app bundle path for icon
-                        // Crude approximation: path up to .app
-                        if let range = commandPath.range(of: ".app") {
-                             let bundlePath = String(commandPath[..<range.upperBound])
-                             icon = NSWorkspace.shared.icon(forFile: bundlePath)
-                        }
-                    }
-                    if icon == nil {
-                         icon = NSWorkspace.shared.icon(for: UTType.application)
-                    }
-
-                    results.append(NerwAction(
-                        id: "nerw.system.process.\(pid)",
-                        title: commandName,
-                        subtitle: "PID: \(pid) • \(commandPath)",
-                        icon: icon != nil ? .image(icon!) : .image(NSWorkspace.shared.icon(for: UTType.application)),
-                        triggers: [commandName],
-                        arguments: nil,
-                        handler: { _ in
-                            self.quitProcess(pid: pid, name: commandName)
-                        }))
-                }
-
-                // Limit results if query is empty to avoid overwhelming list (though typically query isn't empty)
-                // If query is empty, maybe show top 50?
-                if query.isEmpty {
-                    results = Array(results.prefix(50))
-                }
-
-                DispatchQueue.main.async {
-                    completion(results)
-                }
-
-            } catch {
-                print("[System] ps command error: \(error)")
-                DispatchQueue.main.async { completion([]) }
-            }
-        }
-    }
-
-    private func quitProcess(name: String) {
-        // Fallback for name-based kill (less precise)
-        // killall? No, too dangerous.
-        // Just inform use to use process list.
-    }
-
-    private func quitProcess(pid: Int, name: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
-             // Try kill -TERM first (Graceful)
-             let task = Process()
-             task.launchPath = "/bin/kill"
-             task.arguments = ["-TERM", "\(pid)"]
-             task.standardOutput = FileHandle.nullDevice
-
-             try? task.run()
-             task.waitUntilExit()
-
-             if task.terminationStatus != 0 {
-                 // If failed, maybe ask user? For now, just Log.
-                 // User requested "quit", usually expects it to go away.
-                 // Force kill? Maybe too aggressive for default.
-                 print("[System] Failed to TERM \(name) (\(pid)).")
-             } else {
-                 print("[System] Sent TERM to \(name) (\(pid)).")
-             }
-        }
-    }
 
     // MARK: - Volume Search
 

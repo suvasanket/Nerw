@@ -73,6 +73,15 @@ For actions requiring multiple inputs (like adding a search engine):
 - **Shift + Tab / Backspace**: Go back to the previous step.
 - **Enter**: Submit the current step or execute the final action.
 
+### Quick Actions (Secondary Actions)
+Some results offer a secondary action, indicated by a **lightning bolt icon** when selected.
+1.  **Trigger**: Press `Tab` on a supported result.
+2.  **Behavior**: The search bar transforms to the secondary action mode.
+3.  **Example**:
+    -   Search for **Activity Monitor**.
+    -   Press `Tab` -> Enters "Quit Process" mode.
+    -   Type a process name and press `Enter` to kill it.
+
 ### ⌨️ Keyboard Navigation
 Designed for mouse-free usage:
 - **Navigation**:
@@ -80,7 +89,7 @@ Designed for mouse-free usage:
   - `Ctrl + P` or `Up Arrow`: Previous Result
 - **Actions**:
   - `Enter`: Open/Execute selected result.
-  - `Tab`: Enter Argument Mode (if supported) or Auto-complete.
+  - `Tab`: Enter Argument Mode (if supported) or trigger **Quick Action** (if available).
   - `Esc`: Close Nerw.
 
 ## ⚡ Performance

@@ -24,6 +24,10 @@ public struct NerwAction {
     // Searcher: For dynamic results (argument gathering or recursive search)
     public let searcher: ((String, @escaping ([NerwAction]) -> Void) -> Void)?
 
+    // Quick Action: A secondary action available on this result (e.g. via Tab)
+    // Wrapped in a class to avoid recursive struct value type error
+    public let quickAction: NerwActionBox?
+
     public init(
         id: String,
         title: String,
@@ -32,7 +36,8 @@ public struct NerwAction {
         triggers: [String] = [],
         arguments: [String]? = nil,
         handler: ((String) -> Void)? = nil,
-        searcher: ((String, @escaping ([NerwAction]) -> Void) -> Void)? = nil
+        searcher: ((String, @escaping ([NerwAction]) -> Void) -> Void)? = nil,
+        quickAction: NerwAction? = nil
     ) {
         self.id = id
         self.title = title
@@ -42,10 +47,18 @@ public struct NerwAction {
         self.arguments = arguments
         self.handler = handler
         self.searcher = searcher
+        self.quickAction = quickAction.map { NerwActionBox($0) }
     }
 
     // Convenience for backward compatibility or simple boolean check
     public var supportsArguments: Bool {
         return arguments != nil
+    }
+}
+
+public class NerwActionBox {
+    public let value: NerwAction
+    public init(_ value: NerwAction) {
+        self.value = value
     }
 }
