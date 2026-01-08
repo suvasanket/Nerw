@@ -102,7 +102,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var inputState: InputState = .search
 
     // Tracks current search task
-    private var searchWorkItem: DispatchWorkItem?
+
 
     override func loadView() {
         // Initial height calculation for shrink view
@@ -368,18 +368,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
             let action = actions[selectedIndex]
-
-            // Prioritize Quick Action (Bolt) if present - often implies specific enhanced capability
-            if action.quickAction != nil {
-                 let bolt = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil) ?? NSImage()
-                 setIcons([bolt])
+            
+            // UI Automation: Use Model-provided Icon
+            if let iconName = action.modeIconName {
+                 let icon = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage()
+                 setIcons([icon])
                  return
-            }
-
-            if action.supportsArguments {
-                let tab = NSImage(systemSymbolName: "arrow.right.to.line", accessibilityDescription: nil) ?? NSImage()
-                setIcons([tab])
-                return
             }
         }
         setIcons([])
@@ -420,8 +414,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     // Direct Swap to Quick Action? Or Execute?
                     // For "Quit", usually we want to see it.
                     activeAction = quickAction
-                    inputField.stringValue = ""
                     inputField.placeholderString = quickAction.title
+                    inputField.stringValue = ""
 
                     if let icon = quickAction.icon {
                         switch icon {
@@ -474,8 +468,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
 
-        // Update UI
-        inputField.stringValue = "" // Clear for new arg
 
         // Update Placeholder based on argument name (Feedback)
         if let names = action.arguments, step < names.count {
@@ -483,6 +475,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         } else {
             inputField.placeholderString = action.title
         }
+
+        // Update UI
+        inputField.stringValue = "" // Clear for new arg
 
         // Ensure icon is consistent
         if let icon = action.icon {
@@ -702,187 +697,31 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     // MARK: - Search
-
     private func search(query: String) {
-        // If in Argument Mode with active searcher
-        if let action = activeAction, let searcher = action.searcher {
-            searcher(query) { [weak self] results in
-                self?.actions = results
-                self?.updateActions()
-            }
-            return
-        }
-
-        var newActions: [NerwAction] = []
-
-        if query.lowercased() == "add search engine" || query.lowercased() == "add" {
-            newActions.append(NerwAction(
-                id: "nerw.builtin.addengine",
-                title: "Add Search Engine",
-                subtitle: "Add a custom search engine",
-                icon: .system("plus.circle"),
-                triggers: ["add search engine", "add"],
-                arguments: ["Search URL (use %s)", "Trigger Keyword"],
-                handler: { _ in },
-                searcher: nil
-            ))
-        }
-
-        guard !query.isEmpty else {
-            actions = newActions
-            updateActions()
-            return
-        }
-
-        // 0. Built-in Extensions & Search Engines
-
-        if let find = FindFile.shared.check(query: query) {
-            newActions.append(find)
-        }
-        if let result = Nerw.shared.check(query: query) {
-            newActions.append(result)
-        }
-        if let system = System.shared.check(query: query) {
-            newActions.append(system)
-        }
-        if let engineResult = SearchEngine.shared.check(query: query) {
-            newActions.append(engineResult)
-        }
-
-        // 1. Check for Extension Triggers
-        let components = query.split(separator: " ", maxSplits: 1)
-        if let firstWord = components.first,
-           let extensionManifest = ExtensionEngine.shared.extensions.first(where: { $0.trigger == String(firstWord) }) {
-
-             let arg = components.count > 1 ? String(components[1]) : ""
-
-             // Run Extension
-              ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { [weak self] extResults in
-                  DispatchQueue.main.async {
-                      self?.actions = newActions + extResults
-                      self?.updateActions()
-                  }
-              }
+        // If in Argument Mode with active searcher, delegate it via Service
+        if let action = activeAction {
+             SearchService.shared.delegateSearch(action: action, query: query) { [weak self] results in
+                 DispatchQueue.main.async { // Ensure Main Thread
+                     self?.actions = results
+                     self?.updateActions()
+                 }
+             }
              return
         }
 
-        // 2. Default App Search (Fallback) - Async
-        let currentQuery = query
-        // Cancel previous pending search
-        searchWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-
-            if self.searchWorkItem?.isCancelled == true { return }
-
-            let allApps = AppSearch.shared.getAllApps()
-
-            if self.searchWorkItem?.isCancelled == true { return }
-
-            let fuse = Fuse()
-            let appNames = allApps.map { $0.name }
-            let searchResults = fuse.searchSync(currentQuery, in: appNames)
-
-            if self.searchWorkItem?.isCancelled == true { return }
-
-            let finalAppActions = searchResults.map { result -> NerwAction in
-                let app = allApps[result.index]
-
-                var quickAction: NerwAction? = nil
-                if app.name == "Activity Monitor" {
-                    quickAction = NerwAction(
-                        id: "nerw.quick.process",
-                        title: "Quit Process",
-                        subtitle: "Search and terminate running processes",
-                        icon: .system("xmark.circle"),
-                        triggers: [],
-                        arguments: ["Process Name"],
-                        handler: { _ in }, // Searcher handles selection logic mostly
-                        searcher: { query, completion in
-                            QuickAction.shared.searchProcesses(query: query, completion: completion)
-                        }
-                    )
-                }
-
-                 return NerwAction(
-                    id: "nerw.app." + app.path,
-                    title: app.name,
-                    subtitle: "Application",
-                    icon: .image(NSWorkspace.shared.icon(forFile: app.path)),
-                    triggers: [app.name],
-                    arguments: nil,
-                    handler: { _ in
-                         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-                    },
-                    quickAction: quickAction
-                )
-            }
-
-            // Smart Suggestions
-            let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
-
-            DispatchQueue.main.async { [weak self] in
+        // Main Search via Service
+        SearchService.shared.search(query: query) { [weak self] results in
+            DispatchQueue.main.async { // Ensure Main Thread
                 guard let self = self else { return }
-                guard self.inputField.stringValue == currentQuery else { return }
-
-                // Combine ALL actions
-                let allActions = newActions + finalAppActions + suggestions
-
-                // GLOBAL FRECENCY RANKING
-                let normalizedQuery = currentQuery.lowercased().trimmingCharacters(in: .whitespaces)
-                var exactMatches: [(action: NerwAction, score: Double)] = []
-                var frecencyBoosted: [(action: NerwAction, score: Double)] = []
-                var otherActions: [NerwAction] = []
-
-                for action in allActions {
-                    let frecencyScore = FrecencyManager.shared.score(for: action.id, query: currentQuery, sensitivity: .moderate)
-                    let isExact = action.title.lowercased() == normalizedQuery
-
-                    if isExact {
-                        exactMatches.append((action, frecencyScore))
-                    } else if frecencyScore > 0 {
-                        frecencyBoosted.append((action, frecencyScore))
-                    } else {
-                        otherActions.append(action)
-                    }
+                // Verify text hasn't changed (though Service handles cancellation best effort)
+                if self.inputField.stringValue == query {
+                    self.actions = results
+                    self.selectedIndex = 0
+                    self.userHasNavigated = false
+                    self.updateActions()
                 }
-
-                // Sort Exact Matches & Frecency Boosted by score (descending)
-                exactMatches.sort { $0.score > $1.score }
-                frecencyBoosted.sort { $0.score > $1.score }
-
-                self.actions = exactMatches.map({$0.action}) + frecencyBoosted.map({$0.action}) + otherActions
-
-                // Smart Suggestions Logic
-                let config = ConfigManager.shared.config
-                let wordCount = normalizedQuery.split(separator: " ").count
-
-                // Condition 1: Word Count >= Threshold
-                if wordCount >= config.SearchEngineSuggestThreshold {
-                    // Condition 2: Top result is NOT an exact match
-                    if let first = self.actions.first, first.title.lowercased() != normalizedQuery {
-                        // Extract Search Suggestions from the list
-                        let suggestionActions = self.actions.filter { action in
-                             return action.id.hasSuffix(".suggestion")
-                        }
-
-                        if !suggestionActions.isEmpty {
-                            let withoutSuggestions = self.actions.filter { action in !suggestionActions.contains(where: { s in s.id == action.id }) }
-                            // Prepend to top
-                            self.actions = suggestionActions + withoutSuggestions
-                        }
-                    }
-                }
-
-                self.selectedIndex = 0
-                self.userHasNavigated = false
-                self.updateActions()
             }
         }
-
-        searchWorkItem = workItem
-        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
 
     private func updateActions() {

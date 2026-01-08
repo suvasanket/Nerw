@@ -112,6 +112,56 @@ public class FrecencyManager {
         }
     }
     
+    /// Calculate a combined score for an item, prioritizing Smart Suggestions (Query-Specific)
+    /// but falling back to General Frecency (Global) if no query match exists.
+    ///
+    /// - Parameters:
+    ///   - id: unique identifier of the action
+    ///   - query: current search query
+    ///   - matchText: text to match against the query (e.g. item title). Required for Global Frecency to apply.
+    ///   - querySensitivity: sensitivity for exact query matches (Smart Suggestions)
+    ///   - globalSensitivity: sensitivity for global usage (Global Frecency)
+    /// - Returns: A unified score. If a Smart Suggestion match exists, it returns a very high score (> 1,000,000).
+    public func combinedScore(for id: String, query: String, matchText: String?, querySensitivity: FrecencySensitivity, globalSensitivity: FrecencySensitivity) -> Double {
+        let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !normalizedQuery.isEmpty else { return 0.0 }
+        
+        return queue.sync {
+            var finalScore: Double = 0.0
+            
+            // 1. Smart Suggestion (Query Specific) - HIGHEST PRIORITY
+            // Check EXACT query match first
+            if querySensitivity != .disabled {
+                let exactKey = "\(normalizedQuery):\(id)"
+                if let exactData = queryScores[exactKey] {
+                    let queryScore = calculateScore(count: exactData.count, lastUsed: exactData.lastUsed) * querySensitivity.multiplier
+                    if queryScore > 0 {
+                        // Apply massive boost to ensure these always float to top
+                        finalScore += 1_000_000.0 + queryScore
+                    }
+                }
+                // TODO: Potential Future Improvement: Check for *contained/prefix* stored queries?
+                // User requirement "starts with in stored frecency entry" could apply here too,
+                // but checking `exactKey` is the standard "Smart Suggestion" definition.
+            }
+            
+            // 2. Global Frecency (General Usage) - LOW PRIORITY
+            // Applied ONLY if the item title starts with the query.
+            if globalSensitivity != .disabled {
+                // Check Condition: "if the query is contained and starts with, in the stored frecency entry"
+                // Interpreted as: The item (represented by matchText) must start with the query.
+                if let text = matchText?.lowercased(), text.hasPrefix(normalizedQuery) {
+                    if let globalData = scores[id] {
+                        let globalScore = calculateScore(count: globalData.count, lastUsed: globalData.lastUsed) * globalSensitivity.multiplier
+                        finalScore += globalScore
+                    }
+                }
+            }
+            
+            return finalScore
+        }
+    }
+    
     // MARK: - Private Helpers
     
     private func calculateScore(count: Int, lastUsed: TimeInterval) -> Double {

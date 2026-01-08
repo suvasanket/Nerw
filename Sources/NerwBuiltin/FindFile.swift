@@ -79,11 +79,9 @@ public class FindFile {
             icon: .image(finderIcon),
             triggers: ["find", "file"],
             arguments: ["Filename"],
-            handler: { _ in
-                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: NSHomeDirectory())
-            },
+            handler: nil,
             searcher: { argument, completion in
-                self.liveSearch(query: argument, completion: completion)
+                self.search(query: argument, completion: completion)
             }
         )
     }
@@ -92,7 +90,7 @@ public class FindFile {
 
     // MARK: - Live Search Engine
 
-    private func liveSearch(query: String, completion: @escaping ([NerwAction]) -> Void) {
+    public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
         // 1. Cleanup previous query
         stopCurrentQuery()
 

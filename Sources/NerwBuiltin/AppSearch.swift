@@ -32,18 +32,31 @@ public class AppSearch {
     }
 
     private func performSearch() -> [AppInfo] {
+        var results: [AppInfo] = []
+        
         // Strategy 1: Snapshot MDQuery (Native API) - FASTEST & NATIVE
         if let spotlightResults = runMDQuerySearch() {
-            return spotlightResults
-        }
-
+            results = spotlightResults
+        } 
         // Strategy 2: fd (if installed)
-        if let fdResults = runFd() {
-            return fdResults
+        else if let fdResults = runFd() {
+            results = fdResults
+        }
+        // Strategy 3: find (Fallback)
+        else {
+            results = runFind()
         }
 
-        // Strategy 3: find (Fallback)
-        return runFind()
+        // Explicitly ensure Finder is present (System Essential)
+        // Finder often lives in /System/Library/CoreServices, which might be out of scope for standard app queries
+        if !results.contains(where: { $0.name == "Finder" }) {
+            let finderPath = "/System/Library/CoreServices/Finder.app"
+            if FileManager.default.fileExists(atPath: finderPath) {
+                results.append(AppInfo(name: "Finder", path: finderPath))
+            }
+        }
+
+        return results
     }
 
     // MARK: - Strategies

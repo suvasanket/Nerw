@@ -54,8 +54,44 @@ public struct NerwAction {
     public var supportsArguments: Bool {
         return arguments != nil
     }
-}
 
+    // Standardized Action Mode
+    public enum ActionMode {
+        case none
+        case arguments
+        case quickAction // Takes precedence if both exist
+    }
+
+    public var mode: ActionMode {
+        if quickAction != nil { return .quickAction }
+        if arguments != nil { return .arguments }
+        return .none
+    }
+
+    // UI Automation Helpers
+    public var modeIconName: String? {
+        switch mode {
+        case .none: return nil
+        case .arguments: return "arrow.right.to.line"
+        case .quickAction: return "bolt.fill"
+        }
+    }
+
+    public var modeHintText: String? {
+        switch mode {
+        case .none:
+            return nil
+        case .arguments:
+            if let args = arguments, !args.isEmpty {
+                 return args[0]
+            }
+            return "Arguments"
+        case .quickAction:
+            return quickAction?.value.title
+        }
+    }
+}
+ 
 public class NerwActionBox {
     public let value: NerwAction
     public init(_ value: NerwAction) {
