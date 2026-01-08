@@ -20,7 +20,7 @@ class ResultCellView: NSTableCellView {
     }
 
     private func setupViews() {
-        let metrics = PopupContentViewController.LayoutMetrics.Cell.self
+        let metrics = MainPanelContentViewController.LayoutMetrics.Cell.self
 
         containerView.wantsLayer = true
         containerView.layer?.cornerRadius = metrics.cornerRadius
@@ -81,7 +81,7 @@ class ResultCellView: NSTableCellView {
         let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
         // Font
-        if let fontName = config?.font, let font = NSFont(name: fontName, size: PopupContentViewController.LayoutMetrics.Cell.Text.titleSize) {
+        if let fontName = config?.font, let font = NSFont(name: fontName, size: MainPanelContentViewController.LayoutMetrics.Cell.Text.titleSize) {
             titleLabel.font = font
         }
 

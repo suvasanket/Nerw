@@ -1,9 +1,9 @@
-// PopupWindowController.swift
+// MainPanelWindowController.swift
 import Cocoa
 
-public class PopupWindowController: NSObject {
-    private var panel: PopupPanel!
-    private var contentViewController: PopupContentViewController!
+public class MainPanelWindowController: NSObject {
+    private var panel: MainPanel!
+    private var contentViewController: MainPanelContentViewController!
 
     public var isVisible: Bool { panel.isVisible }
 
@@ -14,16 +14,16 @@ public class PopupWindowController: NSObject {
 
     private func setupPanel() {
         // Create content view controller
-        contentViewController = PopupContentViewController()
+        contentViewController = MainPanelContentViewController()
         contentViewController.delegate = self
 
         // Calculate window size
-        let metrics = PopupContentViewController.LayoutMetrics.self
+        let metrics = MainPanelContentViewController.LayoutMetrics.self
         let width = metrics.Window.width
         let initialHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
 
         // Create panel
-        panel = PopupPanel(
+        panel = MainPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: initialHeight),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
@@ -57,7 +57,7 @@ public class PopupWindowController: NSObject {
         // We want the Search Bar to be roughly at the "Visual Center" + Offset
         // regardless of whether there are results or not.
         
-        let metrics = PopupContentViewController.LayoutMetrics.self
+        let metrics = MainPanelContentViewController.LayoutMetrics.self
         let searchBarHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
         
         // This is where we want the center of the Search Bar to be
@@ -103,7 +103,7 @@ public class PopupWindowController: NSObject {
     }
 }
 
-extension PopupWindowController: PopupContentDelegate {
+extension MainPanelWindowController: MainPanelContentDelegate {
     func didPressEscape() {
         hide()
     }
@@ -119,7 +119,7 @@ extension PopupWindowController: PopupContentDelegate {
     }
 
     func didUpdateResults(count: Int) {
-        let metrics = PopupContentViewController.LayoutMetrics.self
+        let metrics = MainPanelContentViewController.LayoutMetrics.self
         let rowHeight = metrics.Results.rowHeight
         let maxVisible = metrics.Results.maxVisibleRows
         let resultsHeight = CGFloat(min(count, maxVisible)) * rowHeight

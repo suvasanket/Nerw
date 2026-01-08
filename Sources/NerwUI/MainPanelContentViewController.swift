@@ -1,16 +1,16 @@
-// PopupContentViewController.swift
+// MainPanelContentViewController.swift
 import Cocoa
 import NerwSearchBackend
 import NerwCore
 import NerwBuiltin
 
-protocol PopupContentDelegate: AnyObject {
+protocol MainPanelContentDelegate: AnyObject {
     func didPressEscape()
     func didSubmit(text: String)
     func didUpdateResults(count: Int)
 }
 
-class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTableViewDataSource,
+class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NSTableViewDataSource,
     NSTableViewDelegate
 {
     // MARK: - Layout Configuration
@@ -74,7 +74,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         }
     }
 
-    weak var delegate: PopupContentDelegate?
+    weak var delegate: MainPanelContentDelegate?
 
     private var iconContainer: NSStackView!
     private var defaultSearchIcon: NSImageView!
@@ -100,8 +100,9 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         case argument(action: NerwAction, step: Int, collectedArgs: [String])
     }
     private var inputState: InputState = .search
-
-    // Action struct replaced by NerwAction from NerwCore
+    
+    // Tracks current search task
+    private var searchWorkItem: DispatchWorkItem?
 
     override func loadView() {
         // Initial height calculation for shrink view
@@ -354,13 +355,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
     private func executeResult(_ result: NerwAction, query: String) -> Bool {
          if let handler = result.handler {
-             handler("") // Should we pass query here? Builtins expect arg, but if triggered directly, default is empty or query?
-             // Actually, handler signature is (String) -> Void.
-             // If this action was selected directly, we might not have an argument yet.
-             // But if it supportsArguments and we forced execution, maybe it takes current query?
-             // But for AppSearch, handler ignores arg.
-             // For System actions like toggleWifi, it ignores arg.
-
+             handler("") // Handler likely ignored arg if triggered directly without argument collection
              FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
              closeSession()
              return true
@@ -436,7 +431,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
     private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
         // Update State
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
-        activeAction = action // Keep for legacy check compatibility
+        activeAction = action 
 
         // Update UI
         inputField.stringValue = "" // Clear for new arg
@@ -597,7 +592,7 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
             if let action = activeAction {
                  if let handler = action.handler {
                      handler(inputField.stringValue)
-                     // Restore state after submit (Stay open if handler logic implies it, but reset UI)
+                     // Restore state after submit
                      resetToSearch()
                  } else {
                      delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
@@ -624,9 +619,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                      return true
                 }
 
-                // Standard Execution (if not already handled in step 1, e.g. might have been skipped if step 1 only checked handler/path?)
-                // Step 1 calls executeResult which checks handler/path.
-                // If we are here, it means executeResult returned false (no handler/path).
                 if !executeResult(selectedAction, query: inputField.stringValue) {
                     delegate?.didSubmit(text: selectedAction.title)
                 }
@@ -735,25 +727,22 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
         // 2. Default App Search (Fallback) - Async
         let currentQuery = query
-        // Cancel previous pending search to optimize efficiency
+        // Cancel previous pending search
         searchWorkItem?.cancel()
 
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
 
-            // Check for cancellation early
             if self.searchWorkItem?.isCancelled == true { return }
 
             let allApps = AppSearch.shared.getAllApps()
 
-            // Check cancellation
             if self.searchWorkItem?.isCancelled == true { return }
 
             let fuse = Fuse()
             let appNames = allApps.map { $0.name }
             let searchResults = fuse.searchSync(currentQuery, in: appNames)
 
-            // Check cancellation
             if self.searchWorkItem?.isCancelled == true { return }
 
             let finalAppActions = searchResults.map { result -> NerwAction in
@@ -773,13 +762,12 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
 
             // Smart Suggestions
             let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
-            // suggestions are already NerwAction
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 guard self.inputField.stringValue == currentQuery else { return }
 
-                // Combine ALL actions: Built-in + App Results + Suggestions
+                // Combine ALL actions
                 let allActions = newActions + finalAppActions + suggestions
 
                 // GLOBAL FRECENCY RANKING
@@ -816,16 +804,12 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
                     // Condition 2: Top result is NOT an exact match
                     if let first = self.actions.first, first.title.lowercased() != normalizedQuery {
                         // Extract Search Suggestions from the list
-                        // Using ID prefix check as established in SearchEngine.swift
                         let suggestionActions = self.actions.filter { action in
-                             // Matches ID patterns from SearchEngine: nerw.engine.*.suggestion or nerw.custom.*.suggestion
                              return action.id.hasSuffix(".suggestion")
                         }
 
                         if !suggestionActions.isEmpty {
-                            // Remove them from current position
                             let withoutSuggestions = self.actions.filter { action in !suggestionActions.contains(where: { s in s.id == action.id }) }
-
                             // Prepend to top
                             self.actions = suggestionActions + withoutSuggestions
                         }
@@ -841,9 +825,6 @@ class PopupContentViewController: NSViewController, NSTextFieldDelegate, NSTable
         searchWorkItem = workItem
         DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-
-    // Tracks current search task
-    private var searchWorkItem: DispatchWorkItem?
 
     private func updateActions() {
         let hasActions = !actions.isEmpty

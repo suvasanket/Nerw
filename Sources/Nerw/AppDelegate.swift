@@ -5,7 +5,7 @@ import NerwSearchBackend
 import Carbon.HIToolbox
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var popupController: PopupWindowController!
+    private var popupController: MainPanelWindowController!
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -13,7 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         // Initialize popup
-        popupController = PopupWindowController()
+        popupController = MainPanelWindowController()
 
         // Setup menu bar icon (optional)
         setupStatusItem()
