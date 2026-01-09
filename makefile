@@ -8,9 +8,10 @@ clean:
 	swift package reset
 	rm -rf .build
 
-run: bundle
-	pkill -x Nerw || true
-	open $(BUNDLE_NAME)
+open:
+	pkill -x $(APP) || true; open $(BUNDLE_NAME)
+
+run: bundle open
 
 debug: bundle
 	pkill -x Nerw || true

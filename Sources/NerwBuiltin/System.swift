@@ -341,7 +341,7 @@ public class System {
                         id: "nerw.system.volume.\(name)",
                         title: name,
                         subtitle: url.path,
-                        icon: .image(NSWorkspace.shared.icon(forFile: url.path)),
+                        icon: .file(url),
                         triggers: [name],
                         arguments: nil,
                         handler: { _ in

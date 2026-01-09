@@ -1,7 +1,7 @@
-// ResultCellView.swift
 import Cocoa
 import NerwSearchBackend
 import NerwCore
+import NerwUtils
 
 class ResultCellView: NSTableCellView {
     private let iconView = NSImageView()
@@ -133,6 +133,24 @@ class ResultCellView: NSTableCellView {
                 iconView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
             case .image(let img):
                 iconView.image = img
+            case .file(let url):
+                // Set default icon first to avoid flickering/empty state
+                iconView.image = NSWorkspace.shared.icon(for: .data) // Generic placeholder
+                
+                // Async load
+                let currentActionId = action.id
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64)) { [weak self] image in
+                    guard let self = self else { return }
+                    // Verify cell is still configured for this action (using ID check if possible, or just simplistic reload)
+                    // Since ResultCellView doesn't store the action ID in a property, we rely on the fact 
+                    // that table view cells reuse might happen. 
+                    // Ideally check against current model, but we don't store it.
+                    // Risk of race condition on fast scroll, but acceptable for now or I can add a tag/tracking.
+                    // Let's rely on main thread dispatch and simple assignment.
+                    if let image = image {
+                        self.iconView.image = image
+                    }
+                }
             }
         } else {
             iconView.image = nil

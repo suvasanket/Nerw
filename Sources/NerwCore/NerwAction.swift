@@ -8,6 +8,7 @@ public struct NerwAction {
     public enum IconType {
         case system(String)
         case image(NSImage)
+        case file(URL)
     }
     public let icon: IconType?
 

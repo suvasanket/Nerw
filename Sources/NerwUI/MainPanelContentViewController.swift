@@ -3,6 +3,7 @@ import Cocoa
 import NerwSearchBackend
 import NerwCore
 import NerwBuiltin
+import NerwUtils
 
 protocol MainPanelContentDelegate: AnyObject {
     func didPressEscape()
@@ -423,6 +424,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                             setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
                         case .image(let img):
                             setIcons([img])
+                        case .file(let url):
+                            setIcons([NSWorkspace.shared.icon(for: .data)])
+                            NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
+                                 if let image = image { self?.setIcons([image]) }
+                            }
                         }
                     }
                     actions = []
@@ -486,6 +492,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
             case .image(let img):
                 setIcons([img])
+            case .file(let url):
+                setIcons([NSWorkspace.shared.icon(for: .data)])
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
+                     if let image = image { self?.setIcons([image]) }
+                }
             }
         }
 
@@ -545,6 +556,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
             case .image(let img):
                 setIcons([img])
+            case .file(let url):
+                setIcons([NSWorkspace.shared.icon(for: .data)])
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
+                     if let image = image { self?.setIcons([image]) }
+                }
             }
          }
 

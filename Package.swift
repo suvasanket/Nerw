@@ -34,13 +34,18 @@ let package = Package(
             exclude: ["Classes/Fuse_LICENSE"]
         ),
         .target(
+            name: "NerwUtils",
+            dependencies: [],
+            path: "Sources/NerwUtils"
+        ),
+        .target(
             name: "NerwUI",
-            dependencies: ["NerwCore", "NerwBuiltin", "NerwSearchBackend"],
+            dependencies: ["NerwCore", "NerwBuiltin", "NerwSearchBackend", "NerwUtils"],
             path: "Sources/NerwUI"
         ),
         .executableTarget(
             name: "Nerw",
-            dependencies: ["NerwCore", "NerwUI", "NerwBuiltin"],
+            dependencies: ["NerwCore", "NerwUI", "NerwBuiltin", "NerwUtils"],
             path: "Sources/Nerw"
         ),
     ]

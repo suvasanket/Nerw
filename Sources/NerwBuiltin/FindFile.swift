@@ -195,7 +195,7 @@ public class FindFile {
                     id: "nerw.findfile.result.\(path.hashValue)", // Use hash or path for unique ID
                     title: name,
                     subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
-                    icon: .image(NSWorkspace.shared.icon(forFile: path)),
+                    icon: .file(url), // Use async file icon
                     arguments: nil,
                     handler: { _ in
                         if NSApp.currentEvent?.modifierFlags.contains(.command) == true {

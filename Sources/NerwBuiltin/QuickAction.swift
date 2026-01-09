@@ -68,24 +68,24 @@ public class QuickAction {
                     }
 
                     // Icon
-                    var icon: NSImage? = nil
+                    var iconType: NerwAction.IconType
                     if commandPath.hasSuffix(".app") || commandPath.contains(".app/") {
                         // Attempt to find app bundle path for icon
-                        // Crude approximation: path up to .app
                         if let range = commandPath.range(of: ".app") {
                              let bundlePath = String(commandPath[..<range.upperBound])
-                             icon = NSWorkspace.shared.icon(forFile: bundlePath)
+                             iconType = .file(URL(fileURLWithPath: bundlePath))
+                        } else {
+                            iconType = .image(NSWorkspace.shared.icon(for: UTType.application))
                         }
-                    }
-                    if icon == nil {
-                         icon = NSWorkspace.shared.icon(for: UTType.application)
+                    } else {
+                         iconType = .image(NSWorkspace.shared.icon(for: UTType.application))
                     }
 
                     results.append(NerwAction(
                         id: "nerw.system.process.\(pid)",
                         title: commandName,
                         subtitle: "PID: \(pid) • \(commandPath)",
-                        icon: icon != nil ? .image(icon!) : .image(NSWorkspace.shared.icon(for: UTType.application)),
+                        icon: iconType,
                         triggers: [commandName],
                         arguments: nil,
                         handler: { _ in

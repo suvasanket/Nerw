@@ -4,3 +4,5 @@
 # Use ! to negate a pattern (re-include files).
 
 .build/
+.DS_Store
+Nerw.app

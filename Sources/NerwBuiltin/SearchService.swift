@@ -128,7 +128,7 @@ public class SearchService {
                     id: "nerw.app." + app.path,
                     title: app.name,
                     subtitle: "Application",
-                    icon: .image(NSWorkspace.shared.icon(forFile: app.path)),
+                    icon: .file(URL(fileURLWithPath: app.path)),
                     triggers: [app.name],
                     arguments: nil,
                     handler: { _ in
