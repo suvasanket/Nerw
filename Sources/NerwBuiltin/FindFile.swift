@@ -78,18 +78,17 @@ public class FindFile {
             subtitle: "Search and Reveal in Finder",
             icon: .image(finderIcon),
             triggers: ["find", "file"],
-            arguments: ["Filename"],
-            handler: nil,
-            searcher: { argument, completion in
-                self.search(query: argument, completion: completion)
-            }
+            type: .args(
+                placeholder: "Filename",
+                searcher: { _, argument, completion in
+                    self.search(query: argument, completion: completion)
+                },
+                perform: nil
+            )
         )
     }
 
-    // ...
-
     // MARK: - Live Search Engine
-
     public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
         // 1. Cleanup previous query
         stopCurrentQuery()
@@ -198,14 +197,13 @@ public class FindFile {
                     title: name,
                     subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
                     icon: .file(url),  // Use async file icon
-                    arguments: nil,
-                    handler: { _ in
+                    type: .instant(perform: { _ in
                         if NSApp.currentEvent?.modifierFlags.contains(.command) == true {
                             NSWorkspace.shared.activateFileViewerSelecting([url])
                         } else {
                             NSWorkspace.shared.open(url)
                         }
-                    }
+                    })
                 )
                 results.append(result)
             }

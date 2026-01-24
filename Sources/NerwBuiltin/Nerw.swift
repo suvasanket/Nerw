@@ -17,10 +17,9 @@ public class Nerw {
                 subtitle: "Reload configuration from ~/.config/nerw/config.json",
                 icon: .system("arrow.triangle.2.circlepath"),
                 triggers: ["reload config"],
-                arguments: nil,
-                handler: { _ in
+                type: .instant(perform: { _ in
                     ConfigManager.shared.reload()
-                }
+                })
             )
         }
 
@@ -31,15 +30,14 @@ public class Nerw {
                 subtitle: "Reveal config.json in Finder",
                 icon: .system("gear"),
                 triggers: ["open config"],
-                arguments: nil,
-                handler: { _ in
+                type: .instant(perform: { _ in
                     let configPath = FileManager.default.homeDirectoryForCurrentUser
                         .appendingPathComponent(
                             ".config/nerw/config.json"
                         ).path
                     // Select the file
                     NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
-                }
+                })
             )
         }
 
@@ -50,10 +48,9 @@ public class Nerw {
                 subtitle: "Terminate the application",
                 icon: .system("power"),
                 triggers: ["nerw quit"],
-                arguments: nil,
-                handler: { _ in
+                type: .instant(perform: { _ in
                     NSApp.terminate(nil)
-                }
+                })
             )
         }
 
@@ -68,8 +65,7 @@ public class Nerw {
                 subtitle: "Terminate the application",
                 icon: .system("power"),
                 triggers: ["nerw quit"],
-                arguments: nil,
-                handler: { _ in NSApp.terminate(nil) }
+                type: .instant(perform: { _ in NSApp.terminate(nil) })
             )
         }
         if "reload config" == lowerTrigger {
@@ -79,8 +75,7 @@ public class Nerw {
                 subtitle: "Reload configuration from ~/.config/nerw/config.json",
                 icon: .system("arrow.triangle.2.circlepath"),
                 triggers: ["reload config"],
-                arguments: nil,
-                handler: { _ in ConfigManager.shared.reload() }
+                type: .instant(perform: { _ in ConfigManager.shared.reload() })
             )
         }
         if "open config" == lowerTrigger {
@@ -90,14 +85,13 @@ public class Nerw {
                 subtitle: "Reveal config.json in Finder",
                 icon: .system("gear"),
                 triggers: ["open config"],
-                arguments: nil,
-                handler: { _ in
+                type: .instant(perform: { _ in
                     let configPath = FileManager.default.homeDirectoryForCurrentUser
                         .appendingPathComponent(
                             ".config/nerw/config.json"
                         ).path
                     NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
-                }
+                })
             )
         }
         return nil

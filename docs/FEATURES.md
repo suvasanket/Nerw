@@ -5,11 +5,11 @@ Nerw is a Keyboard-First Spotlight replacement for macOS, designed for speed and
 ## 🚀 Core Features
 
 ### Global Hotkey
-- **Toggle**: `Cmd + Shift + Space`
-- Activates the popup instantly from anywhere in macOS.
+- **Toggle**: `Cmd + Shift + Space` (Configurable in `config.json`)
+- Activates the Main Panel instantly from anywhere in macOS.
 
 ### Smart Search
-Nerw intelligently routes your query to the best provider:
+Nerw intelligently routes your query to the best provider via the `SearchService`:
 1.  **Applications**: Fuzzy search installed apps (e.g., "xcode" -> Xcode).
 2.  **Web Search**: Direct integration with:
     - Google (`google [query]`)
@@ -18,14 +18,16 @@ Nerw intelligently routes your query to the best provider:
     - Yahoo (`yahoo [query]`)
     - **Adaptive Defaults**: If you have multiple default engines, Nerw learns your preference per query (e.g. preferring GitHub for code queries).
 3.  **Smart File Search**:
-    - **Trigger**: `find [query]`, `file [query]`, or simply press `Space` in an empty box.
-    - **Hybrid Engine**: automatically prioritizes `fd` (if installed) for blazing fast, developer-aware results (ignoring `node_modules`, etc.), falling back to a scoped native spotlight search.
-    - **Smart Caching**: Sub-queries (e.g., typing "down" then "downloads") are refined instantly in-memory without spawning new processes.
+    - **Trigger**: `find [query]`, `file [query]`.
+    - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
+    - **Filtering**: Automatically excludes developer artifacts like `node_modules`, `.git`, and `build` folders for cleaner results.
 4.  **System Commands**: Quick access to common macOS actions:
     - `sleep` - Put your Mac to sleep  
     - `empty downloads` - Move Downloads folder contents to Trash
     - `eject [volume]` - Eject a specific volume (shows available volumes)
     - `eject all` - Eject all external volumes
+    - `wifi` - Toggle WiFi or connect to known networks.
+    - `bluetooth` - Toggle Bluetooth or connect to devices.
 5.  **Calculator**: (Planned/Upcoming) Basic math operations.
 
 ### Trigger Rules
@@ -67,6 +69,16 @@ Add your own search engines directly from the UI.
     - Example: `gh`
 4.  **Use**: Type `gh my-query` to search.
 
+### UI Theming
+Nerw supports custom theming via `config.json` located at `~/.config/nerw/config.json`.
+You can customize:
+- `font`: Custom font name.
+- `mainBackgroundColor`: Hex color for the panel background.
+- `selectionBackgroundColor`: Hex color for the selected item background.
+- `mainForegroundColor`: Hex color for primary text.
+- `selectionForegroundColor`: Hex color for selected item text.
+- `hintColor`: Hex color for placeholder/hint text.
+
 ### Multi-Argument Navigation
 For actions requiring multiple inputs (like adding a search engine):
 - **Tab**: Advance to the next argument step.
@@ -78,9 +90,9 @@ Some results offer a secondary action, indicated by a **lightning bolt icon** wh
 1.  **Trigger**: Press `Tab` on a supported result.
 2.  **Behavior**: The search bar transforms to the secondary action mode.
 3.  **Example**:
-    -   Search for **Activity Monitor**.
-    -   Press `Tab` -> Enters "Quit Process" mode.
-    -   Type a process name and press `Enter` to kill it.
+    -   Search for **Finder**.
+    -   Press `Tab` -> Enters "Find File" mode.
+    -   Type a filename to search within Finder's scope.
 
 ### ⌨️ Keyboard Navigation
 Designed for mouse-free usage:
@@ -88,11 +100,12 @@ Designed for mouse-free usage:
   - `Ctrl + N` or `Down Arrow`: Next Result
   - `Ctrl + P` or `Up Arrow`: Previous Result
 - **Actions**:
-  - `Enter`: Open/Execute selected result.
+  - `Enter`: Open/Execute selected result. (Hold `Cmd` to Reveal in Finder for files).
   - `Tab`: Enter Argument Mode (if supported) or trigger **Quick Action** (if available).
   - `Esc`: Close Nerw.
 
 ## ⚡ Performance
-- **Native Swift**: Built with AppKit for maximum performance.
+- **Native Swift**: Built with AppKit/Core Graphics for maximum performance.
 - **Low Footprint**: Minimal resource usage (`.accessory` activation policy).
 - **Fast Fuzzy Search**: Uses the integrated `NerwSearchBackend` search library (Fuse implementation).
+- **Async Icons**: Icons are loaded asynchronously to prevent UI stalling.

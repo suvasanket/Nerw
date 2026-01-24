@@ -36,10 +36,10 @@ mv Nerw.app /Applications/
 1.  **Fastest way**: Run `make run` in the terminal. This rebuilds the app if needed, quits any running instance, and launches the updated `Nerw.app`.
 2.  **Manual way**: Launch **Nerw** from your Applications folder or via Spotlight/Raycast.
 3.  Grant any necessary permissions if prompted.
-4.  Use the global hotkey **Cmd + Shift + Space** to toggle the Nerw popup.
+4.  Use the global hotkey **Cmd + Shift + Space** to toggle the Nerw Main Panel.
 
 ## Troubleshooting
 
 ### Hotkey not working?
 - Ensure the app is running (check Activity Monitor).
-- If you have other apps using `Cmd+Shift+Space`, you may need to change the keybinding in `~/nerw/config.json`.
+- If you have other apps using `Cmd+Shift+Space`, you may need to change the keybinding in `~/.config/nerw/config.json`.

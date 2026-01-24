@@ -369,13 +369,26 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func executeResult(_ result: NerwAction, query: String) -> Bool {
-        if let handler = result.handler {
-            handler("")  // Handler likely ignored arg if triggered directly without argument collection
+        switch result.type {
+        case .instant(let perform):
+            perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
             closeSession()
             return true
+
+        case .hybrid(let perform, _):
+            perform(result)
+            FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
+            closeSession()
+            return true
+
+        case .arg, .args:
+            // Should have entered argument mode via Tab or Auto-trigger
+            // But if user presses Enter on it, treat as entering argument mode
+            previousSearchText = inputField.stringValue
+            enterArgumentMode(action: result, step: 0, collectedArgs: [])
+            return true
         }
-        return false
     }
 
     private func updateSelectionIcon() {
@@ -414,64 +427,42 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             guard !actions.isEmpty else { return false }
             let selectedAction = actions[selectedIndex]
 
-            // 1. Argument Support (Primary Drill-down)
-            if selectedAction.supportsArguments {
+            switch selectedAction.type {
+            case .arg, .args:
                 previousSearchText = inputField.stringValue
                 enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
                 return true
-            }
 
-            // 2. Quick Action (Secondary Action via Tab)
-            if let quickActionBox = selectedAction.quickAction {
-                let quickAction = quickActionBox.value
-                if quickAction.supportsArguments {
+            case .hybrid(_, let box):
+                let quickAction = box.value
+                // Check if quick action needs arguments
+                switch quickAction.type {
+                case .arg, .args:
                     activateArgumentMode(for: quickAction, initialArg: "")
-                } else {
-                    // Direct Swap to Quick Action? Or Execute?
-                    // For "Quit", usually we want to see it.
+                case .instant, .hybrid:
+                    // Direct Swap
                     activeAction = quickAction
                     inputField.placeholderString = quickAction.title
                     inputField.stringValue = ""
-
-                    if let icon = quickAction.icon {
-                        switch icon {
-                        case .system(let name):
-                            setIcons([
-                                NSImage(systemSymbolName: name, accessibilityDescription: nil)
-                                    ?? NSImage()
-                            ]
-                            )
-                        case .image(let img):
-                            setIcons([img])
-                        case .file(let url):
-                            setIcons([NSWorkspace.shared.icon(for: .data)])
-                            NerwUtils.IconUtils.getIconAsync(
-                                for: url, size: CGSize(width: 32, height: 32)
-                            ) {
-                                [weak self] image in
-                                if let image = image { self?.setIcons([image]) }
-                            }
-                        }
-                    }
+                    updateIcon(for: quickAction)
                     actions = []
                     updateActions()
                 }
                 return true
-            }
 
-            return false
+            case .instant:
+                return false
+            }
 
         case .argument(let action, let step, var args):
             // Check if there is a next argument
-            if let names = action.arguments, step < names.count - 1 {
-                // Collect current arg value
+            // Only .arg supports multiple steps via array
+            if case .arg(let placeholders, _) = action.type, step < placeholders.count - 1 {
                 args.append(inputField.stringValue)
-                // Move to next step
                 enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
                 return true
-            } else {
-                return false
             }
+            return false
         }
     }
 
@@ -496,17 +487,30 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
 
-        // Update Placeholder based on argument name (Feedback)
-        if let names = action.arguments, step < names.count {
-            inputField.placeholderString = names[step]
-        } else {
-            inputField.placeholderString = action.title
+        // Update Placeholder based on argument name
+        var placeholder = action.title
+        switch action.type {
+        case .arg(let placeholders, _):
+            if step < placeholders.count { placeholder = placeholders[step] }
+        case .args(let ph, _, _):
+            placeholder = ph
+        default: break
         }
+        inputField.placeholderString = placeholder
 
         // Update UI
         inputField.stringValue = ""  // Clear for new arg
+        updateIcon(for: action)
 
-        // Ensure icon is consistent
+        // Clear list to focus on input
+        actions = []
+        updateActions()
+
+        // Trigger initial search for suggestions (e.g. list volumes for "eject")
+        search(query: "")
+    }
+
+    private func updateIcon(for action: NerwAction) {
         if let icon = action.icon {
             switch icon {
             case .system(let name):
@@ -523,13 +527,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 }
             }
         }
-
-        // Clear list to focus on input
-        actions = []
-        updateActions()
-
-        // Trigger initial search for suggestions (e.g. list volumes for "eject")
-        search(query: "")
     }
 
     // MARK: - NSTextFieldDelegate
@@ -574,22 +571,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputField.stringValue = initialArg
         inputField.currentEditor()?.moveToEndOfLine(nil)
         inputField.placeholderString = action.title
-        if let icon = action.icon {
-            switch icon {
-            case .system(let name):
-                setIcons([
-                    NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
-                ])
-            case .image(let img):
-                setIcons([img])
-            case .file(let url):
-                setIcons([NSWorkspace.shared.icon(for: .data)])
-                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) {
-                    [weak self] image in
-                    if let image = image { self?.setIcons([image]) }
-                }
-            }
-        }
+        updateIcon(for: action)
 
         // Clear list & trigger search
         actions = []
@@ -646,19 +628,31 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             if case .argument(let action, let step, var args) = inputState {
                 args.append(inputField.stringValue)
 
-                let isLastStep =
-                    (action.arguments == nil) || (step >= (action.arguments?.count ?? 0) - 1)
+                var isLastStep = false
+                switch action.type {
+                case .arg(let placeholders, _):
+                    isLastStep = step >= placeholders.count - 1
+                case .args:
+                    isLastStep = true  // Single step for args type
+                default: break
+                }
 
                 if isLastStep {
                     // Final Submission
-                    if action.id == "nerw.builtin.addengine", args.count >= 2 {
-                        SearchEngine.shared.addEngine(url: args[0], trigger: args[1])
-                        closeSession()
-                        return true
+                    switch action.type {
+                    case .arg(_, let perform):
+                        perform(action, args)
+                    case .args(_, _, let perform):
+                        if let p = perform {
+                            // Single string arg for 'args' type
+                            p(action, args.joined(separator: " "))
+                        } else {
+                            // Fallback
+                            delegate?.didSubmit(
+                                text: "\(action.title) \(args.joined(separator: " "))")
+                        }
+                    default: break
                     }
-
-                    // General Handler
-                    action.handler?(args.joined(separator: " "))
                     closeSession()
                     return true
                 } else {
@@ -670,11 +664,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             // 3. Active Action Submission (No result selected from list)
             if let action = activeAction {
-                if let handler = action.handler {
-                    handler(inputField.stringValue)
-                    // Restore state after submit
+                switch action.type {
+                case .instant(let perform):
+                    perform(action)
                     resetToSearch()
-                } else {
+                case .args(_, _, let perform):
+                    perform?(action, inputField.stringValue)
+                    resetToSearch()
+                default:
                     delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
                     resetToSearch()
                 }
@@ -686,14 +683,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 let selectedAction = actions[selectedIndex]
 
                 if selectedAction.supportsArguments {
-                    if selectedAction.arguments == nil && !inputField.stringValue.isEmpty {
-                        // Direct execution with current input as argument
-                        selectedAction.handler?(inputField.stringValue)
+                    // If simple arg and has input, maybe execute directly?
+                    if case .arg(let placeholders, let perform) = selectedAction.type,
+                        placeholders.isEmpty == false,
+                        !inputField.stringValue.isEmpty
+                    {
+
+                        // Treat current input as the argument?
+                        // Legacy code did: selectedAction.handler?(inputField.stringValue)
+                        // If user typed "g test" -> input is "test", action is Google.
+                        // Execute it.
+                        perform(selectedAction, [inputField.stringValue])
                         FrecencyManager.shared.recordUsage(
                             id: selectedAction.id, forQuery: inputField.stringValue)
                         closeSession()
                         return true
                     }
+
                     // Enter argument mode
                     previousSearchText = inputField.stringValue
                     enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])

@@ -49,8 +49,7 @@ public class System {
                     NSImage(named: "download") ?? NSImage(
                         systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
                 triggers: ["empty downloads"],
-                arguments: nil,
-                handler: { _ in self.emptyDownloads() }
+                type: .instant(perform: { _ in self.emptyDownloads() })
             )
         }
 
@@ -62,8 +61,7 @@ public class System {
                 subtitle: "Put your Mac to sleep",
                 icon: .system("moon.zzz.fill"),
                 triggers: ["sleep"],
-                arguments: nil,
-                handler: { _ in self.sleep() }
+                type: .instant(perform: { _ in self.sleep() })
             )
         }
 
@@ -75,8 +73,7 @@ public class System {
                 subtitle: "Eject all external volumes",
                 icon: .system("eject.fill"),
                 triggers: ["eject all"],
-                arguments: nil,
-                handler: { _ in self.ejectAll() }
+                type: .instant(perform: { _ in self.ejectAll() })
             )
         }
 
@@ -90,33 +87,19 @@ public class System {
                     NSImage(named: "eject") ?? NSImage(
                         systemSymbolName: "eject", accessibilityDescription: nil)!),
                 triggers: ["eject"],
-                arguments: ["Volume Name"],
-                handler: { volumeName in
-                    if !volumeName.isEmpty {
-                        self.eject(volumeName: volumeName)
+                type: .args(
+                    placeholder: "Volume Name",
+                    searcher: { _, query, completion in
+                        self.searchVolumes(query: query, completion: completion)
+                    },
+                    perform: { _, volumeName in
+                        if !volumeName.isEmpty {
+                            self.eject(volumeName: volumeName)
+                        }
                     }
-                },
-                searcher: { query, completion in
-                    self.searchVolumes(query: query, completion: completion)
-                }
+                )
             )
         }
-
-        // Menu Bar Search (WIP - Disabled)
-        /*
-        if "menu search".starts(with: lowerQuery) {
-            return BuiltinResult(
-                title: "Menu Bar Search",
-                subtitle: "Search menu items of the active application",
-                icon: NSImage(systemSymbolName: "menubar.rectangle", accessibilityDescription: nil),
-                supportsArguments: true,
-                handler: { _ in }, // Execution happens on leaf selection
-                searcher: { query, completion in
-                    self.searchMenuItems(query: query, completion: completion)
-                }
-            )
-        }
-        */
 
         // WiFi
         if "wifi".starts(with: lowerQuery) {
@@ -128,11 +111,13 @@ public class System {
                     NSImage(named: "wifi") ?? NSImage(
                         systemSymbolName: "wifi", accessibilityDescription: nil)!),
                 triggers: ["wifi"],
-                arguments: ["SSID"],
-                handler: { _ in self.toggleWifi() },
-                searcher: { query, completion in
-                    self.listAndSearchNetworks(query: query, completion: completion)
-                }
+                type: .args(
+                    placeholder: "SSID",
+                    searcher: { _, query, completion in
+                        self.listAndSearchNetworks(query: query, completion: completion)
+                    },
+                    perform: { _, _ in self.toggleWifi() }
+                )
             )
         }
 
@@ -150,11 +135,13 @@ public class System {
                         accessibilityDescription: nil
                     )!),
                 triggers: ["bluetooth", "bt"],
-                arguments: ["Device Name"],
-                handler: { _ in self.toggleBluetooth() },
-                searcher: { query, completion in
-                    self.listAndSearchBluetoothDevices(query: query, completion: completion)
-                }
+                type: .args(
+                    placeholder: "Device Name",
+                    searcher: { _, query, completion in
+                        self.listAndSearchBluetoothDevices(query: query, completion: completion)
+                    },
+                    perform: { _, _ in self.toggleBluetooth() }
+                )
             )
         }
 
@@ -174,8 +161,7 @@ public class System {
                     NSImage(named: "download") ?? NSImage(
                         systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
                 triggers: ["empty downloads"],
-                arguments: nil,
-                handler: { _ in self.emptyDownloads() }
+                type: .instant(perform: { _ in self.emptyDownloads() })
             )
 
         case "sleep":
@@ -185,8 +171,7 @@ public class System {
                 subtitle: "Put your Mac to sleep",
                 icon: .system("moon.zzz.fill"),
                 triggers: ["sleep"],
-                arguments: nil,
-                handler: { _ in self.sleep() }
+                type: .instant(perform: { _ in self.sleep() })
             )
 
         case "eject all":
@@ -196,8 +181,7 @@ public class System {
                 subtitle: "Eject all external volumes",
                 icon: .system("eject.fill"),
                 triggers: ["eject all"],
-                arguments: nil,
-                handler: { _ in self.ejectAll() }
+                type: .instant(perform: { _ in self.ejectAll() })
             )
 
         case "eject":
@@ -209,15 +193,17 @@ public class System {
                     NSImage(named: "eject") ?? NSImage(
                         systemSymbolName: "eject", accessibilityDescription: nil)!),
                 triggers: ["eject"],
-                arguments: ["Volume Name"],
-                handler: { volumeName in
-                    if !volumeName.isEmpty {
-                        self.eject(volumeName: volumeName)
+                type: .args(
+                    placeholder: "Volume Name",
+                    searcher: { _, query, completion in
+                        self.searchVolumes(query: query, completion: completion)
+                    },
+                    perform: { _, volumeName in
+                        if !volumeName.isEmpty {
+                            self.eject(volumeName: volumeName)
+                        }
                     }
-                },
-                searcher: { query, completion in
-                    self.searchVolumes(query: query, completion: completion)
-                }
+                )
             )
 
         // Quit Process - Removed
@@ -231,11 +217,13 @@ public class System {
                     NSImage(named: "wifi") ?? NSImage(
                         systemSymbolName: "wifi", accessibilityDescription: nil)!),
                 triggers: ["wifi"],
-                arguments: ["SSID"],
-                handler: { _ in self.toggleWifi() },
-                searcher: { query, completion in
-                    self.listAndSearchNetworks(query: query, completion: completion)
-                }
+                type: .args(
+                    placeholder: "SSID",
+                    searcher: { _, query, completion in
+                        self.listAndSearchNetworks(query: query, completion: completion)
+                    },
+                    perform: { _, _ in self.toggleWifi() }
+                )
             )
 
         case "bluetooth", "bt":
@@ -249,11 +237,13 @@ public class System {
                         accessibilityDescription: nil
                     )!),
                 triggers: ["bluetooth", "bt"],
-                arguments: ["Device Name"],
-                handler: { _ in self.toggleBluetooth() },
-                searcher: { query, completion in
-                    self.listAndSearchBluetoothDevices(query: query, completion: completion)
-                }
+                type: .args(
+                    placeholder: "Device Name",
+                    searcher: { _, query, completion in
+                        self.listAndSearchBluetoothDevices(query: query, completion: completion)
+                    },
+                    perform: { _, _ in self.toggleBluetooth() }
+                )
             )
 
         /*
@@ -372,10 +362,9 @@ public class System {
                         subtitle: url.path,
                         icon: .file(url),
                         triggers: [name],
-                        arguments: nil,
-                        handler: { _ in
+                        type: .instant(perform: { _ in
                             self.eject(volumeName: name)
-                        }
+                        })
                     )
                 }
             }
@@ -397,14 +386,13 @@ public class System {
                     subtitle: "Press Enter to open System Settings",
                     icon: .system("hand.raised.fill"),
                     triggers: [],
-                    arguments: nil,
-                    handler: { _ in
+                    type: .instant(perform: { _ in
                         let url = URL(
                             string:
                                 "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
                         )!
                         NSWorkspace.shared.open(url)
-                    }
+                    })
                 )
                 DispatchQueue.main.async { completion([result]) }
                 return
@@ -444,10 +432,9 @@ public class System {
                     subtitle: "\(targetApp.localizedName ?? "App") > \(pathString)",
                     icon: .system("menubar.arrow.down.rectangle"),
                     triggers: [],
-                    arguments: nil,
-                    handler: { _ in
+                    type: .instant(perform: { _ in
                         self.performMenuAction(element: item.element, app: targetApp)
-                    }
+                    })
                 )
             }
 
@@ -649,10 +636,9 @@ public class System {
                             "Signal: \(network.rssiValue) dBm • Security: \(self.securityString(network))",
                         icon: .system("wifi"),
                         triggers: [ssid],
-                        arguments: nil,
-                        handler: { _ in
+                        type: .instant(perform: { _ in
                             self.connectToWifi(network: network)
-                        }
+                        })
                     )
                 }
 
@@ -798,10 +784,9 @@ public class System {
                         subtitle: "\(status) • \(device.address)",
                         icon: .system("iphone.gen3.radiowaves.left.and.right"),
                         triggers: [name],
-                        arguments: nil,
-                        handler: { _ in
+                        type: .instant(perform: { _ in
                             self.toggleConnectBluetooth(device: device)
-                        }
+                        })
                     )
                 }
 

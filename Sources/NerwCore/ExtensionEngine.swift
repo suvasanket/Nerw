@@ -184,21 +184,53 @@ public class ExtensionEngine {
             icon = .system("puzzlepiece.extension")
         }
 
+        // Determine Action Type
+        let type: NerwAction.ActionType
+
+        if let qa = quickAction {
+            // Hybrid
+            type = .hybrid(
+                perform: { _ in
+                    if let act = actionValue, let url = URL(string: act) {
+                        NSWorkspace.shared.open(url)
+                    }
+                },
+                action: NerwActionBox(qa)
+            )
+        } else if let act = actionValue, act.contains("%s") {
+            // Arg (Input Required)
+            type = .arg(
+                placeholders: ["Query"],
+                perform: { _, args in
+                    if let query = args.first {
+                        let filled = act.replacingOccurrences(
+                            of: "%s",
+                            with: query.addingPercentEncoding(
+                                withAllowedCharacters: .urlQueryAllowed) ?? "")
+                        if let url = URL(string: filled) {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            )
+        } else {
+            // Instant
+            type = .instant(
+                perform: { _ in
+                    if let act = actionValue, let url = URL(string: act) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            )
+        }
+
         return NerwAction(
             id: "nerw.ext.\(extensionId).\(title)",
             title: title,
             subtitle: subtitle,
             icon: icon,
             triggers: [],
-            arguments: actionValue != nil ? nil : ["Argument"],
-            handler: { _ in
-                if let act = actionValue {
-                    if let url = URL(string: act) {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-            },
-            quickAction: quickAction
+            type: type
         )
     }
 }

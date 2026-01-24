@@ -23,9 +23,14 @@ public class SearchService {
                     subtitle: "Add a custom search engine",
                     icon: .system("plus.circle"),
                     triggers: ["add search engine", "add"],
-                    arguments: ["Search URL (use %s)", "Trigger Keyword"],
-                    handler: { _ in },
-                    searcher: nil
+                    type: .arg(
+                        placeholders: ["Search URL (use %s)", "Trigger Keyword"],
+                        perform: { _, args in
+                            if args.count >= 2 {
+                                SearchEngine.shared.addEngine(url: args[0], trigger: args[1])
+                            }
+                        }
+                    )
                 ))
         }
 
@@ -107,11 +112,14 @@ public class SearchService {
                         subtitle: "Search and terminate running processes",
                         icon: .system("xmark.circle"),
                         triggers: [],
-                        arguments: ["Process Name"],
-                        handler: { _ in },  // Searcher handles selection logic mostly
-                        searcher: { query, completion in
-                            QuickAction.shared.searchProcesses(query: query, completion: completion)
-                        }
+                        type: .args(
+                            placeholder: "Process Name",
+                            searcher: { _, query, completion in
+                                QuickAction.shared.searchProcesses(
+                                    query: query, completion: completion)
+                            },
+                            perform: nil
+                        )
                     )
                 } else if app.name.lowercased() == "finder" {
                     quickAction = NerwAction(
@@ -120,14 +128,29 @@ public class SearchService {
                         subtitle: "Search or open finder",
                         icon: .system("bolt.fill"),
                         triggers: [],
-                        arguments: ["Search"],
-                        handler: { _ in },
-                        searcher: { query, completion in
-                            FindFile.shared.search(query: query, completion: completion)
-                        }
+                        type: .args(
+                            placeholder: "Search",
+                            searcher: { _, query, completion in
+                                FindFile.shared.search(query: query, completion: completion)
+                            },
+                            perform: nil
+                        )
                     )
                 }
                 // -----------------------------
+
+                let performOpen: (NerwAction) -> Void = { _ in
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
+                    }
+                }
+
+                let type: NerwAction.ActionType
+                if let qa = quickAction {
+                    type = .hybrid(perform: performOpen, action: NerwActionBox(qa))
+                } else {
+                    type = .instant(perform: performOpen)
+                }
 
                 return NerwAction(
                     id: "nerw.app." + app.path,
@@ -135,13 +158,7 @@ public class SearchService {
                     subtitle: "Application",
                     icon: .file(URL(fileURLWithPath: app.path)),
                     triggers: [app.name],
-                    arguments: nil,
-                    handler: { _ in
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-                        }
-                    },
-                    quickAction: quickAction
+                    type: type
                 )
             }
 
@@ -170,8 +187,8 @@ public class SearchService {
     public func delegateSearch(
         action: NerwAction, query: String, completion: @escaping ([NerwAction]) -> Void
     ) {
-        if let searcher = action.searcher {
-            searcher(query, completion)
+        if case .args(_, let searcher, _) = action.type {
+            searcher(action, query, completion)
         } else {
             completion([])
         }

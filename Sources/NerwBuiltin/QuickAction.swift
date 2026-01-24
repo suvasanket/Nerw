@@ -88,10 +88,9 @@ public class QuickAction {
                             subtitle: "PID: \(pid) • \(commandPath)",
                             icon: iconType,
                             triggers: [commandName],
-                            arguments: nil,
-                            handler: { _ in
+                            type: .instant(perform: { _ in
                                 self.quitProcess(pid: pid, name: commandName)
-                            }))
+                            })))
                 }
 
                 // Limit results if query is empty to avoid overwhelming list (though typically query isn't empty)

@@ -12,22 +12,46 @@ public struct NerwAction {
     }
     public let icon: IconType?
 
-    public let triggers: [String]  // Trigger words
+    public let triggers: [String]
 
-    // Arguments configuration
-    public let arguments: [String]?  // List of argument names/placeholders. Nil if no args.
+    // MARK: - Action Type Definition
 
-    // Execution Logic
-    // Handler: Executed when the action is final (or args are collected)
-    // Parameter is the collected arguments string (or query)
-    public let handler: ((String) -> Void)?
+    public enum ActionType {
+        /// Executes immediately (e.g., "Reload Config", "Sleep").
+        /// - perform: Handler receives the action instance itself.
+        case instant(
+            perform: (NerwAction) -> Void
+        )
 
-    // Searcher: For dynamic results (argument gathering or recursive search)
-    public let searcher: ((String, @escaping ([NerwAction]) -> Void) -> Void)?
+        /// Requires arguments (Input), NO suggestions provided by this action.
+        /// - placeholders: Hints for each argument step (e.g. ["Query"], ["URL", "Trigger"]).
+        /// - perform: Executed when all arguments are collected.
+        case arg(
+            placeholders: [String],
+            perform: (NerwAction, [String]) -> Void
+        )
 
-    // Quick Action: A secondary action available on this result (e.g. via Tab)
-    // Wrapped in a class to avoid recursive struct value type error
-    public let quickAction: NerwActionBox?
+        /// Requires argument (Input), HAS suggestions (Search/Catalog).
+        /// - placeholder: Hint for the input.
+        /// - searcher: Provides dynamic results (autocomplete).
+        /// - perform: Optional. If set, allows executing the raw input (e.g. "Google <text>").
+        case args(
+            placeholder: String,
+            searcher: (NerwAction, String, @escaping ([NerwAction]) -> Void) -> Void,
+            perform: ((NerwAction, String) -> Void)? = nil
+        )
+
+        /// Hybrid: Combination of Instant & Drill-down.
+        /// - perform: Executed on Enter (Instant).
+        /// - action: The secondary action triggered by Tab/Drill-down.
+        ///           This can be .arg (Instant & Arg) or .args (Instant & Args).
+        case hybrid(
+            perform: (NerwAction) -> Void,
+            action: NerwActionBox
+        )
+    }
+
+    public let type: ActionType
 
     public init(
         id: String,
@@ -35,41 +59,35 @@ public struct NerwAction {
         subtitle: String,
         icon: IconType? = nil,
         triggers: [String] = [],
-        arguments: [String]? = nil,
-        handler: ((String) -> Void)? = nil,
-        searcher: ((String, @escaping ([NerwAction]) -> Void) -> Void)? = nil,
-        quickAction: NerwAction? = nil
+        type: ActionType
     ) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
         self.triggers = triggers
-        self.arguments = arguments
-        self.handler = handler
-        self.searcher = searcher
-        self.quickAction = quickAction.map { NerwActionBox($0) }
+        self.type = type
     }
 
-    // Convenience for backward compatibility or simple boolean check
-    public var supportsArguments: Bool {
-        return arguments != nil
-    }
+    // MARK: - Compatibility / UI Helpers
 
-    // Standardized Action Mode
     public enum ActionMode {
         case none
         case arguments
-        case quickAction  // Takes precedence if both exist
+        case quickAction
     }
 
     public var mode: ActionMode {
-        if quickAction != nil { return .quickAction }
-        if arguments != nil { return .arguments }
-        return .none
+        switch type {
+        case .instant:
+            return .none
+        case .arg, .args:
+            return .arguments
+        case .hybrid:
+            return .quickAction
+        }
     }
 
-    // UI Automation Helpers
     public var modeIconName: String? {
         switch mode {
         case .none: return nil
@@ -79,16 +97,22 @@ public struct NerwAction {
     }
 
     public var modeHintText: String? {
-        switch mode {
-        case .none:
+        switch type {
+        case .instant:
             return nil
-        case .arguments:
-            if let args = arguments, !args.isEmpty {
-                return args[0]
-            }
-            return "Arguments"
-        case .quickAction:
-            return quickAction?.value.title
+        case .arg(let placeholders, _):
+            return placeholders.first
+        case .args(let placeholder, _, _):
+            return placeholder
+        case .hybrid(_, let box):
+            return box.value.title
+        }
+    }
+
+    public var supportsArguments: Bool {
+        switch type {
+        case .arg, .args: return true
+        default: return false
         }
     }
 }

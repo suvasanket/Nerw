@@ -104,16 +104,21 @@ public class SearchEngine {
                     subtitle: "Search web using \(engine.name)",
                     icon: icon != nil ? .image(icon!) : .system("globe"),
                     triggers: engine.triggers,
-                    arguments: ["Query"],
-                    handler: { argument in
-                        let encodedQuery =
-                            argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                            ?? ""
-                        let urlString = String(format: engine.urlTemplate, encodedQuery)
-                        if let url = URL(string: urlString) {
-                            NSWorkspace.shared.open(url)
+                    type: .arg(
+                        placeholders: ["Query"],
+                        perform: { _, args in
+                            if let argument = args.first {
+                                let encodedQuery =
+                                    argument.addingPercentEncoding(
+                                        withAllowedCharacters: .urlQueryAllowed)
+                                    ?? ""
+                                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                                if let url = URL(string: urlString) {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
                         }
-                    }
+                    )
                 )
             }
         }
@@ -133,16 +138,21 @@ public class SearchEngine {
                     subtitle: "Search web using \(engine.name) (\(engine.trigger))",
                     icon: icon != nil ? .image(icon!) : .system("globe"),
                     triggers: [engine.trigger],
-                    arguments: ["Query"],
-                    handler: { argument in
-                        let encodedQuery =
-                            argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                            ?? ""
-                        let urlString = String(format: engine.urlTemplate, encodedQuery)
-                        if let url = URL(string: urlString) {
-                            NSWorkspace.shared.open(url)
+                    type: .arg(
+                        placeholders: ["Query"],
+                        perform: { _, args in
+                            if let argument = args.first {
+                                let encodedQuery =
+                                    argument.addingPercentEncoding(
+                                        withAllowedCharacters: .urlQueryAllowed)
+                                    ?? ""
+                                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                                if let url = URL(string: urlString) {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
                         }
-                    }
+                    )
                 )
             }
         }
@@ -167,16 +177,14 @@ public class SearchEngine {
                 subtitle: "Search for '\(query)'",
                 icon: icon != nil ? .image(icon!) : .system("globe"),
                 triggers: [],
-                arguments: nil,  // Direct execution
-                handler: { _ in
-                    // Frecency recording is handled globally in PopupContentViewController
+                type: .instant(perform: { _ in
                     let encodedQuery =
                         query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                     let urlString = String(format: urlTemplate, encodedQuery)
                     if let url = URL(string: urlString) {
                         NSWorkspace.shared.open(url)
                     }
-                }
+                })
             )
         }
 
@@ -221,16 +229,21 @@ public class SearchEngine {
                 subtitle: "Search web using \(engine.name)",
                 icon: icon != nil ? .image(icon!) : .system("globe"),
                 triggers: engine.triggers,
-                arguments: ["Query"],
-                handler: { argument in
-                    let encodedQuery =
-                        argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                        ?? ""
-                    let urlString = String(format: engine.urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
+                type: .arg(
+                    placeholders: ["Query"],
+                    perform: { _, args in
+                        if let argument = args.first {
+                            let encodedQuery =
+                                argument.addingPercentEncoding(
+                                    withAllowedCharacters: .urlQueryAllowed)
+                                ?? ""
+                            let urlString = String(format: engine.urlTemplate, encodedQuery)
+                            if let url = URL(string: urlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
                     }
-                }
+                )
             )
         }
 
@@ -248,16 +261,21 @@ public class SearchEngine {
                 subtitle: "Search web using \(engine.name) (\(engine.trigger))",
                 icon: icon != nil ? .image(icon!) : .system("globe"),
                 triggers: [engine.trigger],
-                arguments: ["Query"],
-                handler: { argument in
-                    let encodedQuery =
-                        argument.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                        ?? ""
-                    let urlString = String(format: engine.urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
+                type: .arg(
+                    placeholders: ["Query"],
+                    perform: { _, args in
+                        if let argument = args.first {
+                            let encodedQuery =
+                                argument.addingPercentEncoding(
+                                    withAllowedCharacters: .urlQueryAllowed)
+                                ?? ""
+                            let urlString = String(format: engine.urlTemplate, encodedQuery)
+                            if let url = URL(string: urlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
                     }
-                }
+                )
             )
         }
 
