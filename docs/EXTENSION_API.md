@@ -80,9 +80,29 @@ The `main(query)` function is the entry point.
         "cmd": "https://alternative.url", // Open this on Cmd+Enter
         "ctrl": "copy", // Copy the action value on Ctrl+Enter
         "opt": "other value"
+    },
+
+    // Form Input
+    // If present, displays a multi-field form.
+    // The 'action' URL supports {field_id} substitution.
+    "form": {
+        "fields": [
+            { "id": "u", "title": "User", "placeholder": "Name" },
+            { "id": "p", "title": "Pass", "secure": true }
+        ],
+        "submitLabel": "Log In"
     }
 }
 ```
+
+### Form Input
+If `form` is provided, the UI switches to a form view.
+When submitted, the `action` string is used as a template.
+Occurrences of `{field_id}` are replaced with the user's input (URL encoded).
+
+**Example:**
+Action: `https://mysite.com/login?user={u}&pass={p}`
+Result: Opens URL with substituted values.
 
 ### Argument Wizard
 If you provide `argumentNames`, the user will be prompted to enter arguments sequentially.

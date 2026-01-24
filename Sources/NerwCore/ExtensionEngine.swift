@@ -197,6 +197,44 @@ public class ExtensionEngine {
                 },
                 action: NerwActionBox(qa)
             )
+        } else if let formDict = dict["form"] as? [String: Any],
+            let fieldsArray = formDict["fields"] as? [[String: Any]]
+        {
+
+            // Parse Fields
+            let fields: [NerwAction.Field] = fieldsArray.compactMap { fd in
+                guard let id = fd["id"] as? String,
+                    let title = fd["title"] as? String
+                else { return nil }
+                return NerwAction.Field(
+                    id: id,
+                    title: title,
+                    placeholder: fd["placeholder"] as? String,
+                    isSecure: (fd["secure"] as? Bool) ?? false
+                )
+            }
+
+            let submitLabel = formDict["submitLabel"] as? String
+
+            // Form Action
+            type = .form(
+                fields: fields,
+                submitLabel: submitLabel,
+                perform: { _, values in
+                    guard let act = actionValue else { return }
+                    var finalUrl = act
+                    for (key, val) in values {
+                        let encoded =
+                            val.addingPercentEncoding(
+                                withAllowedCharacters: .urlQueryAllowed) ?? ""
+                        finalUrl = finalUrl.replacingOccurrences(of: "{\(key)}", with: encoded)
+                    }
+                    if let url = URL(string: finalUrl) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            )
+
         } else if let act = actionValue, act.contains("%s") {
             // Arg (Input Required)
             type = .arg(

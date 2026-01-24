@@ -7,6 +7,31 @@ public class Nerw {
 
     private init() {}
 
+    private func makeTestAction() -> NerwAction {
+        return NerwAction(
+            id: "nerw.builtin.testform",
+            title: "Test Form",
+            subtitle: "Test multi-field input",
+            icon: .system("pencil.and.outline"),
+            triggers: ["test form"],
+            type: .form(
+                fields: [
+                    NerwAction.Field(id: "name", title: "Name", placeholder: "John Doe"),
+                    NerwAction.Field(id: "email", title: "Email", placeholder: "john@example.com"),
+                    NerwAction.Field(id: "password", title: "Password", isSecure: true),
+                ],
+                submitLabel: "Send Data",
+                perform: { _, values in
+                    let alert = NSAlert()
+                    alert.messageText = "Form Submitted"
+                    alert.informativeText = values.map { "\($0.key): \($0.value)" }.joined(
+                        separator: "\n")
+                    alert.runModal()
+                }
+            )
+        )
+    }
+
     public func check(query: String) -> NerwAction? {
         let lowerQuery = query.lowercased()
 
@@ -54,6 +79,10 @@ public class Nerw {
             )
         }
 
+        if "test form".starts(with: lowerQuery) {
+            return makeTestAction()
+        }
+
         return nil
     }
     public func findByTrigger(_ trigger: String) -> NerwAction? {
@@ -93,6 +122,9 @@ public class Nerw {
                     NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
                 })
             )
+        }
+        if "test form" == lowerTrigger {
+            return makeTestAction()
         }
         return nil
     }

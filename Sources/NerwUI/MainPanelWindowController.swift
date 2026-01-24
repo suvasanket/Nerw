@@ -151,4 +151,8 @@ extension MainPanelWindowController: MainPanelContentDelegate {
             updateHeight(shrinkHeight)
         }
     }
+
+    func requestsResize(to height: CGFloat) {
+        updateHeight(height)
+    }
 }

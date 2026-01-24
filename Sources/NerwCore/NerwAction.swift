@@ -14,7 +14,19 @@ public struct NerwAction {
 
     public let triggers: [String]
 
-    // MARK: - Action Type Definition
+    public struct Field {
+        public let id: String
+        public let title: String
+        public let placeholder: String?
+        public let isSecure: Bool
+
+        public init(id: String, title: String, placeholder: String? = nil, isSecure: Bool = false) {
+            self.id = id
+            self.title = title
+            self.placeholder = placeholder
+            self.isSecure = isSecure
+        }
+    }
 
     public enum ActionType {
         /// Executes immediately (e.g., "Reload Config", "Sleep").
@@ -39,6 +51,13 @@ public struct NerwAction {
             placeholder: String,
             searcher: (NerwAction, String, @escaping ([NerwAction]) -> Void) -> Void,
             perform: ((NerwAction, String) -> Void)? = nil
+        )
+
+        /// Form-based input with multiple named fields.
+        case form(
+            fields: [Field],
+            submitLabel: String? = nil,
+            perform: (NerwAction, [String: String]) -> Void
         )
 
         /// Hybrid: Combination of Instant & Drill-down.
@@ -74,6 +93,7 @@ public struct NerwAction {
     public enum ActionMode {
         case none
         case arguments
+        case form
         case quickAction
     }
 
@@ -83,6 +103,8 @@ public struct NerwAction {
             return .none
         case .arg, .args:
             return .arguments
+        case .form:
+            return .form
         case .hybrid:
             return .quickAction
         }
@@ -92,6 +114,7 @@ public struct NerwAction {
         switch mode {
         case .none: return nil
         case .arguments: return "arrow.right.to.line"
+        case .form: return "list.bullet.rectangle.portrait"
         case .quickAction: return "bolt.fill"
         }
     }
@@ -104,6 +127,8 @@ public struct NerwAction {
             return placeholders.first
         case .args(let placeholder, _, _):
             return placeholder
+        case .form(_, let submitLabel, _):
+            return submitLabel ?? "Submit"
         case .hybrid(_, let box):
             return box.value.title
         }
@@ -111,7 +136,7 @@ public struct NerwAction {
 
     public var supportsArguments: Bool {
         switch type {
-        case .arg, .args: return true
+        case .arg, .args, .form: return true
         default: return false
         }
     }

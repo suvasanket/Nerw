@@ -9,6 +9,7 @@ protocol MainPanelContentDelegate: AnyObject {
     func didPressEscape()
     func didSubmit(text: String)
     func didUpdateResults(count: Int)
+    func requestsResize(to height: CGFloat)
 }
 
 class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NSTableViewDataSource,
@@ -86,6 +87,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var backgroundView: NSVisualEffectView!
     private var tintView: NSView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
+    private var formView: FormView?
 
     private var isDebugMode = false
 
@@ -99,6 +101,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     enum InputState {
         case search
         case argument(action: NerwAction, step: Int, collectedArgs: [String])
+        case form(action: NerwAction)
     }
     private var inputState: InputState = .search
 
@@ -354,6 +357,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         previousSearchText = ""
         selectedIndex = 0
         userHasNavigated = false
+
+        // Form Cleanup
+        formView?.removeFromSuperview()
+        formView = nil
+        inputField.isHidden = false
+        iconContainer.isHidden = false
+
         updateActions()
     }
 
@@ -365,6 +375,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             inputField.stringValue = previousSearchText
         }
         setIcons([])
+
+        // Form Cleanup
+        formView?.removeFromSuperview()
+        formView = nil
+        inputField.isHidden = false
+        iconContainer.isHidden = false
+
         delegate?.didPressEscape()
     }
 
@@ -387,6 +404,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             // But if user presses Enter on it, treat as entering argument mode
             previousSearchText = inputField.stringValue
             enterArgumentMode(action: result, step: 0, collectedArgs: [])
+            return true
+
+        case .form:
+            previousSearchText = inputField.stringValue
+            enterFormMode(action: result)
             return true
         }
     }
@@ -414,11 +436,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // GUARD: update the placeholder first
         inputField.placeholderString = "nerw"
-        inputField.stringValue = previousSearchText
-        // GUARD: then th field value
+
+        // Clear text (User Requirement: Do not recomplete previous string)
+        inputField.stringValue = ""
+        previousSearchText = ""
 
         setIcons([])
-        search(query: previousSearchText)
+        // Reset results
+        actions = []
+        updateActions()
     }
 
     private func handleTab() -> Bool {
@@ -428,6 +454,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let selectedAction = actions[selectedIndex]
 
             switch selectedAction.type {
+            case .form:
+                previousSearchText = inputField.stringValue
+                enterFormMode(action: selectedAction)
+                return true
+
             case .arg, .args:
                 previousSearchText = inputField.stringValue
                 enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
@@ -439,6 +470,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 switch quickAction.type {
                 case .arg, .args:
                     activateArgumentMode(for: quickAction, initialArg: "")
+                case .form:
+                    enterFormMode(action: quickAction)
                 case .instant, .hybrid:
                     // Direct Swap
                     activeAction = quickAction
@@ -463,6 +496,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 return true
             }
             return false
+
+        case .form:
+            return false  // Form handles its own tab navigation
         }
     }
 
@@ -527,6 +563,51 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 }
             }
         }
+    }
+
+    private func enterFormMode(action: NerwAction) {
+        guard case .form(let fields, _, _) = action.type else { return }
+
+        inputState = .form(action: action)
+        activeAction = action
+
+        // Hide Main Search UI
+        inputField.isHidden = true
+        iconContainer.isHidden = true
+        separatorView.isHidden = true
+        scrollView.isHidden = true
+
+        // Setup Form View
+        let form = FormView(fields: fields)
+        form.delegate = self
+        form.translatesAutoresizingMaskIntoConstraints = false
+        backgroundView.addSubview(form)
+        formView = form
+
+        NSLayoutConstraint.activate([
+            form.topAnchor.constraint(equalTo: backgroundView.topAnchor),
+            form.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
+            form.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
+            // Remove bottom anchor constraint to allow form to dictate height?
+            // No, we want to constrain form to window, but resize window to form.
+            // So we need to calculate height first.
+            form.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
+        ])
+
+        // Calculate required height based on fields
+        // 20 (top) + 20 (bottom) + fields * (45 approx) + spacing
+        // Let's use fitting size after layout
+        form.layoutSubtreeIfNeeded()
+        let fittingSize = form.fittingSize
+        // Ensure minimum height (e.g. at least search bar height)
+        let newHeight = max(
+            fittingSize.height,
+            LayoutMetrics.SearchField.top + LayoutMetrics.SearchField.height
+                + LayoutMetrics.SearchField.bottom)
+
+        delegate?.requestsResize(to: newHeight)
+
+        // Focus is handled by FormView inside viewDidMoveToWindow/setup
     }
 
     // MARK: - NSTextFieldDelegate
@@ -839,6 +920,31 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     func tableViewSelectionDidChange(_ notification: Notification) {
         selectedIndex = resultsTableView.selectedRow >= 0 ? resultsTableView.selectedRow : 0
         resultsTableView.reloadData()
+    }
+}
+
+extension MainPanelContentViewController: FormViewDelegate {
+    func formDidCancel() {
+        // 1. cleanup form FIRST to remove constraints that force window height
+        formView?.removeFromSuperview()
+        formView = nil
+        inputField.isHidden = false
+        iconContainer.isHidden = false
+
+        // 2. Then reset to search which triggers resize
+        resetToSearch()
+
+        // Restore focus
+        view.window?.makeFirstResponder(inputField)
+    }
+
+    func formDidSubmit(values: [String: String]) {
+        guard case .form(let action) = inputState,
+            case .form(_, _, let perform) = action.type
+        else { return }
+
+        perform(action, values)
+        closeSession()
     }
 }
 

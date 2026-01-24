@@ -85,6 +85,16 @@ For actions requiring multiple inputs (like adding a search engine):
 - **Shift + Tab / Backspace**: Go back to the previous step.
 - **Enter**: Submit the current step or execute the final action.
 
+### Multi-Field Input (Forms)
+Some complex actions require structured input. Nerw renders these as native forms directly in the main panel.
+1.  **UI**: Displays multiple fields (e.g., Text, Secure Password) in a vertical stack.
+2.  **Navigation**:
+    -   `Tab`: Move focus to the next field.
+    -   `Shift+Tab`: Move focus to the previous field.
+    -   `Enter` (on last field): Submit the form.
+    -   `Esc`: Return to main search (Clears previous input).
+3.  **Extensions**: [Extensions](EXTENSION_API.md) can also trigger form inputs.
+
 ### Quick Actions (Secondary Actions)
 Some results offer a secondary action, indicated by a **lightning bolt icon** when selected.
 1.  **Trigger**: Press `Tab` on a supported result.
