@@ -630,9 +630,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let arg = String(components[1])
 
             // Unified check for built-in providers
-            if let result = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared
-                .findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger)
+            if let result = Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared
+                .findByTrigger(possibleTrigger)
                 ?? System.shared.findByTrigger(possibleTrigger)
+
             {
 
                 if result.supportsArguments {

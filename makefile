@@ -11,7 +11,7 @@ clean:
 	rm -rf .build
 
 open:
-	pkill -x $(APP) || true; open $(BUNDLE_NAME)
+	pkill -x $(APP) || true; sleep 1; open $(BUNDLE_NAME)
 
 run: bundle open
 

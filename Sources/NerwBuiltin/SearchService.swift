@@ -39,7 +39,44 @@ public class SearchService {
             return
         }
 
-        // 2. Built-in Extensions & Search Engines
+        // 2. Bang Search Detection
+        // Capture bang result primarily
+        var bangAction: NerwAction? = nil
+
+        if let (engineName, urlTemplate, cleanedQuery) = SearchEngine.shared.resolveBang(
+            query: query)
+        {
+            let domain =
+                URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
+                ?? engineName
+            let icon = IconManager.shared.icon(for: domain)
+            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+            bangAction = NerwAction(
+                id: "nerw.web.search",  // Singular Action ID
+                title: "Search \(engineName)",
+                subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
+                icon: icon != nil ? .image(icon!) : .system("globe"),
+                triggers: [],
+                type: .instant(perform: { _ in
+                    let encodedQuery =
+                        cleanedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                        ?? ""
+                    let urlString = String(format: urlTemplate, encodedQuery)
+                    if let url = URL(string: urlString) {
+                        NSWorkspace.shared.open(url)
+                    }
+                })
+            )
+
+            // If bang is detected, we return JUST this (or prioritize it).
+            // Requirement implies: "make it google" as fallback.
+            // If explicit bang is used, we probably want only that.
+            completion([bangAction!])
+            return
+        }
+
+        // 3. Built-in Extensions
         if let find = FindFile.shared.check(query: query) {
             newActions.append(find)
         }
@@ -49,11 +86,8 @@ public class SearchService {
         if let system = System.shared.check(query: query) {
             newActions.append(system)
         }
-        if let engineResult = SearchEngine.shared.check(query: query) {
-            newActions.append(engineResult)
-        }
 
-        // 3. Check for Extension Triggers
+        // 4. Check for Extension Triggers
         let components = query.split(separator: " ", maxSplits: 1)
         if let firstWord = components.first,
             let extensionManifest = ExtensionEngine.shared.extensions.first(where: {
@@ -66,11 +100,6 @@ public class SearchService {
             // Run Extension
             ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) {
                 extResults in
-                // Extensions return async, but usually fast. Combine and return.
-                // Note: This pattern might return BEFORE app search if app search is slow,
-                // but here we return immediately for extensions and don't do app search?
-                // The original code returned immediately if extension matched.
-                // Preserving original behavior:
                 DispatchQueue.main.async {
                     completion(newActions + extResults)
                 }
@@ -78,7 +107,7 @@ public class SearchService {
             return
         }
 
-        // 4. Default App Search (Fallback) - Async
+        // 5. Default App Search (Fallback) - Async
         let currentQuery = query
         // Cancel previous pending search
         searchWorkItem?.cancel()
@@ -162,11 +191,34 @@ public class SearchService {
                 )
             }
 
-            // Smart Suggestions
-            let suggestions = SearchEngine.shared.getSuggestions(for: currentQuery)
+            // 6. DEFAULT FALLBACK: Google Search
+            // If we are here, no bang was used. Add Google as a generic fallback.
+            let defaultEngine = SearchEngine.shared.getDefaultEngine()
+            let domain =
+                URL(string: defaultEngine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
+                .host ?? defaultEngine.name
+            let icon = IconManager.shared.icon(for: domain)
+            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
-            // Combine ALL actions
-            let allActions = newActions + finalAppActions + suggestions
+            let fallbackAction = NerwAction(
+                id: "nerw.web.search",  // Singular Action ID
+                title: "Search \(defaultEngine.name)",
+                subtitle: "Search for '\(currentQuery)' on \(defaultEngine.name)",
+                icon: icon != nil ? .image(icon!) : .system("globe"),  // TODO: Use dynamic icon
+                triggers: [],
+                type: .instant(perform: { _ in
+                    let encodedQuery =
+                        currentQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                        ?? ""
+                    let urlString = String(format: defaultEngine.urlTemplate, encodedQuery)
+                    if let url = URL(string: urlString) {
+                        NSWorkspace.shared.open(url)
+                    }
+                })
+            )
+
+            // Combine ALL actions (Apps + Fallback)
+            let allActions = newActions + finalAppActions + [fallbackAction]
 
             // Ranking
             let rankedActions = self.rankResults(actions: allActions, query: currentQuery)
@@ -213,11 +265,6 @@ public class SearchService {
             let isExact = action.title.lowercased() == normalizedQuery
 
             if isExact {
-                // Keep exact matches high, but if there's a Smart Suggestion involved, it might have a higher score.
-                // We'll treat Exact matching as a "base score" boost if needed, but let's see.
-                // Usually Exact Match is purely textual.
-                // We will add it to 'exactMatches' bucket which is sorted by score.
-                // If it ALSO has a high frecency score, it will be at top of that bucket.
                 exactMatches.append((action, totalScore))
             } else if totalScore > 0 {
                 frecencyBoosted.append((action, totalScore))
@@ -233,25 +280,24 @@ public class SearchService {
         var sortedActions =
             exactMatches.map({ $0.action }) + frecencyBoosted.map({ $0.action }) + otherActions
 
-        // Smart Suggestions Logic (Bubbling)
+        // Fallback Boosting Logic
+        // If word count is high enough and we don't have an exact match at the top,
+        // assume the user might want to search the web (fallback).
         let config = ConfigManager.shared.config
         let wordCount = normalizedQuery.split(separator: " ").count
 
-        // Condition 1: Word Count >= Threshold
         if wordCount >= config.SearchEngineSuggestThreshold {
-            // Condition 2: Top result is NOT an exact match
-            if let first = sortedActions.first, first.title.lowercased() != normalizedQuery {
-                // Extract Search Suggestions from the list and move to top
-                let suggestionActions = sortedActions.filter { action in
-                    return action.id.hasSuffix(".suggestion")
-                }
+            // Check if top result is an exact match
+            let topIsExact = sortedActions.first?.title.lowercased() == normalizedQuery
 
-                if !suggestionActions.isEmpty {
-                    let withoutSuggestions = sortedActions.filter { action in
-                        !suggestionActions.contains(where: { s in s.id == action.id })
-                    }
-                    // Prepend to top
-                    sortedActions = suggestionActions + withoutSuggestions
+            if !topIsExact {
+                // Find the fallback action
+                if let fallbackIndex = sortedActions.firstIndex(where: {
+                    $0.id == "nerw.web.search"
+                }) {
+                    let fallbackAction = sortedActions.remove(at: fallbackIndex)
+                    // Move to top
+                    sortedActions.insert(fallbackAction, at: 0)
                 }
             }
         }

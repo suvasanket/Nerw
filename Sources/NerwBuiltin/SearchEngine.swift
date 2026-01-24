@@ -13,15 +13,28 @@ public class SearchEngine {
 
     public private(set) var engines: [Engine] = [
         Engine(
-            name: "Google", triggers: ["google"], urlTemplate: "https://www.google.com/search?q=%@"),
+            name: "Google", triggers: ["google", "g"],
+            urlTemplate: "https://www.google.com/search?q=%@"),
         Engine(
             name: "Feeling Lucky", triggers: ["gl", "googlelucky"],
             urlTemplate: "https://www.google.com/search?btnI=1&q=%@"),
         Engine(
-            name: "DuckDuckGo", triggers: ["duckduckgo"],
+            name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
             urlTemplate: "https://duckduckgo.com/?q=%@"),
-        Engine(name: "Bing", triggers: ["bing"], urlTemplate: "https://www.bing.com/search?q=%@"),
+        Engine(
+            name: "Bing", triggers: ["bing", "b"], urlTemplate: "https://www.bing.com/search?q=%@"),
+        Engine(
+            name: "YouTube", triggers: ["youtube", "yt"],
+            urlTemplate: "https://www.youtube.com/results?search_query=%@"),
+        Engine(
+            name: "GitHub", triggers: ["github", "gh"],
+            urlTemplate: "https://github.com/search?q=%@"),
     ]
+
+    public func getDefaultEngine() -> Engine {
+        // Hardcoded return for Google as per requirement
+        return engines.first(where: { $0.name == "Google" })!
+    }
 
     private let customEnginesKey = "NerwCustomEngines"
 
@@ -86,197 +99,35 @@ public class SearchEngine {
         saveCustomEngines()
     }
 
-    public func check(query: String) -> NerwAction? {
-        let lowerQuery = query.lowercased()
+    /// Resolves a query to see if it contains a "Bang" trigger (e.g. !g, !yt).
+    /// Returns the matched engine info and the CLEANED query (bang removed).
+    public func resolveBang(query: String) -> (
+        name: String, urlTemplate: String, cleanedQuery: String
+    )? {
+        let tokens = query.split(separator: " ")
 
-        // Check Hardcoded Engines
-        for engine in engines {
-            if engine.triggers.contains(where: { $0.starts(with: lowerQuery) }) {
-                let domain =
-                    URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
-                    ?? engine.name
-                let icon = IconManager.shared.icon(for: domain)
-                if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+        // Find the first token that looks like a bang (starts with !)
+        // We iterate through tokens to find the *first* valid bang.
+        for (index, token) in tokens.enumerated() {
+            if token.starts(with: "!") {
+                let bangTrigger = String(token.dropFirst()).lowercased()
 
-                return NerwAction(
-                    id: "nerw.engine.\(engine.name)",
-                    title: engine.name,
-                    subtitle: "Search web using \(engine.name)",
-                    icon: icon != nil ? .image(icon!) : .system("globe"),
-                    triggers: engine.triggers,
-                    type: .arg(
-                        placeholders: ["Query"],
-                        perform: { _, args in
-                            if let argument = args.first {
-                                let encodedQuery =
-                                    argument.addingPercentEncoding(
-                                        withAllowedCharacters: .urlQueryAllowed)
-                                    ?? ""
-                                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                                if let url = URL(string: urlString) {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                        }
-                    )
-                )
+                // Check Built-in Engines
+                if let engine = engines.first(where: { $0.triggers.contains(bangTrigger) }) {
+                    var newTokens = tokens
+                    newTokens.remove(at: index)
+                    let cleanedQuery = newTokens.joined(separator: " ")
+                    return (engine.name, engine.urlTemplate, cleanedQuery)
+                }
+
+                // Check Custom Engines
+                if let custom = customEngines.first(where: { $0.trigger == bangTrigger }) {
+                    var newTokens = tokens
+                    newTokens.remove(at: index)
+                    let cleanedQuery = newTokens.joined(separator: " ")
+                    return (custom.name, custom.urlTemplate, cleanedQuery)
+                }
             }
-        }
-
-        // Check Custom Engines
-        for engine in customEngines {
-            if engine.trigger.starts(with: lowerQuery) {
-                let domain =
-                    URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
-                    ?? engine.name
-                let icon = IconManager.shared.icon(for: domain)
-                if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-
-                return NerwAction(
-                    id: "nerw.custom.\(engine.name)",
-                    title: engine.name,
-                    subtitle: "Search web using \(engine.name) (\(engine.trigger))",
-                    icon: icon != nil ? .image(icon!) : .system("globe"),
-                    triggers: [engine.trigger],
-                    type: .arg(
-                        placeholders: ["Query"],
-                        perform: { _, args in
-                            if let argument = args.first {
-                                let encodedQuery =
-                                    argument.addingPercentEncoding(
-                                        withAllowedCharacters: .urlQueryAllowed)
-                                    ?? ""
-                                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                                if let url = URL(string: urlString) {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                        }
-                    )
-                )
-            }
-        }
-
-        return nil
-    }
-
-    public func getSuggestions(for query: String) -> [NerwAction] {
-        var results: [NerwAction] = []
-        let configDefaults = ConfigManager.shared.config.defaultSearchEngine
-
-        // Helper to create result
-        func createResult(name: String, urlTemplate: String, idPrefix: String) -> NerwAction {
-            let domain =
-                URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host ?? name
-            let icon = IconManager.shared.icon(for: domain)
-            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-
-            return NerwAction(
-                id: "\(idPrefix).\(name).suggestion",
-                title: name,
-                subtitle: "Search for '\(query)'",
-                icon: icon != nil ? .image(icon!) : .system("globe"),
-                triggers: [],
-                type: .instant(perform: { _ in
-                    let encodedQuery =
-                        query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                    let urlString = String(format: urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
-                    }
-                })
-            )
-        }
-
-        // Standard Engines
-        for engine in engines {
-            if engine.triggers.contains(where: { configDefaults.contains($0) }) {
-                results.append(
-                    createResult(
-                        name: engine.name, urlTemplate: engine.urlTemplate, idPrefix: "nerw.engine")
-                )
-            }
-        }
-
-        // Custom Engines
-        for engine in customEngines {
-            if configDefaults.contains(engine.trigger) {
-                results.append(
-                    createResult(
-                        name: engine.name, urlTemplate: engine.urlTemplate, idPrefix: "nerw.custom")
-                )
-            }
-        }
-
-        print("Nerw: Generated \(results.count) suggestions for '\(query)'")
-        return results
-    }
-
-    public func findByTrigger(_ trigger: String) -> NerwAction? {
-        let lowerTrigger = trigger.lowercased()
-
-        // Check Hardcoded Engines
-        if let engine = engines.first(where: { $0.triggers.contains(lowerTrigger) }) {
-            let domain =
-                URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
-                ?? engine.name
-            let icon = IconManager.shared.icon(for: domain)
-            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-
-            return NerwAction(
-                id: "nerw.engine.\(engine.name)",
-                title: engine.name,
-                subtitle: "Search web using \(engine.name)",
-                icon: icon != nil ? .image(icon!) : .system("globe"),
-                triggers: engine.triggers,
-                type: .arg(
-                    placeholders: ["Query"],
-                    perform: { _, args in
-                        if let argument = args.first {
-                            let encodedQuery =
-                                argument.addingPercentEncoding(
-                                    withAllowedCharacters: .urlQueryAllowed)
-                                ?? ""
-                            let urlString = String(format: engine.urlTemplate, encodedQuery)
-                            if let url = URL(string: urlString) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    }
-                )
-            )
-        }
-
-        // Check Custom Engines
-        if let engine = customEngines.first(where: { $0.trigger == lowerTrigger }) {
-            let domain =
-                URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
-                ?? engine.name
-            let icon = IconManager.shared.icon(for: domain)
-            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-
-            return NerwAction(
-                id: "nerw.custom.\(engine.name)",
-                title: engine.name,
-                subtitle: "Search web using \(engine.name) (\(engine.trigger))",
-                icon: icon != nil ? .image(icon!) : .system("globe"),
-                triggers: [engine.trigger],
-                type: .arg(
-                    placeholders: ["Query"],
-                    perform: { _, args in
-                        if let argument = args.first {
-                            let encodedQuery =
-                                argument.addingPercentEncoding(
-                                    withAllowedCharacters: .urlQueryAllowed)
-                                ?? ""
-                            let urlString = String(format: engine.urlTemplate, encodedQuery)
-                            if let url = URL(string: urlString) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    }
-                )
-            )
         }
 
         return nil

@@ -22,7 +22,7 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
     - **Filtering**: Automatically excludes developer artifacts like `node_modules`, `.git`, and `build` folders for cleaner results.
 4.  **System Commands**: Quick access to common macOS actions:
-    - `sleep` - Put your Mac to sleep  
+    - `sleep` - Put your Mac to sleep
     - `empty downloads` - Move Downloads folder contents to Trash
     - `eject [volume]` - Eject a specific volume (shows available volumes)
     - `eject all` - Eject all external volumes
