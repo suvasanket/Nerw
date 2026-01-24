@@ -1,5 +1,5 @@
 import Cocoa
-import CoreServices // For MDQuery
+import CoreServices  // For MDQuery
 import NerwCore
 
 public class FindFile {
@@ -43,7 +43,7 @@ public class FindFile {
         "node_modules", ".git", ".cache", ".DS_Store", ".vscode", ".idea",
         "build", "dist", "target", "DerivedData", "__pycache__", "venv", ".venv",
         ".env", "bin", "obj", ".next", "out", ".svelte-kit", ".gradle", ".m2",
-        ".pytest_cache", ".mypy_cache", "vendor", "Library"
+        ".pytest_cache", ".mypy_cache", "vendor", "Library",
     ]
 
     private init() {}
@@ -143,15 +143,15 @@ public class FindFile {
 
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(onQueryUpdate(_:)), // Use same handler for finish
+            selector: #selector(onQueryUpdate(_:)),  // Use same handler for finish
             name: NSNotification.Name(kMDQueryDidFinishNotification as String),
             object: mdQuery
         )
 
         // 7. Execute
         if !MDQueryExecute(mdQuery, CFOptionFlags(kMDQueryWantsUpdates.rawValue)) {
-             print("[FindFile] MDQueryExecute failed")
-             completion([])
+            print("[FindFile] MDQueryExecute failed")
+            completion([])
         }
     }
 
@@ -159,8 +159,10 @@ public class FindFile {
         if let q = currentQuery {
             MDQueryStop(q)
             MDQueryDisableUpdates(q)
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name(kMDQueryProgressNotification as String), object: q)
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name(kMDQueryDidFinishNotification as String), object: q)
+            NotificationCenter.default.removeObserver(
+                self, name: NSNotification.Name(kMDQueryProgressNotification as String), object: q)
+            NotificationCenter.default.removeObserver(
+                self, name: NSNotification.Name(kMDQueryDidFinishNotification as String), object: q)
             currentQuery = nil
         }
     }
@@ -192,10 +194,10 @@ public class FindFile {
                 let name = url.lastPathComponent
 
                 let result = NerwAction(
-                    id: "nerw.findfile.result.\(path.hashValue)", // Use hash or path for unique ID
+                    id: "nerw.findfile.result.\(path.hashValue)",  // Use hash or path for unique ID
                     title: name,
                     subtitle: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
-                    icon: .file(url), // Use async file icon
+                    icon: .file(url),  // Use async file icon
                     arguments: nil,
                     handler: { _ in
                         if NSApp.currentEvent?.modifierFlags.contains(.command) == true {

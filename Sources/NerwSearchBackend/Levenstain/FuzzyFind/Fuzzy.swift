@@ -40,7 +40,8 @@ public func fuzzyFind(
                     boundaryBonus: boundaryBonus,
                     camelCaseBonus: camelCaseBonus,
                     firstCharBonusMultiplier: firstCharBonusMultiplier,
-                    consecutiveBonus: consecutiveBonus).map { match in
+                    consecutiveBonus: consecutiveBonus
+                ).map { match in
                     alignment.combine(match)
                 }
             }
@@ -92,8 +93,8 @@ public func bestMatch(
     let b = input.map { $0 }
     let m = query.count
     let n = input.count
-    let bonuses = (0 ... m).map { i in
-        (0 ... n).map { j in bonus(i,j) }
+    let bonuses = (0...m).map { i in
+        (0...n).map { j in bonus(i, j) }
     }
     var hs: [Pair<Int, Int>: Score] = [:]
 
@@ -111,12 +112,18 @@ public func bestMatch(
         } else {
             let similarityScore = similarity(find(a, at: i), find(b, at: j))
             if similarityScore > 0 {
-                let boundary = (j < 2 || (find(b, at: j).isAlphaNum) && !(find(b, at: j - 1).isAlphaNum)) ? boundaryBonus : 0
-                let camel = (j > 1 && find(b, at: j - 1).isLowercase && find(b, at: j).isUppercase) ? camelCaseBonus : 0
+                let boundary =
+                    (j < 2 || (find(b, at: j).isAlphaNum) && !(find(b, at: j - 1).isAlphaNum))
+                    ? boundaryBonus : 0
+                let camel =
+                    (j > 1 && find(b, at: j - 1).isLowercase && find(b, at: j).isUppercase)
+                    ? camelCaseBonus : 0
                 let multiplier = (i == 1) ? firstCharBonusMultiplier : 1
                 let similar = i > 0 && j > 0 && similarityScore > 0
-                let afterMatch = i > 1 && j > 1 && similarity(find(a, at: i - 1), find(b, at: j - 1)) > 0
-                let beforeMatch = i < m && j < n && similarity(find(a, at: i + 1), find(b, at: j + 1)) > 0
+                let afterMatch =
+                    i > 1 && j > 1 && similarity(find(a, at: i - 1), find(b, at: j - 1)) > 0
+                let beforeMatch =
+                    i < m && j < n && similarity(find(a, at: i + 1), find(b, at: j + 1)) > 0
                 let consecutive = (similar && (afterMatch || beforeMatch)) ? consecutiveBonus : 0
                 return multiplier * (boundary + camel + consecutive)
             } else {
@@ -131,8 +138,9 @@ public func bestMatch(
             hs[Pair(i, j)] = 0
             return 0
         }
-        let scoreMatch = h(i - 1, j - 1) + similarity(find(a, at: i), find(b, at: j)) + bonuses[i][j]
-        let scoreGap = (1 ... j).map { l in
+        let scoreMatch =
+            h(i - 1, j - 1) + similarity(find(a, at: i), find(b, at: j)) + bonuses[i][j]
+        let scoreGap = (1...j).map { l in
             h(i, j - l) - gapPenalty(l)
         }.max()!
         let score = [scoreMatch, scoreGap, Score(integerLiteral: 0)].max()!
@@ -141,7 +149,7 @@ public func bestMatch(
     }
 
     func localMax(_ m: Int, _ n: Int) -> Int {
-        return (1 ... n).max { b, d in
+        return (1...n).max { b, d in
             totalScore(m, b) < totalScore(m, d)
         }!
     }
@@ -182,8 +190,8 @@ public func bestMatch(
     }
 }
 
-private extension Character {
-    var isAlphaNum: Bool {
+extension Character {
+    fileprivate var isAlphaNum: Bool {
         isLetter || isNumber
     }
 }

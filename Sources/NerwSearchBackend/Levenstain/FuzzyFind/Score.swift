@@ -36,15 +36,15 @@ public struct Score: ExpressibleByIntegerLiteral {
 
 extension Score: Equatable {}
 
-func +(lhs: Score, rhs: Score) -> Score {
+func + (lhs: Score, rhs: Score) -> Score {
     return Score(integerLiteral: lhs.value + rhs.value)
 }
 
-func -(lhs: Score, rhs: Score) -> Score {
+func - (lhs: Score, rhs: Score) -> Score {
     return Score(integerLiteral: lhs.value - rhs.value)
 }
 
-func *(lhs: Int, rhs: Score) -> Score {
+func * (lhs: Int, rhs: Score) -> Score {
     return Score(integerLiteral: lhs * rhs.value)
 }
 

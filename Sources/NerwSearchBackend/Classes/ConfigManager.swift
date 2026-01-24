@@ -54,7 +54,6 @@ public class ConfigManager {
             return
         }
 
-
         print("Nerw: Loading config from: \(configFile.path)")
 
         do {
@@ -71,7 +70,8 @@ public class ConfigManager {
     public func save() {
         do {
             if !FileManager.default.fileExists(atPath: configDirectory.path) {
-                try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(
+                    at: configDirectory, withIntermediateDirectories: true)
             }
 
             let encoder = JSONEncoder()

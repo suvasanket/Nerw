@@ -1,5 +1,5 @@
-import Foundation
 import Cocoa
+import Foundation
 import JavaScriptCore
 
 struct LoadedExtension {
@@ -58,39 +58,46 @@ public class ExtensionEngine {
 
         // 2. Built-in Extensions
 
-
         if let resourcePath = Bundle.main.resourcePath {
-             let potentialPaths = [
-                 URL(fileURLWithPath: resourcePath).appendingPathComponent("extensions"),
-                 // Check for flat bundle structure (debug builds)
-                 URL(fileURLWithPath: resourcePath).appendingPathComponent("Nerw_Nerw.bundle/extensions"),
-                 // Check for nested bundle structure (release/Xcode builds)
-                 URL(fileURLWithPath: resourcePath).appendingPathComponent("Nerw_Nerw.bundle/Contents/Resources/extensions")
-             ]
+            let potentialPaths = [
+                URL(fileURLWithPath: resourcePath).appendingPathComponent("extensions"),
+                // Check for flat bundle structure (debug builds)
+                URL(fileURLWithPath: resourcePath).appendingPathComponent(
+                    "Nerw_Nerw.bundle/extensions"),
+                // Check for nested bundle structure (release/Xcode builds)
+                URL(fileURLWithPath: resourcePath).appendingPathComponent(
+                    "Nerw_Nerw.bundle/Contents/Resources/extensions"),
+            ]
 
-             for path in potentialPaths {
+            for path in potentialPaths {
 
-                 loadExtensions(from: path)
-             }
+                loadExtensions(from: path)
+            }
         }
     }
 
     private func loadExtensions(from directory: URL) {
         // Warning: if directory doesn't exist, this throws/returns nil
-        guard let items = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        guard
+            let items = try? fileManager.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: nil)
+        else { return }
 
         for item in items {
             // Assume item is a directory "extension_id/"
             let manifestPath = item.appendingPathComponent("manifest.json")
             if let data = try? Data(contentsOf: manifestPath),
-               let manifest = try? JSONDecoder().decode(ExtensionManifest.self, from: data) {
-                 let loaded = LoadedExtension(manifest: manifest, path: item)
-                 loadedExtensions.append(loaded)
+                let manifest = try? JSONDecoder().decode(ExtensionManifest.self, from: data)
+            {
+                let loaded = LoadedExtension(manifest: manifest, path: item)
+                loadedExtensions.append(loaded)
             }
         }
     }
 
-    public func runExtension(id: String, query: String, completion: @escaping ([NerwAction]) -> Void) {
+    public func runExtension(
+        id: String, query: String, completion: @escaping ([NerwAction]) -> Void
+    ) {
         guard let ext = loadedExtensions.first(where: { $0.manifest.id == id }) else {
             completion([])
             return
@@ -117,14 +124,16 @@ public class ExtensionEngine {
         let result = mainFunc.call(withArguments: [query])
 
         // Check Promise
-        if let isPromise = result?.isInstance(of: context?.objectForKeyedSubscript("Promise")), isPromise {
-             let completionCallback: @convention(block) (JSValue) -> Void = { val in
-                 let results = self.parseResults(val, extensionId: id)
-                 completion(results)
-             }
+        if let isPromise = result?.isInstance(of: context?.objectForKeyedSubscript("Promise")),
+            isPromise
+        {
+            let completionCallback: @convention(block) (JSValue) -> Void = { val in
+                let results = self.parseResults(val, extensionId: id)
+                completion(results)
+            }
 
-             let callback = JSValue(object: completionCallback, in: context)
-             result?.invokeMethod("then", withArguments: [callback as Any])
+            let callback = JSValue(object: completionCallback, in: context)
+            result?.invokeMethod("then", withArguments: [callback as Any])
         } else {
             let finalResults = parseResults(result, extensionId: id)
             completion(finalResults)
@@ -139,8 +148,9 @@ public class ExtensionEngine {
 
         for i in 0..<count {
             if let item = value.atIndex(i),
-               let dict = item.toDictionary() as? [String: Any],
-               let action = parseItem(dict, extensionId: extensionId) {
+                let dict = item.toDictionary() as? [String: Any],
+                let action = parseItem(dict, extensionId: extensionId)
+            {
                 results.append(action)
             }
         }
@@ -152,7 +162,7 @@ public class ExtensionEngine {
         let subtitle = dict["subtitle"] as? String ?? ""
         let iconName = dict["icon"] as? String
         let actionValue = dict["action"] as? String
-        
+
         // Recursive Quick Action parsing
         var quickAction: NerwAction? = nil
         if let quickActionDict = dict["quickAction"] as? [String: Any] {
@@ -162,13 +172,13 @@ public class ExtensionEngine {
         let icon: NerwAction.IconType?
         if let name = iconName {
             if name.hasPrefix("/") {
-                 if let img = NSImage(contentsOfFile: name) {
-                     icon = .image(img)
-                 } else {
-                     icon = nil
-                 }
+                if let img = NSImage(contentsOfFile: name) {
+                    icon = .image(img)
+                } else {
+                    icon = nil
+                }
             } else {
-                 icon = .system(name)
+                icon = .system(name)
             }
         } else {
             icon = .system("puzzlepiece.extension")
@@ -182,11 +192,11 @@ public class ExtensionEngine {
             triggers: [],
             arguments: actionValue != nil ? nil : ["Argument"],
             handler: { _ in
-                 if let act = actionValue {
-                     if let url = URL(string: act) {
-                         NSWorkspace.shared.open(url)
-                     }
-                 }
+                if let act = actionValue {
+                    if let url = URL(string: act) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
             },
             quickAction: quickAction
         )

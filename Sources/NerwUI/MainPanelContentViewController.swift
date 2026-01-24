@@ -1,8 +1,8 @@
 // MainPanelContentViewController.swift
 import Cocoa
-import NerwSearchBackend
-import NerwCore
 import NerwBuiltin
+import NerwCore
+import NerwSearchBackend
 import NerwUtils
 
 protocol MainPanelContentDelegate: AnyObject {
@@ -24,23 +24,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         struct SearchField {
             static let height: CGFloat = 32
             static let fontSize: CGFloat = 22
-            static let top: CGFloat = 12        // Margin from window top
-            static let bottom: CGFloat = 12     // Margin from window bottom (in shrink view)
-            static let leading: CGFloat = 12    // Margin from icon container
-            static let trailing: CGFloat = 20   // Margin from window trailing edge
+            static let top: CGFloat = 12  // Margin from window top
+            static let bottom: CGFloat = 12  // Margin from window bottom (in shrink view)
+            static let leading: CGFloat = 12  // Margin from icon container
+            static let trailing: CGFloat = 20  // Margin from window trailing edge
         }
 
         struct IconContainer {
             static let height: CGFloat = 40
             static let iconSize: CGFloat = 20
             static let spacing: CGFloat = 12
-            static let leading: CGFloat = 20    // Margin from window leading edge
+            static let leading: CGFloat = 20  // Margin from window leading edge
         }
 
         struct Separator {
             static let height: CGFloat = 1
-            static let top: CGFloat = 8        // Margin from SearchField bottom
-            static let bottom: CGFloat = 0      // Margin to Results top
+            static let top: CGFloat = 8  // Margin from SearchField bottom
+            static let bottom: CGFloat = 0  // Margin to Results top
             static let leading: CGFloat = 20
             static let trailing: CGFloat = 20
         }
@@ -48,8 +48,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         struct Results {
             static let rowHeight: CGFloat = 50
             static let maxVisibleRows: Int = 5
-            static let bottom: CGFloat = 0      // Default margin
-            static let expandedBottom: CGFloat = 16 // Margin when expanded
+            static let bottom: CGFloat = 0  // Default margin
+            static let expandedBottom: CGFloat = 16  // Margin when expanded
         }
 
         struct Cell {
@@ -63,7 +63,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             struct Icon {
                 static let size: CGFloat = 28
                 static let leading: CGFloat = 10
-                static let trailing: CGFloat = 6 // Spacing to text
+                static let trailing: CGFloat = 6  // Spacing to text
             }
 
             struct Text {
@@ -104,10 +104,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     // Tracks current search task
 
-
     override func loadView() {
         // Initial height calculation for shrink view
-        let initialHeight = LayoutMetrics.SearchField.top + LayoutMetrics.SearchField.height + LayoutMetrics.SearchField.bottom
+        let initialHeight =
+            LayoutMetrics.SearchField.top + LayoutMetrics.SearchField.height
+            + LayoutMetrics.SearchField.bottom
         view = NSView(
             frame: NSRect(
                 x: 0, y: 0, width: LayoutMetrics.Window.width, height: initialHeight))
@@ -143,7 +144,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             tintView.topAnchor.constraint(equalTo: backgroundView.topAnchor),
             tintView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             tintView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            tintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor)
+            tintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
         ])
 
         // Icon Container
@@ -160,10 +161,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
         defaultSearchIcon.contentTintColor = .secondaryLabelColor
         defaultSearchIcon.translatesAutoresizingMaskIntoConstraints = false
-        defaultSearchIcon.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
-            .isActive = true
-        defaultSearchIcon.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
-            .isActive = true
+        defaultSearchIcon.widthAnchor.constraint(
+            equalToConstant: LayoutMetrics.IconContainer.iconSize
+        )
+        .isActive = true
+        defaultSearchIcon.heightAnchor.constraint(
+            equalToConstant: LayoutMetrics.IconContainer.iconSize
+        )
+        .isActive = true
         defaultSearchIcon.imageScaling = .scaleProportionallyUpOrDown
         iconContainer.addArrangedSubview(defaultSearchIcon)
 
@@ -200,7 +205,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Result alignment fix:
         // Left side aligns natively (implicit padding ~20pt).
         // To fix right overflow and match separator width, we subtract margins (20+20=40pt).
-        let columnWidth = LayoutMetrics.Window.width - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
+        let columnWidth =
+            LayoutMetrics.Window.width
+            - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
         column.width = columnWidth
         column.resizingMask = .autoresizingMask
         resultsTableView.addTableColumn(column)
@@ -224,8 +231,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             iconContainer.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading),
-            iconContainer.centerYAnchor.constraint(equalTo: inputField.centerYAnchor, constant: -1.5),
+                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading
+            ),
+            iconContainer.centerYAnchor.constraint(
+                equalTo: inputField.centerYAnchor, constant: -1.5),
             iconContainer.heightAnchor.constraint(
                 equalToConstant: LayoutMetrics.IconContainer.height),
 
@@ -248,7 +257,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 constant: -LayoutMetrics.Separator.trailing),
             separatorView.heightAnchor.constraint(equalToConstant: LayoutMetrics.Separator.height),
 
-            scrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
+            scrollView.topAnchor.constraint(
+                equalTo: separatorView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
             scrollView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
         ])
@@ -266,18 +276,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Background
         if let bgHex = config?.mainBackgroundColor, let bgColor = NSColor(hex: bgHex) {
-             backgroundView.layer?.backgroundColor = bgColor.cgColor
+            backgroundView.layer?.backgroundColor = bgColor.cgColor
         }
 
         // Font & Text Color
         let fontSize = LayoutMetrics.SearchField.fontSize
         if let fontName = config?.font, let font = NSFont(name: fontName, size: fontSize) {
-             inputField.font = font
+            inputField.font = font
         }
 
         if let fgHex = config?.mainForegroundColor, let fgColor = NSColor(hex: fgHex) {
-             inputField.textColor = fgColor
-             defaultSearchIcon.contentTintColor = fgColor
+            inputField.textColor = fgColor
+            defaultSearchIcon.contentTintColor = fgColor
         }
 
         // Placeholder Color
@@ -287,9 +297,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         if let hintHex = config?.hintColor, let hintColor = NSColor(hex: hintHex) {
-             inputField.placeholderColor = hintColor
+            inputField.placeholderColor = hintColor
         } else {
-             inputField.placeholderColor = iconColor
+            inputField.placeholderColor = iconColor
         }
     }
 
@@ -322,8 +332,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 iv.image = image
                 iv.contentTintColor = .secondaryLabelColor
                 iv.translatesAutoresizingMaskIntoConstraints = false
-                iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
-                iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize).isActive = true
+                iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                    .isActive =
+                    true
+                iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                    .isActive =
+                    true
                 iv.imageScaling = .scaleProportionallyUpOrDown
                 iconContainer.addArrangedSubview(iv)
             }
@@ -355,13 +369,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func executeResult(_ result: NerwAction, query: String) -> Bool {
-         if let handler = result.handler {
-             handler("") // Handler likely ignored arg if triggered directly without argument collection
-             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-             closeSession()
-             return true
-         }
-         return false
+        if let handler = result.handler {
+            handler("")  // Handler likely ignored arg if triggered directly without argument collection
+            FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
+            closeSession()
+            return true
+        }
+        return false
     }
 
     private func updateSelectionIcon() {
@@ -369,12 +383,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
             let action = actions[selectedIndex]
-            
+
             // UI Automation: Use Model-provided Icon
             if let iconName = action.modeIconName {
-                 let icon = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage()
-                 setIcons([icon])
-                 return
+                let icon =
+                    NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage()
+                setIcons([icon])
+                return
             }
         }
         setIcons([])
@@ -421,13 +436,20 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     if let icon = quickAction.icon {
                         switch icon {
                         case .system(let name):
-                            setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+                            setIcons([
+                                NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                                    ?? NSImage()
+                            ]
+                            )
                         case .image(let img):
                             setIcons([img])
                         case .file(let url):
                             setIcons([NSWorkspace.shared.icon(for: .data)])
-                            NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
-                                 if let image = image { self?.setIcons([image]) }
+                            NerwUtils.IconUtils.getIconAsync(
+                                for: url, size: CGSize(width: 32, height: 32)
+                            ) {
+                                [weak self] image in
+                                if let image = image { self?.setIcons([image]) }
                             }
                         }
                     }
@@ -474,7 +496,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
 
-
         // Update Placeholder based on argument name (Feedback)
         if let names = action.arguments, step < names.count {
             inputField.placeholderString = names[step]
@@ -483,19 +504,22 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         // Update UI
-        inputField.stringValue = "" // Clear for new arg
+        inputField.stringValue = ""  // Clear for new arg
 
         // Ensure icon is consistent
         if let icon = action.icon {
             switch icon {
             case .system(let name):
-                setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+                setIcons([
+                    NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
+                ])
             case .image(let img):
                 setIcons([img])
             case .file(let url):
                 setIcons([NSWorkspace.shared.icon(for: .data)])
-                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
-                     if let image = image { self?.setIcons([image]) }
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) {
+                    [weak self] image in
+                    if let image = image { self?.setIcons([image]) }
                 }
             }
         }
@@ -528,14 +552,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let arg = String(components[1])
 
             // Unified check for built-in providers
-            if let result = SearchEngine.shared.findByTrigger(possibleTrigger) ??
-                            Nerw.shared.findByTrigger(possibleTrigger) ??
-                            FindFile.shared.findByTrigger(possibleTrigger) ??
-                            System.shared.findByTrigger(possibleTrigger) {
+            if let result = SearchEngine.shared.findByTrigger(possibleTrigger) ?? Nerw.shared
+                .findByTrigger(possibleTrigger) ?? FindFile.shared.findByTrigger(possibleTrigger)
+                ?? System.shared.findByTrigger(possibleTrigger)
+            {
 
                 if result.supportsArguments {
-                     activateArgumentMode(for: result, initialArg: arg)
-                     return
+                    activateArgumentMode(for: result, initialArg: arg)
+                    return
                 }
             }
         }
@@ -544,30 +568,33 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func activateArgumentMode(for action: NerwAction, initialArg: String) {
-         // Switch to Argument Mode
-         activeAction = action
-         inputState = .argument(action: action, step: 0, collectedArgs: [])
-         inputField.stringValue = initialArg
-         inputField.currentEditor()?.moveToEndOfLine(nil)
-         inputField.placeholderString = action.title
-         if let icon = action.icon {
+        // Switch to Argument Mode
+        activeAction = action
+        inputState = .argument(action: action, step: 0, collectedArgs: [])
+        inputField.stringValue = initialArg
+        inputField.currentEditor()?.moveToEndOfLine(nil)
+        inputField.placeholderString = action.title
+        if let icon = action.icon {
             switch icon {
             case .system(let name):
-                setIcons([NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()])
+                setIcons([
+                    NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
+                ])
             case .image(let img):
                 setIcons([img])
             case .file(let url):
                 setIcons([NSWorkspace.shared.icon(for: .data)])
-                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) { [weak self] image in
-                     if let image = image { self?.setIcons([image]) }
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 32, height: 32)) {
+                    [weak self] image in
+                    if let image = image { self?.setIcons([image]) }
                 }
             }
-         }
+        }
 
-         // Clear list & trigger search
-         actions = []
-         updateActions()
-         search(query: initialArg)
+        // Clear list & trigger search
+        actions = []
+        updateActions()
+        search(query: initialArg)
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
@@ -575,16 +602,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     {
         switch commandSelector {
         case #selector(NSResponder.deleteBackward(_:)):
-             if inputField.stringValue.isEmpty {
-                 if case .argument = inputState {
-                     return handleBacktab()
-                 }
-                 if activeAction != nil {
-                      resetToSearch()
-                      return true
-                 }
-             }
-             return false
+            if inputField.stringValue.isEmpty {
+                if case .argument = inputState {
+                    return handleBacktab()
+                }
+                if activeAction != nil {
+                    resetToSearch()
+                    return true
+                }
+            }
+            return false
 
         case #selector(NSResponder.insertTab(_:)):
             // Handle Tab navigation
@@ -619,7 +646,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             if case .argument(let action, let step, var args) = inputState {
                 args.append(inputField.stringValue)
 
-                let isLastStep = (action.arguments == nil) || (step >= (action.arguments?.count ?? 0) - 1)
+                let isLastStep =
+                    (action.arguments == nil) || (step >= (action.arguments?.count ?? 0) - 1)
 
                 if isLastStep {
                     // Final Submission
@@ -642,15 +670,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             // 3. Active Action Submission (No result selected from list)
             if let action = activeAction {
-                 if let handler = action.handler {
-                     handler(inputField.stringValue)
-                     // Restore state after submit
-                     resetToSearch()
-                 } else {
-                     delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
-                     resetToSearch()
-                 }
-                 return true
+                if let handler = action.handler {
+                    handler(inputField.stringValue)
+                    // Restore state after submit
+                    resetToSearch()
+                } else {
+                    delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
+                    resetToSearch()
+                }
+                return true
             }
 
             // 4. Default Search Action
@@ -658,17 +686,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 let selectedAction = actions[selectedIndex]
 
                 if selectedAction.supportsArguments {
-                     if selectedAction.arguments == nil && !inputField.stringValue.isEmpty {
-                         // Direct execution with current input as argument
-                         selectedAction.handler?(inputField.stringValue)
-                         FrecencyManager.shared.recordUsage(id: selectedAction.id, forQuery: inputField.stringValue)
-                         closeSession()
-                         return true
-                     }
-                     // Enter argument mode
-                     previousSearchText = inputField.stringValue
-                     enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
-                     return true
+                    if selectedAction.arguments == nil && !inputField.stringValue.isEmpty {
+                        // Direct execution with current input as argument
+                        selectedAction.handler?(inputField.stringValue)
+                        FrecencyManager.shared.recordUsage(
+                            id: selectedAction.id, forQuery: inputField.stringValue)
+                        closeSession()
+                        return true
+                    }
+                    // Enter argument mode
+                    previousSearchText = inputField.stringValue
+                    enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+                    return true
                 }
 
                 if !executeResult(selectedAction, query: inputField.stringValue) {
@@ -692,10 +721,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             if let event = NSApp.currentEvent, event.modifierFlags.contains(.command) {
                 guard let chars = event.charactersIgnoringModifiers else { return false }
                 switch chars {
-                case "a": textView.selectAll(nil); return true
-                case "c": textView.copy(nil); return true
-                case "v": textView.pasteAsPlainText(nil); return true
-                case "x": textView.cut(nil); return true
+                case "a":
+                    textView.selectAll(nil)
+                    return true
+                case "c":
+                    textView.copy(nil)
+                    return true
+                case "v":
+                    textView.pasteAsPlainText(nil)
+                    return true
+                case "x":
+                    textView.cut(nil)
+                    return true
                 case "z":
                     if let undoManager = textView.undoManager {
                         if event.modifierFlags.contains(.shift) {
@@ -716,18 +753,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func search(query: String) {
         // If in Argument Mode with active searcher, delegate it via Service
         if let action = activeAction {
-             SearchService.shared.delegateSearch(action: action, query: query) { [weak self] results in
-                 DispatchQueue.main.async { // Ensure Main Thread
-                     self?.actions = results
-                     self?.updateActions()
-                 }
-             }
-             return
+            SearchService.shared.delegateSearch(action: action, query: query) {
+                [weak self] results in
+                DispatchQueue.main.async {  // Ensure Main Thread
+                    self?.actions = results
+                    self?.updateActions()
+                }
+            }
+            return
         }
 
         // Main Search via Service
         SearchService.shared.search(query: query) { [weak self] results in
-            DispatchQueue.main.async { // Ensure Main Thread
+            DispatchQueue.main.async {  // Ensure Main Thread
                 guard let self = self else { return }
                 // Verify text hasn't changed (though Service handles cancellation best effort)
                 if self.inputField.stringValue == query {
@@ -746,7 +784,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         scrollView.isHidden = !hasActions
         scrollView.hasVerticalScroller = actions.count > LayoutMetrics.Results.maxVisibleRows
 
-        scrollViewBottomConstraint.constant = hasActions ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
+        scrollViewBottomConstraint.constant =
+            hasActions ? -LayoutMetrics.Results.expandedBottom : -LayoutMetrics.Results.bottom
 
         resultsTableView.reloadData()
 
@@ -782,7 +821,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     {
         let action = actions[row]
         let cell = ResultCellView()
-        cell.configure(with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated)
+        cell.configure(
+            with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated)
         return cell
     }
 

@@ -20,7 +20,8 @@ public class MainPanelWindowController: NSObject {
         // Calculate window size
         let metrics = MainPanelContentViewController.LayoutMetrics.self
         let width = metrics.Window.width
-        let initialHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
+        let initialHeight =
+            metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
 
         // Create panel
         panel = MainPanel(
@@ -52,28 +53,29 @@ public class MainPanelWindowController: NSObject {
         guard let screen = NSScreen.main else { return }
         let screenRect = screen.visibleFrame
         let windowRect = panel.frame
-        
+
         // Calculate positioning based on the search bar height logic
         // We want the Search Bar to be roughly at the "Visual Center" + Offset
         // regardless of whether there are results or not.
-        
+
         let metrics = MainPanelContentViewController.LayoutMetrics.self
-        let searchBarHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
-        
+        let searchBarHeight =
+            metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
+
         // This is where we want the center of the Search Bar to be
         // 0.30 offset moves it higher up the screen (Recalling that screen Y origin is bottom)
         let visualCenterY = screenRect.origin.y + screenRect.height / 2 + screenRect.height * 0.30
-        
+
         // Calculate where the top of the window should be
         // CenterOfSearchBar = TopOfWindow - SearchBarHeight/2
         // TopOfWindow = CenterOfSearchBar + SearchBarHeight/2
         let targetTopY = visualCenterY + searchBarHeight / 2
-        
+
         // Actual Origin Y = TopOfWindow - CurrentHeight
         let newOriginY = targetTopY - windowRect.height
-        
+
         let x = screenRect.origin.x + (screenRect.width - windowRect.width) / 2
-        
+
         panel.setFrameOrigin(NSPoint(x: x, y: newOriginY))
     }
 
@@ -130,7 +132,8 @@ extension MainPanelWindowController: MainPanelContentDelegate {
             let searchSection = metrics.SearchField.top + metrics.SearchField.height
 
             // Separator Section (Top margin + Height + Bottom margin)
-            let separatorSection = metrics.Separator.top + metrics.Separator.height + metrics.Separator.bottom
+            let separatorSection =
+                metrics.Separator.top + metrics.Separator.height + metrics.Separator.bottom
 
             // Results Section (Results height + Bottom margin matching expandedBottom)
             // We use the explicit expandedBottom metric from LayoutMetrics
@@ -143,7 +146,8 @@ extension MainPanelWindowController: MainPanelContentDelegate {
         } else {
             // Shrink view height (SearchField.top + SearchField.height + SearchField.bottom)
             // SearchField.bottom acts as the bottom padding in shrink view
-            let shrinkHeight = metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
+            let shrinkHeight =
+                metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
             updateHeight(shrinkHeight)
         }
     }

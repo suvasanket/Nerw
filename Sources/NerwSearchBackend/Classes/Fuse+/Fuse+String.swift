@@ -13,7 +13,9 @@ extension Fuse {
     ///   - pattern: The pattern to search for. This is created by calling `createPattern`
     ///   - aString: The string in which to search for the pattern
     /// - Returns: A tuple containing a `score` between `0.0` (exact match) and `1` (not a match), and `ranges` of the matched characters. If no match is found will return nil.
-    public func search(_ pattern: Pattern?, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>])? {
+    public func search(_ pattern: Pattern?, in aString: String) -> (
+        score: Double, ranges: [CountableClosedRange<Int>]
+    )? {
         guard let pattern = pattern else {
             return nil
         }
@@ -21,7 +23,9 @@ extension Fuse {
         //If tokenize is set we will split the pattern into individual words and take the average which should result in more accurate matches
         if tokenize {
             //Split this pattern by the space character
-            let wordPatterns = pattern.text.split(separator: " ").compactMap { createPattern(from: String($0)) }
+            let wordPatterns = pattern.text.split(separator: " ").compactMap {
+                createPattern(from: String($0))
+            }
 
             //Get the result for testing the full pattern string. If 2 strings have equal individual word matches this will boost the full string that matches best overall to the top
             let fullPatternResult = _search(pattern, in: aString)
@@ -34,7 +38,10 @@ extension Fuse {
             }
 
             //Average the total score by dividing the summed scores by the number of word searches + the full string search. Also remove any range duplicates since we are searching full string and words individually.
-            let averagedResult = (score: results.score / Double(wordPatterns.count + 1), ranges: Array<CountableClosedRange<Int>>(Set<CountableClosedRange<Int>>(results.ranges)))
+            let averagedResult = (
+                score: results.score / Double(wordPatterns.count + 1),
+                ranges: [CountableClosedRange<Int>](Set<CountableClosedRange<Int>>(results.ranges))
+            )
 
             //If the averaged score is 1 then there were no matches so return nil. Otherwise return the average result
             return averagedResult.score == 1 ? nil : averagedResult
@@ -56,7 +63,9 @@ extension Fuse {
     ///   - pattern: The pattern to search for. This is created by calling `createPattern`
     ///   - aString: The string in which to search for the pattern
     /// - Returns: A tuple containing a `score` between `0.0` (exact match) and `1` (not a match), and `ranges` of the matched characters. If no match is found will return a tuple with score of 1 and empty array of ranges.
-    private func _search(_ pattern: Pattern, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>]) {
+    private func _search(_ pattern: Pattern, in aString: String) -> (
+        score: Double, ranges: [CountableClosedRange<Int>]
+    ) {
 
         var text = aString
 
@@ -67,7 +76,7 @@ extension Fuse {
         let textLength = text.count
 
         // Exact match
-        if (pattern.text == text) {
+        if pattern.text == text {
             return (0, [0...textLength - 1])
         }
 
@@ -87,7 +96,10 @@ extension Fuse {
 
         if let bestLoc = bestLocation {
 
-            threshold = min(threshold, FuseUtilities.calculateScore(pattern.len, e: 0, x: location, loc: bestLoc, distance: distance))
+            threshold = min(
+                threshold,
+                FuseUtilities.calculateScore(
+                    pattern.len, e: 0, x: location, loc: bestLoc, distance: distance))
 
             // What about in the other direction? (speed up)
             bestLocation = {
@@ -98,7 +110,10 @@ extension Fuse {
             }()
 
             if let bestLocation = bestLocation {
-                threshold = min(threshold, FuseUtilities.calculateScore(pattern.len, e: 0, x: location, loc: bestLocation, distance: distance))
+                threshold = min(
+                    threshold,
+                    FuseUtilities.calculateScore(
+                        pattern.len, e: 0, x: location, loc: bestLocation, distance: distance))
             }
         }
 
@@ -118,7 +133,10 @@ extension Fuse {
             var binMid = binMax
 
             while binMin < binMid {
-                if FuseUtilities.calculateScore(pattern.len, e: i, x: location, loc: location + binMid, distance: distance) <= threshold {
+                if FuseUtilities.calculateScore(
+                    pattern.len, e: i, x: location, loc: location + binMid, distance: distance)
+                    <= threshold
+                {
                     binMin = binMid
                 } else {
                     binMax = binMid
@@ -144,11 +162,12 @@ extension Fuse {
             for j in (start...finish).reversed() {
                 let currentLocation = j - 1
 
-
                 // Need to check for `nil` case, since `patternAlphabet` is a sparse hash
                 let charMatch: Int = {
                     if currentLocation < textCount {
-                        currentLocationIndex = currentLocationIndex.map{text.index(before: $0)} ?? text.index(text.startIndex, offsetBy: currentLocation)
+                        currentLocationIndex =
+                            currentLocationIndex.map { text.index(before: $0) }
+                            ?? text.index(text.startIndex, offsetBy: currentLocation)
                         let char = text[currentLocationIndex!]
                         if let result = pattern.alphabet[char] {
                             return result
@@ -167,11 +186,13 @@ extension Fuse {
 
                 // Subsequent passes: fuzzy match
                 if i > 0 {
-                    bitArr[j] |= (((lastBitArr[j + 1] | lastBitArr[j]) << 1) | 1) | lastBitArr[j + 1]
+                    bitArr[j] |=
+                        (((lastBitArr[j + 1] | lastBitArr[j]) << 1) | 1) | lastBitArr[j + 1]
                 }
 
                 if (bitArr[j] & pattern.mask) != 0 {
-                    score = FuseUtilities.calculateScore(pattern.len, e: i, x: location, loc: currentLocation, distance: distance)
+                    score = FuseUtilities.calculateScore(
+                        pattern.len, e: i, x: location, loc: currentLocation, distance: distance)
 
                     // This match will almost certainly be better than any existing match. But check anyway.
                     if score <= threshold {
@@ -183,7 +204,7 @@ extension Fuse {
                             break
                         }
 
-                        if bestLocation > location  {
+                        if bestLocation > location {
                             // When passing `bestLocation`, don't exceed our current distance from the expected `location`.
                             start = max(1, 2 * location - bestLocation)
                         } else {
@@ -195,7 +216,9 @@ extension Fuse {
             }
 
             // No hope for a better match at greater error levels
-            if FuseUtilities.calculateScore(pattern.len, e: i + 1, x: location, loc: location, distance: distance) > threshold {
+            if FuseUtilities.calculateScore(
+                pattern.len, e: i + 1, x: location, loc: location, distance: distance) > threshold
+            {
                 break
             }
 
@@ -222,7 +245,9 @@ extension Fuse {
     ///   - text: the text string to search for.
     ///   - aString: The string in which to search for the pattern
     /// - Returns: A tuple containing a `score` between `0.0` (exact match) and `1` (not a match), and `ranges` of the matched characters.
-    public func search(_ text: String, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>])? {
+    public func search(_ text: String, in aString: String) -> (
+        score: Double, ranges: [CountableClosedRange<Int>]
+    )? {
         return self.search(self.createPattern(from: text), in: aString)
     }
 }

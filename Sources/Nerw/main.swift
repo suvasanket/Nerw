@@ -1,7 +1,7 @@
 // main.swift
 import Cocoa
 
-    let app = NSApplication.shared
+let app = NSApplication.shared
 let delegate = AppDelegate()
-    app.delegate = delegate
+app.delegate = delegate
 app.run()

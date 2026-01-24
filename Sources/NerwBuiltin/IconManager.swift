@@ -14,7 +14,8 @@ public class IconManager {
         let home = fileManager.homeDirectoryForCurrentUser
         self.iconDirectory = home.appendingPathComponent(".config/nerw/icons")
 
-        try? fileManager.createDirectory(at: iconDirectory, withIntermediateDirectories: true, attributes: nil)
+        try? fileManager.createDirectory(
+            at: iconDirectory, withIntermediateDirectories: true, attributes: nil)
     }
 
     public func icon(for urlOrDomain: String) -> NSImage? {
@@ -32,7 +33,8 @@ public class IconManager {
         // Check Disk
         let fileURL = iconDirectory.appendingPathComponent("\(domain).png")
         if fileManager.fileExists(atPath: fileURL.path),
-           let image = NSImage(contentsOf: fileURL) {
+            let image = NSImage(contentsOf: fileURL)
+        {
             // Update Memory (Thread-Safe Write)
             queue.async(flags: .barrier) {
                 self.memoryCache[domain] = image
@@ -72,8 +74,9 @@ public class IconManager {
             // Save to Disk
             let fileURL = self.iconDirectory.appendingPathComponent("\(domain).png")
             if let tiffData = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiffData),
-               let pngData = bitmap.representation(using: .png, properties: [:]) {
+                let bitmap = NSBitmapImageRep(data: tiffData),
+                let pngData = bitmap.representation(using: .png, properties: [:])
+            {
                 try? pngData.write(to: fileURL)
             }
 

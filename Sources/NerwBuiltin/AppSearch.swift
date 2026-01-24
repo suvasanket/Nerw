@@ -1,6 +1,6 @@
 import Cocoa
-import NerwCore
 import CoreServices
+import NerwCore
 
 public class AppSearch {
     public static let shared = AppSearch()
@@ -12,7 +12,8 @@ public class AppSearch {
 
     private var cachedApps: [AppInfo] = []
     // Allow refreshing to be async but cache access sync
-    private let cacheQueue = DispatchQueue(label: "com.nerw.appsearch.cache", attributes: .concurrent)
+    private let cacheQueue = DispatchQueue(
+        label: "com.nerw.appsearch.cache", attributes: .concurrent)
 
     private init() {
         refreshCache()
@@ -33,11 +34,11 @@ public class AppSearch {
 
     private func performSearch() -> [AppInfo] {
         var results: [AppInfo] = []
-        
+
         // Strategy 1: Snapshot MDQuery (Native API) - FASTEST & NATIVE
         if let spotlightResults = runMDQuerySearch() {
             results = spotlightResults
-        } 
+        }
         // Strategy 2: fd (if installed)
         else if let fdResults = runFd() {
             results = fdResults
@@ -74,17 +75,18 @@ public class AppSearch {
         }
 
         // Set explicit scope to match previous logic (broad app locations)
-        let searchScopes: [CFURL] = [
-            URL(fileURLWithPath: "/Applications"),
-            URL(fileURLWithPath: "/System/Applications"),
-            URL(fileURLWithPath: "/Users")
-        ] as [CFURL]
+        let searchScopes: [CFURL] =
+            [
+                URL(fileURLWithPath: "/Applications"),
+                URL(fileURLWithPath: "/System/Applications"),
+                URL(fileURLWithPath: "/Users"),
+            ] as [CFURL]
         MDQuerySetSearchScope(mdQuery, searchScopes as CFArray, 0)
 
         // Execute Synchronously ensures we get results immediately for this "snapshot"
         if !MDQueryExecute(mdQuery, CFOptionFlags(kMDQuerySynchronous.rawValue)) {
-             print("[AppSearch] MDQueryExecute failed")
-             return nil
+            print("[AppSearch] MDQueryExecute failed")
+            return nil
         }
 
         let count = MDQueryGetResultCount(mdQuery)
@@ -145,12 +147,13 @@ public class AppSearch {
         task.standardOutput = pipe
         task.arguments = ["-c", command]
         task.launchPath = "/bin/zsh"
-        task.standardError = Pipe() // Silence errors
+        task.standardError = Pipe()  // Silence errors
 
         do {
             try task.run()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(
+                in: .whitespacesAndNewlines)
         } catch {
             return nil
         }

@@ -1,7 +1,6 @@
+import AppKit
 import Foundation
 import JavaScriptCore
-import AppKit
-
 import NerwSearchBackend
 
 @objc protocol NerwAPIExports: JSExport {
@@ -28,7 +27,8 @@ import NerwSearchBackend
         // This assumes 'Promise' is available in the global scope (Standard in JSC on modern macOS)
         let promiseFunction = context?.objectForKeyedSubscript("Promise")
 
-        let promiseHandler: @convention(block) (JSValue, JSValue) -> Void = { [weak self] resolve, reject in
+        let promiseHandler: @convention(block) (JSValue, JSValue) -> Void = {
+            [weak self] resolve, reject in
             guard let self = self else { return }
 
             let task = URLSession.shared.dataTask(with: urlObj) { data, response, error in
@@ -52,7 +52,9 @@ import NerwSearchBackend
         }
 
         // Construct new Promise((resolve, reject) => { ... })
-        return promiseFunction?.construct(withArguments: [JSValue(object: promiseHandler, in: context) as Any]) ?? JSValue(undefinedIn: context)
+        return promiseFunction?.construct(withArguments: [
+            JSValue(object: promiseHandler, in: context) as Any
+        ]) ?? JSValue(undefinedIn: context)
     }
 
     func copyToClipboard(_ text: String) {

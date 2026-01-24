@@ -9,16 +9,17 @@ internal class FuseUtilities {
     /// - Parameter loc: Expected location of match.
     /// - Parameter scoreTextLength: Coerced version of text's length.
     /// - Returns: Overall score for match (0.0 = good, 1.0 = bad).
-    static func calculateScore(_ pattern: String, e: Int, x: Int, loc: Int, distance: Int) -> Double {
+    static func calculateScore(_ pattern: String, e: Int, x: Int, loc: Int, distance: Int) -> Double
+    {
         let len = pattern.count
         let accuracy = Double(e) / Double(len)
         let proximity = abs(x - loc)
-        if (distance == 0) {
+        if distance == 0 {
             return Double(proximity != 0 ? 1 : accuracy)
         }
         return Double(accuracy) + (Double(proximity) / Double(distance))
     }
-    
+
     /// Computes the score for a match with `e` errors and `x` location.
     ///
     /// - Parameter patternLength: Length of pattern being sought.
@@ -27,15 +28,17 @@ internal class FuseUtilities {
     /// - Parameter loc: Expected location of match.
     /// - Parameter scoreTextLength: Coerced version of text's length.
     /// - Returns: Overall score for match (0.0 = good, 1.0 = bad).
-    static func calculateScore(_ patternLength: Int, e: Int, x: Int, loc: Int, distance: Int) -> Double {
+    static func calculateScore(_ patternLength: Int, e: Int, x: Int, loc: Int, distance: Int)
+        -> Double
+    {
         let accuracy = Double(e) / Double(patternLength)
         let proximity = abs(x - loc)
-        if (distance == 0) {
+        if distance == 0 {
             return Double(proximity != 0 ? 1 : accuracy)
         }
         return Double(accuracy) + (Double(proximity) / Double(distance))
     }
-    
+
     /// Initializes the alphabet for the Bitap algorithm
     ///
     /// - Parameter pattern: The text to encode.
@@ -44,11 +47,11 @@ internal class FuseUtilities {
         let len = pattern.count
         var mask = [Character: Int]()
         for (i, c) in pattern.enumerated() {
-            mask[c] =  (mask[c] ?? 0) | (1 << (len - i - 1))
+            mask[c] = (mask[c] ?? 0) | (1 << (len - i - 1))
         }
         return mask
     }
-    
+
     /// Returns an array of `CountableClosedRange<Int>`, where each range represents a consecutive list of `1`s.
     ///
     ///     let arr = [0, 1, 1, 0, 1, 1, 1 ]

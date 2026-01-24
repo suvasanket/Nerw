@@ -12,10 +12,10 @@ public struct NerwAction {
     }
     public let icon: IconType?
 
-    public let triggers: [String] // Trigger words
+    public let triggers: [String]  // Trigger words
 
     // Arguments configuration
-    public let arguments: [String]? // List of argument names/placeholders. Nil if no args.
+    public let arguments: [String]?  // List of argument names/placeholders. Nil if no args.
 
     // Execution Logic
     // Handler: Executed when the action is final (or args are collected)
@@ -60,7 +60,7 @@ public struct NerwAction {
     public enum ActionMode {
         case none
         case arguments
-        case quickAction // Takes precedence if both exist
+        case quickAction  // Takes precedence if both exist
     }
 
     public var mode: ActionMode {
@@ -84,7 +84,7 @@ public struct NerwAction {
             return nil
         case .arguments:
             if let args = arguments, !args.isEmpty {
-                 return args[0]
+                return args[0]
             }
             return "Arguments"
         case .quickAction:
@@ -92,7 +92,7 @@ public struct NerwAction {
         }
     }
 }
- 
+
 public class NerwActionBox {
     public let value: NerwAction
     public init(_ value: NerwAction) {

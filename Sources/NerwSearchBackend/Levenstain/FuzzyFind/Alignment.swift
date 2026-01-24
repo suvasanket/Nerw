@@ -20,9 +20,9 @@ public struct Alignment {
 
     public func highlight() -> String {
         return """
-        \(result.segments.map(\.asString).joined())
-        \(result.segments.map(\.asGaps).joined())
-        """
+            \(result.segments.map(\.asString).joined())
+            \(result.segments.map(\.asGaps).joined())
+            """
     }
 
     public var asString: String {

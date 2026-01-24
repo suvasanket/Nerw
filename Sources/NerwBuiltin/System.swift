@@ -1,12 +1,9 @@
-import Cocoa
 import ApplicationServices
-import UniformTypeIdentifiers
+import Cocoa
 import CoreWLAN
 import IOBluetooth
-
-
 import NerwCore
-
+import UniformTypeIdentifiers
 
 public class System {
     public static let shared = System()
@@ -27,7 +24,10 @@ public class System {
     }
 
     @objc private func appDidActivate(_ notification: Notification) {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+        guard
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication
+        else { return }
         // Track last active app that IS NOT Nerw (self)
         if app.processIdentifier != NSRunningApplication.current.processIdentifier {
             self.lastActiveApp = app
@@ -45,7 +45,9 @@ public class System {
                 id: "nerw.system.emptydownloads",
                 title: "Empty Downloads",
                 subtitle: "Move all Downloads folder contents to Trash",
-                icon: .image(NSImage(named: "download") ?? NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "download") ?? NSImage(
+                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
                 triggers: ["empty downloads"],
                 arguments: nil,
                 handler: { _ in self.emptyDownloads() }
@@ -84,7 +86,9 @@ public class System {
                 id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
-                icon: .image(NSImage(named: "eject") ?? NSImage(systemSymbolName: "eject", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "eject") ?? NSImage(
+                        systemSymbolName: "eject", accessibilityDescription: nil)!),
                 triggers: ["eject"],
                 arguments: ["Volume Name"],
                 handler: { volumeName in
@@ -120,7 +124,9 @@ public class System {
                 id: "nerw.system.wifi",
                 title: "WiFi",
                 subtitle: "Toggle WiFi or Connect to Network",
-                icon: .image(NSImage(named: "wifi") ?? NSImage(systemSymbolName: "wifi", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "wifi") ?? NSImage(
+                        systemSymbolName: "wifi", accessibilityDescription: nil)!),
                 triggers: ["wifi"],
                 arguments: ["SSID"],
                 handler: { _ in self.toggleWifi() },
@@ -131,12 +137,18 @@ public class System {
         }
 
         // Bluetooth
-        if "bluetooth".starts(with: lowerQuery) || "bt".starts(with: lowerQuery) && lowerQuery.count >= 2 {
-             return NerwAction(
+        if "bluetooth".starts(with: lowerQuery)
+            || "bt".starts(with: lowerQuery) && lowerQuery.count >= 2
+        {
+            return NerwAction(
                 id: "nerw.system.bluetooth",
                 title: "Bluetooth",
                 subtitle: "Toggle Bluetooth or Connect Device",
-                icon: .image(NSImage(named: "bluetooth") ?? NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "bluetooth") ?? NSImage(
+                        systemSymbolName: "iphone.gen3.radiowaves.left.and.right",
+                        accessibilityDescription: nil
+                    )!),
                 triggers: ["bluetooth", "bt"],
                 arguments: ["Device Name"],
                 handler: { _ in self.toggleBluetooth() },
@@ -158,7 +170,9 @@ public class System {
                 id: "nerw.system.emptydownloads",
                 title: "Empty Downloads",
                 subtitle: "Move all Downloads folder contents to Trash",
-                icon: .image(NSImage(named: "download") ?? NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "download") ?? NSImage(
+                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
                 triggers: ["empty downloads"],
                 arguments: nil,
                 handler: { _ in self.emptyDownloads() }
@@ -191,7 +205,9 @@ public class System {
                 id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
-                icon: .image(NSImage(named: "eject") ?? NSImage(systemSymbolName: "eject", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "eject") ?? NSImage(
+                        systemSymbolName: "eject", accessibilityDescription: nil)!),
                 triggers: ["eject"],
                 arguments: ["Volume Name"],
                 handler: { volumeName in
@@ -206,13 +222,14 @@ public class System {
 
         // Quit Process - Removed
 
-
         case "wifi":
             return NerwAction(
                 id: "nerw.system.wifi",
                 title: "WiFi",
                 subtitle: "Toggle WiFi or Connect to Network",
-                icon: .image(NSImage(named: "wifi") ?? NSImage(systemSymbolName: "wifi", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "wifi") ?? NSImage(
+                        systemSymbolName: "wifi", accessibilityDescription: nil)!),
                 triggers: ["wifi"],
                 arguments: ["SSID"],
                 handler: { _ in self.toggleWifi() },
@@ -222,11 +239,15 @@ public class System {
             )
 
         case "bluetooth", "bt":
-             return NerwAction(
+            return NerwAction(
                 id: "nerw.system.bluetooth",
                 title: "Bluetooth",
                 subtitle: "Toggle Bluetooth or Connect Device",
-                icon: .image(NSImage(named: "bluetooth") ?? NSImage(systemSymbolName: "iphone.gen3.radiowaves.left.and.right", accessibilityDescription: nil)!),
+                icon: .image(
+                    NSImage(named: "bluetooth") ?? NSImage(
+                        systemSymbolName: "iphone.gen3.radiowaves.left.and.right",
+                        accessibilityDescription: nil
+                    )!),
                 triggers: ["bluetooth", "bt"],
                 arguments: ["Device Name"],
                 handler: { _ in self.toggleBluetooth() },
@@ -293,25 +314,30 @@ public class System {
 
     private func ejectAll() {
         DispatchQueue.global(qos: .userInitiated).async {
-            let keys: [URLResourceKey] = [.volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsInternalKey]
-            guard let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) else { return }
+            let keys: [URLResourceKey] = [
+                .volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsInternalKey,
+            ]
+            guard
+                let urls = FileManager.default.mountedVolumeURLs(
+                    includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes])
+            else { return }
 
             for url in urls {
-                 guard let resourceValues = try? url.resourceValues(forKeys: Set(keys)),
-                       let isEjectable = resourceValues.volumeIsEjectable,
-                       isEjectable else { continue }
+                guard let resourceValues = try? url.resourceValues(forKeys: Set(keys)),
+                    let isEjectable = resourceValues.volumeIsEjectable,
+                    isEjectable
+                else { continue }
 
-                 do {
-                     try NSWorkspace.shared.unmountAndEjectDevice(at: url)
-                 } catch {
-                     print("[System] Failed to eject \(url.lastPathComponent): \(error)")
-                 }
+                do {
+                    try NSWorkspace.shared.unmountAndEjectDevice(at: url)
+                } catch {
+                    print("[System] Failed to eject \(url.lastPathComponent): \(error)")
+                }
             }
         }
     }
 
     // MARK: - Process Management (Moved to QuickAction)
-
 
     // MARK: - Volume Search
 
@@ -320,15 +346,18 @@ public class System {
             var results: [NerwAction] = []
 
             let keys: [URLResourceKey] = [.volumeIsEjectableKey, .volumeNameKey]
-            if let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) {
+            if let urls = FileManager.default.mountedVolumeURLs(
+                includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes])
+            {
 
                 let lowerQuery = query.lowercased()
 
                 let ejectableVolumes = urls.compactMap { url -> (String, URL)? in
                     guard let values = try? url.resourceValues(forKeys: Set(keys)),
-                          let isEjectable = values.volumeIsEjectable,
-                          isEjectable,
-                          let name = values.volumeName else { return nil }
+                        let isEjectable = values.volumeIsEjectable,
+                        isEjectable,
+                        let name = values.volumeName
+                    else { return nil }
                     return (name, url)
                 }
 
@@ -370,7 +399,10 @@ public class System {
                     triggers: [],
                     arguments: nil,
                     handler: { _ in
-                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+                        let url = URL(
+                            string:
+                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                        )!
                         NSWorkspace.shared.open(url)
                     }
                 )
@@ -387,7 +419,8 @@ public class System {
             let appElement = AXUIElementCreateApplication(pid)
 
             var menuBarValue: AnyObject?
-            let result = AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBarValue)
+            let result = AXUIElementCopyAttributeValue(
+                appElement, kAXMenuBarAttribute as CFString, &menuBarValue)
 
             guard result == .success, let menuBar = menuBarValue else {
                 DispatchQueue.main.async { completion([]) }
@@ -398,13 +431,15 @@ public class System {
             var foundItems: [MenuItem] = []
 
             // Crawl
-            self.crawlMenu(element: menuBarElement, path: [], query: query.lowercased(), results: &foundItems)
+            self.crawlMenu(
+                element: menuBarElement, path: [], query: query.lowercased(), results: &foundItems)
 
             let results = foundItems.map { item -> NerwAction in
                 // Generate a stable ID if possible, or random
                 let pathString = item.path.joined(separator: " > ")
                 return NerwAction(
-                    id: "nerw.system.menusExp.\(targetApp.processIdentifier).\(pathString.hashValue)",
+                    id:
+                        "nerw.system.menusExp.\(targetApp.processIdentifier).\(pathString.hashValue)",
                     title: item.title,
                     subtitle: "\(targetApp.localizedName ?? "App") > \(pathString)",
                     icon: .system("menubar.arrow.down.rectangle"),
@@ -429,12 +464,16 @@ public class System {
     }
 
     // Recursive crawling with limit
-    private func crawlMenu(element: AXUIElement, path: [String], query: String, results: inout [MenuItem], depth: Int = 0) {
-        if depth > 5 { return } // Depth limiter
+    private func crawlMenu(
+        element: AXUIElement, path: [String], query: String, results: inout [MenuItem],
+        depth: Int = 0
+    ) {
+        if depth > 5 { return }  // Depth limiter
 
         // Get Children
         var childrenValue: AnyObject?
-        let res = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue)
+        let res = AXUIElementCopyAttributeValue(
+            element, kAXChildrenAttribute as CFString, &childrenValue)
         guard res == .success, let children = childrenValue as? [AXUIElement] else { return }
 
         for child in children {
@@ -459,7 +498,8 @@ public class System {
 
             var submenuValue: AnyObject?
             // Use "AXSubmenu" string literal
-            let subRes = AXUIElementCopyAttributeValue(child, "AXSubmenu" as CFString, &submenuValue)
+            let subRes = AXUIElementCopyAttributeValue(
+                child, "AXSubmenu" as CFString, &submenuValue)
             // Let's rely on standard kAXSubmenuAttribute or just recurse children directly if any.
             // AXMenuItems having children usually means submenu.
 
@@ -468,18 +508,20 @@ public class System {
 
             var subMenuElement: AXUIElement?
             if subRes == .success {
-                 subMenuElement = submenuValue as! AXUIElement?
+                subMenuElement = submenuValue as! AXUIElement?
             }
 
             if let subMenu = subMenuElement {
                 // It's a menu (submenu). Recurse.
                 let newPath = path + [title]
-                crawlMenu(element: subMenu, path: newPath, query: query, results: &results, depth: depth + 1)
+                crawlMenu(
+                    element: subMenu, path: newPath, query: query, results: &results,
+                    depth: depth + 1)
                 isLeaf = false
             } else {
-                 // Try getting children directly (flat menu?)
-                 // Rarely happens for standard menus.
-                 // Assume Leaf.
+                // Try getting children directly (flat menu?)
+                // Rarely happens for standard menus.
+                // Assume Leaf.
             }
 
             if isLeaf {
@@ -510,7 +552,10 @@ public class System {
 
     private func getVolumeURL(name: String) -> URL? {
         let keys: [URLResourceKey] = [.volumeNameKey]
-        guard let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: []) else { return nil }
+        guard
+            let urls = FileManager.default.mountedVolumeURLs(
+                includingResourceValuesForKeys: keys, options: [])
+        else { return nil }
         return urls.first { url in
             (try? url.resourceValues(forKeys: Set(keys)).volumeName) == name
         }
@@ -548,9 +593,9 @@ public class System {
                 toggleWifiShell(on: !power)
             }
         } else {
-             // Fallback blindly
-             // Check status first?
-             toggleWifiShell(on: true) // Assume on if interface failure? No, awkward.
+            // Fallback blindly
+            // Check status first?
+            toggleWifiShell(on: true)  // Assume on if interface failure? No, awkward.
         }
     }
 
@@ -563,60 +608,63 @@ public class System {
         runShellCommand(command: "networksetup -setairportpower en1 \(state)")
     }
 
-    private func listAndSearchNetworks(query: String, completion: @escaping ([NerwAction]) -> Void) {
+    private func listAndSearchNetworks(query: String, completion: @escaping ([NerwAction]) -> Void)
+    {
         print("[System] listAndSearchNetworks called. Query: '\(query)'")
         DispatchQueue.global(qos: .userInitiated).async {
-             guard let interface = self.getWiFiInterface() else {
-                 print("[System] No WiFi interface found.")
-                 DispatchQueue.main.async { completion([]) }
-                 return
-             }
-             print("[System] WiFi Interface found: \(interface.interfaceName ?? "Unknown")")
+            guard let interface = self.getWiFiInterface() else {
+                print("[System] No WiFi interface found.")
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
+            print("[System] WiFi Interface found: \(interface.interfaceName ?? "Unknown")")
 
-             do {
-                 let networks = try interface.scanForNetworks(withSSID: nil)
-                 let lowerQuery = query.lowercased()
+            do {
+                let networks = try interface.scanForNetworks(withSSID: nil)
+                let lowerQuery = query.lowercased()
 
-                 // De-duplicate by SSID
-                 var seen = Set<String>()
-                 let uniqueNetworks = networks.filter { network in
-                     guard let ssid = network.ssid, !ssid.isEmpty else { return false }
-                     if seen.contains(ssid) { return false }
-                     seen.insert(ssid)
-                     return true
-                 }
+                // De-duplicate by SSID
+                var seen = Set<String>()
+                let uniqueNetworks = networks.filter { network in
+                    guard let ssid = network.ssid, !ssid.isEmpty else { return false }
+                    if seen.contains(ssid) { return false }
+                    seen.insert(ssid)
+                    return true
+                }
 
-                 let filtered = uniqueNetworks.filter { network in
-                     return query.isEmpty || (network.ssid?.lowercased().contains(lowerQuery) ?? false)
-                 }
+                let filtered = uniqueNetworks.filter { network in
+                    return query.isEmpty
+                        || (network.ssid?.lowercased().contains(lowerQuery) ?? false)
+                }
 
-                 // Sort by RSSI (Signal Strength)
-                 let sorted = filtered.sorted { $0.rssiValue > $1.rssiValue }
+                // Sort by RSSI (Signal Strength)
+                let sorted = filtered.sorted { $0.rssiValue > $1.rssiValue }
 
-                 let results = sorted.map { network in
-                     let ssid = network.ssid ?? "Unknown"
-                     return NerwAction(
-                         id: "nerw.system.wifi.\(ssid)",
-                         title: ssid,
-                         subtitle: "Signal: \(network.rssiValue) dBm • Security: \(self.securityString(network))",
-                         icon: .system("wifi"),
-                         triggers: [ssid],
-                         arguments: nil,
-                         handler: { _ in
-                             self.connectToWifi(network: network)
-                         }
-                     )
-                 }
+                let results = sorted.map { network in
+                    let ssid = network.ssid ?? "Unknown"
+                    return NerwAction(
+                        id: "nerw.system.wifi.\(ssid)",
+                        title: ssid,
+                        subtitle:
+                            "Signal: \(network.rssiValue) dBm • Security: \(self.securityString(network))",
+                        icon: .system("wifi"),
+                        triggers: [ssid],
+                        arguments: nil,
+                        handler: { _ in
+                            self.connectToWifi(network: network)
+                        }
+                    )
+                }
 
-                 DispatchQueue.main.async { 
-                     print("[System] Found \(results.count) networks.")
-                     completion(results) 
-                 }
+                DispatchQueue.main.async {
+                    print("[System] Found \(results.count) networks.")
+                    completion(results)
+                }
 
-             } catch {
-                 print("[System] WiFi Scan failed: \(error)")
-                 DispatchQueue.main.async { completion([]) }
-             }
+            } catch {
+                print("[System] WiFi Scan failed: \(error)")
+                DispatchQueue.main.async { completion([]) }
+            }
         }
     }
 
@@ -638,14 +686,13 @@ public class System {
         // Best effort: connect with empty password (works if saved in keychain?)
 
         DispatchQueue.global(qos: .userInitiated).async {
-             do {
-                 try interface.associate(to: network, password: nil)
-             } catch {
-                 print("[System] Connection failed: \(error)")
-             }
+            do {
+                try interface.associate(to: network, password: nil)
+            } catch {
+                print("[System] Connection failed: \(error)")
+            }
         }
     }
-
 
     // MARK: - Bluetooth Logic (Blueutil)
 
@@ -668,7 +715,8 @@ public class System {
         DispatchQueue.main.async {
             let alert = NSAlert()
             alert.messageText = "Bluetooth Utility Missing"
-            alert.informativeText = "Nerw requires 'blueutil' to manage Bluetooth.\n\nPlease install it using Homebrew:\nbrew install blueutil"
+            alert.informativeText =
+                "Nerw requires 'blueutil' to manage Bluetooth.\n\nPlease install it using Homebrew:\nbrew install blueutil"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "OK")
             alert.runModal()
@@ -685,7 +733,7 @@ public class System {
 
         let pipe = Pipe()
         task.standardOutput = pipe
-        task.standardError = Pipe() // Ignore error spam
+        task.standardError = Pipe()  // Ignore error spam
 
         do {
             try task.run()
@@ -703,15 +751,20 @@ public class System {
         if !ensureBlueutilInstalled() { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
-             // Check current state details to toggle
-             // blueutil -p returns "0" or "1"
-             guard let output = self.runBlueutil(args: ["-p"])?.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
-             let newState = (output == "1") ? "0" : "1"
-             _ = self.runBlueutil(args: ["-p", newState])
+            // Check current state details to toggle
+            // blueutil -p returns "0" or "1"
+            guard
+                let output = self.runBlueutil(args: ["-p"])?.trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+            else { return }
+            let newState = (output == "1") ? "0" : "1"
+            _ = self.runBlueutil(args: ["-p", newState])
         }
     }
 
-    private func listAndSearchBluetoothDevices(query: String, completion: @escaping ([NerwAction]) -> Void) {
+    private func listAndSearchBluetoothDevices(
+        query: String, completion: @escaping ([NerwAction]) -> Void
+    ) {
         if !ensureBlueutilInstalled() {
             DispatchQueue.main.async { completion([]) }
             return
@@ -720,7 +773,7 @@ public class System {
         DispatchQueue.global(qos: .userInitiated).async {
             // blueutil --paired --format json
             guard let jsonString = self.runBlueutil(args: ["--paired", "--format", "json"]),
-                  let data = jsonString.data(using: .utf8)
+                let data = jsonString.data(using: .utf8)
             else {
                 DispatchQueue.main.async { completion([]) }
                 return
@@ -770,11 +823,11 @@ public class System {
         if !ensureBlueutilInstalled() { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
-             if device.connected {
-                 _ = self.runBlueutil(args: ["--disconnect", device.address])
-             } else {
-                 _ = self.runBlueutil(args: ["--connect", device.address])
-             }
+            if device.connected {
+                _ = self.runBlueutil(args: ["--disconnect", device.address])
+            } else {
+                _ = self.runBlueutil(args: ["--connect", device.address])
+            }
         }
     }
 

@@ -1,7 +1,6 @@
 import Cocoa
-import NerwSearchBackend
-
 import NerwCore
+import NerwSearchBackend
 
 public class Nerw {
     public static let shared = Nerw()
@@ -34,7 +33,10 @@ public class Nerw {
                 triggers: ["open config"],
                 arguments: nil,
                 handler: { _ in
-                    let configPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/nerw/config.json").path
+                    let configPath = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent(
+                            ".config/nerw/config.json"
+                        ).path
                     // Select the file
                     NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
                 }
@@ -82,18 +84,21 @@ public class Nerw {
             )
         }
         if "open config" == lowerTrigger {
-             return NerwAction(
-                 id: "nerw.builtin.openconfig",
-                 title: "Open Config",
-                 subtitle: "Reveal config.json in Finder",
-                 icon: .system("gear"),
-                 triggers: ["open config"],
-                 arguments: nil,
-                 handler: { _ in
-                     let configPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/nerw/config.json").path
-                     NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
-                 }
-             )
+            return NerwAction(
+                id: "nerw.builtin.openconfig",
+                title: "Open Config",
+                subtitle: "Reveal config.json in Finder",
+                icon: .system("gear"),
+                triggers: ["open config"],
+                arguments: nil,
+                handler: { _ in
+                    let configPath = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent(
+                            ".config/nerw/config.json"
+                        ).path
+                    NSWorkspace.shared.selectFile(configPath, inFileViewerRootedAtPath: "")
+                }
+            )
         }
         return nil
     }

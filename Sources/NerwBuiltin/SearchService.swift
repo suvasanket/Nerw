@@ -16,16 +16,17 @@ public class SearchService {
 
         // 1. "Add Search Engine" Special Command
         if query.lowercased() == "add search engine" || query.lowercased() == "add" {
-            newActions.append(NerwAction(
-                id: "nerw.builtin.addengine",
-                title: "Add Search Engine",
-                subtitle: "Add a custom search engine",
-                icon: .system("plus.circle"),
-                triggers: ["add search engine", "add"],
-                arguments: ["Search URL (use %s)", "Trigger Keyword"],
-                handler: { _ in },
-                searcher: nil
-            ))
+            newActions.append(
+                NerwAction(
+                    id: "nerw.builtin.addengine",
+                    title: "Add Search Engine",
+                    subtitle: "Add a custom search engine",
+                    icon: .system("plus.circle"),
+                    triggers: ["add search engine", "add"],
+                    arguments: ["Search URL (use %s)", "Trigger Keyword"],
+                    handler: { _ in },
+                    searcher: nil
+                ))
         }
 
         guard !query.isEmpty else {
@@ -50,12 +51,16 @@ public class SearchService {
         // 3. Check for Extension Triggers
         let components = query.split(separator: " ", maxSplits: 1)
         if let firstWord = components.first,
-           let extensionManifest = ExtensionEngine.shared.extensions.first(where: { $0.trigger == String(firstWord) }) {
+            let extensionManifest = ExtensionEngine.shared.extensions.first(where: {
+                $0.trigger == String(firstWord)
+            })
+        {
 
             let arg = components.count > 1 ? String(components[1]) : ""
 
             // Run Extension
-            ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) { extResults in
+            ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) {
+                extResults in
                 // Extensions return async, but usually fast. Combine and return.
                 // Note: This pattern might return BEFORE app search if app search is slow,
                 // but here we return immediately for extensions and don't do app search?
@@ -103,13 +108,13 @@ public class SearchService {
                         icon: .system("xmark.circle"),
                         triggers: [],
                         arguments: ["Process Name"],
-                        handler: { _ in }, // Searcher handles selection logic mostly
+                        handler: { _ in },  // Searcher handles selection logic mostly
                         searcher: { query, completion in
                             QuickAction.shared.searchProcesses(query: query, completion: completion)
                         }
                     )
                 } else if app.name.lowercased() == "finder" {
-                     quickAction = NerwAction(
+                    quickAction = NerwAction(
                         id: "nerw.quick.findfile",
                         title: "Find File",
                         subtitle: "Search or open finder",
@@ -120,7 +125,7 @@ public class SearchService {
                         searcher: { query, completion in
                             FindFile.shared.search(query: query, completion: completion)
                         }
-                     )
+                    )
                 }
                 // -----------------------------
 
@@ -162,7 +167,9 @@ public class SearchService {
     }
 
     // Helper to allow delegation of sub-searchers (Argument Mode)
-    public func delegateSearch(action: NerwAction, query: String, completion: @escaping ([NerwAction]) -> Void) {
+    public func delegateSearch(
+        action: NerwAction, query: String, completion: @escaping ([NerwAction]) -> Void
+    ) {
         if let searcher = action.searcher {
             searcher(query, completion)
         } else {
@@ -181,7 +188,7 @@ public class SearchService {
             let totalScore = FrecencyManager.shared.combinedScore(
                 for: action.id,
                 query: query,
-                matchText: action.title, // Pass title for prefix matching condition
+                matchText: action.title,  // Pass title for prefix matching condition
                 querySensitivity: .moderate,
                 globalSensitivity: .low
             )
@@ -206,7 +213,8 @@ public class SearchService {
         exactMatches.sort { $0.score > $1.score }
         frecencyBoosted.sort { $0.score > $1.score }
 
-        var sortedActions = exactMatches.map({$0.action}) + frecencyBoosted.map({$0.action}) + otherActions
+        var sortedActions =
+            exactMatches.map({ $0.action }) + frecencyBoosted.map({ $0.action }) + otherActions
 
         // Smart Suggestions Logic (Bubbling)
         let config = ConfigManager.shared.config
@@ -222,7 +230,9 @@ public class SearchService {
                 }
 
                 if !suggestionActions.isEmpty {
-                    let withoutSuggestions = sortedActions.filter { action in !suggestionActions.contains(where: { s in s.id == action.id }) }
+                    let withoutSuggestions = sortedActions.filter { action in
+                        !suggestionActions.contains(where: { s in s.id == action.id })
+                    }
                     // Prepend to top
                     sortedActions = suggestionActions + withoutSuggestions
                 }

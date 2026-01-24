@@ -1,8 +1,5 @@
 import Cocoa
 import NerwCore
-
-import Cocoa
-import NerwCore
 import UniformTypeIdentifiers
 
 public class QuickAction {
@@ -22,7 +19,7 @@ public class QuickAction {
 
             let pipe = Pipe()
             task.standardOutput = pipe
-            task.standardError = Pipe() // Ignore error
+            task.standardError = Pipe()  // Ignore error
 
             do {
                 try task.run()
@@ -38,22 +35,25 @@ public class QuickAction {
                 let currentPid = ProcessInfo.processInfo.processIdentifier
 
                 // Critical processes to protect (Guard Rails)
-                let protectedProcesses = ["loginwindow", "launchd", "UserEventAgent", "distnoted", "cfprefsd", "Nerw"]
+                let protectedProcesses = [
+                    "loginwindow", "launchd", "UserEventAgent", "distnoted", "cfprefsd", "Nerw",
+                ]
 
                 var results: [NerwAction] = []
 
                 // Parse lines. output header is "  PID COMMAND"
-                let lines = output.components(separatedBy: .newlines).dropFirst() // Skip header
+                let lines = output.components(separatedBy: .newlines).dropFirst()  // Skip header
 
                 for line in lines {
                     let trimmed = line.trimmingCharacters(in: .whitespaces)
                     guard !trimmed.isEmpty else { continue }
 
                     // Split PID and Command. PID is first non-space token.
-                    let components = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+                    let components = trimmed.split(
+                        separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
                     guard components.count == 2,
-                          let pid = Int(components[0]),
-                          pid != currentPid // Don't allow killing self
+                        let pid = Int(components[0]),
+                        pid != currentPid  // Don't allow killing self
                     else { continue }
 
                     let commandPath = String(components[1])
@@ -72,25 +72,26 @@ public class QuickAction {
                     if commandPath.hasSuffix(".app") || commandPath.contains(".app/") {
                         // Attempt to find app bundle path for icon
                         if let range = commandPath.range(of: ".app") {
-                             let bundlePath = String(commandPath[..<range.upperBound])
-                             iconType = .file(URL(fileURLWithPath: bundlePath))
+                            let bundlePath = String(commandPath[..<range.upperBound])
+                            iconType = .file(URL(fileURLWithPath: bundlePath))
                         } else {
                             iconType = .image(NSWorkspace.shared.icon(for: UTType.application))
                         }
                     } else {
-                         iconType = .image(NSWorkspace.shared.icon(for: UTType.application))
+                        iconType = .image(NSWorkspace.shared.icon(for: UTType.application))
                     }
 
-                    results.append(NerwAction(
-                        id: "nerw.system.process.\(pid)",
-                        title: commandName,
-                        subtitle: "PID: \(pid) • \(commandPath)",
-                        icon: iconType,
-                        triggers: [commandName],
-                        arguments: nil,
-                        handler: { _ in
-                            self.quitProcess(pid: pid, name: commandName)
-                        }))
+                    results.append(
+                        NerwAction(
+                            id: "nerw.system.process.\(pid)",
+                            title: commandName,
+                            subtitle: "PID: \(pid) • \(commandPath)",
+                            icon: iconType,
+                            triggers: [commandName],
+                            arguments: nil,
+                            handler: { _ in
+                                self.quitProcess(pid: pid, name: commandName)
+                            }))
                 }
 
                 // Limit results if query is empty to avoid overwhelming list (though typically query isn't empty)
@@ -112,20 +113,20 @@ public class QuickAction {
 
     public func quitProcess(pid: Int, name: String) {
         DispatchQueue.global(qos: .userInitiated).async {
-             // Try kill -TERM first (Graceful)
-             let task = Process()
-             task.launchPath = "/bin/kill"
-             task.arguments = ["-TERM", "\(pid)"]
-             task.standardOutput = FileHandle.nullDevice
+            // Try kill -TERM first (Graceful)
+            let task = Process()
+            task.launchPath = "/bin/kill"
+            task.arguments = ["-TERM", "\(pid)"]
+            task.standardOutput = FileHandle.nullDevice
 
-             try? task.run()
-             task.waitUntilExit()
+            try? task.run()
+            task.waitUntilExit()
 
-             if task.terminationStatus != 0 {
-                 print("[QuickAction] Failed to TERM \(name) (\(pid)).")
-             } else {
-                 print("[QuickAction] Sent TERM to \(name) (\(pid)).")
-             }
+            if task.terminationStatus != 0 {
+                print("[QuickAction] Failed to TERM \(name) (\(pid)).")
+            } else {
+                print("[QuickAction] Sent TERM to \(name) (\(pid)).")
+            }
         }
     }
 

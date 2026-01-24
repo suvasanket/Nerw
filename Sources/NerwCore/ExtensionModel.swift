@@ -14,7 +14,8 @@ public struct ExtensionResult: Codable {
     public let icon: String?
     public let action: String?
 
-    public init(title: String, subtitle: String? = nil, icon: String? = nil, action: String? = nil) {
+    public init(title: String, subtitle: String? = nil, icon: String? = nil, action: String? = nil)
+    {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon

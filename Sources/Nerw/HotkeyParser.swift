@@ -2,11 +2,13 @@ import Cocoa
 
 public struct HotkeyParser {
     public static func parse(_ string: String) -> (NSEvent.ModifierFlags, UInt16)? {
-        let components = string.components(separatedBy: "+").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let components = string.components(separatedBy: "+").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         guard let keyString = components.last else { return nil }
-        
+
         var modifiers: NSEvent.ModifierFlags = []
-        
+
         for component in components.dropLast() {
             switch component.lowercased() {
             case "cmd", "command": modifiers.insert(.command)
@@ -18,12 +20,12 @@ public struct HotkeyParser {
             default: break
             }
         }
-        
+
         guard let keyCode = keyCode(for: keyString) else { return nil }
-        
+
         return (modifiers, keyCode)
     }
-    
+
     private static func keyCode(for key: String) -> UInt16? {
         switch key.lowercased() {
         case "space": return 49
@@ -35,7 +37,7 @@ public struct HotkeyParser {
         case "right": return 124
         case "down": return 125
         case "up": return 126
-        
+
         case "a": return 0
         case "b": return 11
         case "c": return 8
@@ -62,7 +64,7 @@ public struct HotkeyParser {
         case "x": return 7
         case "y": return 16
         case "z": return 6
-            
+
         case "0": return 29
         case "1": return 18
         case "2": return 19
@@ -73,7 +75,7 @@ public struct HotkeyParser {
         case "7": return 26
         case "8": return 28
         case "9": return 25
-            
+
         case ".": return 47
         case ",": return 43
         case "/": return 44
@@ -85,7 +87,7 @@ public struct HotkeyParser {
         case "[": return 33
         case "]": return 30
         case "\\": return 42
-            
+
         default: return nil
         }
     }

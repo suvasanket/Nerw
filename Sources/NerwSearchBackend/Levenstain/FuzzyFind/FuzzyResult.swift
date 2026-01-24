@@ -20,17 +20,19 @@ public struct FuzzyResult {
     }
 
     static func gaps(_ str: String) -> FuzzyResult {
-        return FuzzyResult(segments: str.reversed().map { char in
-            FuzzyResultSegment.gap([char])
-        })
+        return FuzzyResult(
+            segments: str.reversed().map { char in
+                FuzzyResultSegment.gap([char])
+            })
     }
 
     static let empty: FuzzyResult = FuzzyResult(segments: [])
 
     func reversed() -> FuzzyResult {
-        return FuzzyResult(segments: self.segments.map { segment in
-            segment.reversed()
-        }.reversed())
+        return FuzzyResult(
+            segments: self.segments.map { segment in
+                segment.reversed()
+            }.reversed())
     }
 
     func combine(_ other: FuzzyResult) -> FuzzyResult {
@@ -39,10 +41,12 @@ public struct FuzzyResult {
                 return FuzzyResult(segments: self.segments.lead).combine(other)
             } else if first.isEmpty {
                 return self.combine(FuzzyResult(segments: other.segments.tail))
-            } else if case let .gap(l) = last, case let .gap(h) = first {
-                return FuzzyResult(segments: self.segments.lead + [.gap(l + h)] + other.segments.tail)
-            } else if case let .match(l) = last, case let .match(h) = first {
-                return FuzzyResult(segments: self.segments.lead + [.match(l + h)] + other.segments.tail)
+            } else if case .gap(let l) = last, case .gap(let h) = first {
+                return FuzzyResult(
+                    segments: self.segments.lead + [.gap(l + h)] + other.segments.tail)
+            } else if case .match(let l) = last, case .match(let h) = first {
+                return FuzzyResult(
+                    segments: self.segments.lead + [.match(l + h)] + other.segments.tail)
             } else {
                 return FuzzyResult(segments: self.segments + other.segments)
             }
@@ -57,7 +61,7 @@ public struct FuzzyResult {
         let xs = self.segments[0]
         let ys = other.segments[0]
         switch (xs, ys) {
-        case let (.gap(g1), .gap(g2)):
+        case (.gap(let g1), .gap(let g2)):
             if g1.count <= g2.count {
                 return FuzzyResult(segments: [.gap(g1)]).combine(
                     self.tail.merge(other.drop(g1.count))
@@ -67,7 +71,7 @@ public struct FuzzyResult {
                     self.drop(g2.count).merge(other.tail)
                 )
             }
-        case let (.match(m1), .match(m2)):
+        case (.match(let m1), .match(let m2)):
             if m1.count >= m2.count {
                 return FuzzyResult(segments: [.match(m1)]).combine(
                     self.tail.merge(other.drop(m1.count))
@@ -77,11 +81,11 @@ public struct FuzzyResult {
                     self.drop(m2.count).merge(other.tail)
                 )
             }
-        case let (.gap(_), .match(m)):
+        case (.gap(_), .match(let m)):
             return FuzzyResult(segments: [.match(m)]).combine(
                 self.drop(m.count).merge(other.tail)
             )
-        case let (.match(m), .gap(_)):
+        case (.match(let m), .gap(_)):
             return FuzzyResult(segments: [.match(m)]).combine(
                 self.tail.merge(other.drop(m.count))
             )
@@ -125,17 +129,17 @@ public struct FuzzyResult {
 
 extension FuzzyResult: Equatable {}
 
-private extension Array {
-    func drop(_ n: Int) -> Array {
+extension Array {
+    fileprivate func drop(_ n: Int) -> Array {
         return Array(self.dropFirst(n))
     }
 
-    var tail: Array {
+    fileprivate var tail: Array {
         if isEmpty { return [] }
         return Array(self.dropFirst())
     }
 
-    var lead: Array {
+    fileprivate var lead: Array {
         if isEmpty { return [] }
         return Array(self.dropLast())
     }

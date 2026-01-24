@@ -2,6 +2,8 @@ APP=Nerw
 BUILD_DIR=.build/debug
 
 main:
+	swift-format lint -r .
+	swift-format format -rip .
 	swift build
 
 clean:

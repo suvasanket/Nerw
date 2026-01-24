@@ -1,6 +1,6 @@
 import Cocoa
-import NerwSearchBackend
 import NerwCore
+import NerwSearchBackend
 import NerwUtils
 
 class ResultCellView: NSTableCellView {
@@ -66,43 +66,53 @@ class ResultCellView: NSTableCellView {
         tabBadge.layer?.cornerRadius = 4
         tabBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
         tabBadge.translatesAutoresizingMaskIntoConstraints = false
-        
+
         tabBadgeLabel.font = .systemFont(ofSize: 10, weight: .semibold)
         tabBadgeLabel.textColor = .white.withAlphaComponent(0.9)
         tabBadgeLabel.translatesAutoresizingMaskIntoConstraints = false
-        
+
         tabBadge.addSubview(tabBadgeLabel)
-        
+
         NSLayoutConstraint.activate([
             tabBadgeLabel.leadingAnchor.constraint(equalTo: tabBadge.leadingAnchor, constant: 4),
             tabBadgeLabel.trailingAnchor.constraint(equalTo: tabBadge.trailingAnchor, constant: -4),
             tabBadgeLabel.topAnchor.constraint(equalTo: tabBadge.topAnchor, constant: 2),
             tabBadgeLabel.bottomAnchor.constraint(equalTo: tabBadge.bottomAnchor, constant: -2),
         ])
-        
+
         hintStack.addArrangedSubview(tabBadge)
 
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: topAnchor, constant: metrics.Margin.vertical),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: metrics.Margin.horizontal),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -metrics.Margin.horizontal),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -metrics.Margin.vertical),
+            containerView.topAnchor.constraint(
+                equalTo: topAnchor, constant: metrics.Margin.vertical),
+            containerView.leadingAnchor.constraint(
+                equalTo: leadingAnchor, constant: metrics.Margin.horizontal),
+            containerView.trailingAnchor.constraint(
+                equalTo: trailingAnchor, constant: -metrics.Margin.horizontal),
+            containerView.bottomAnchor.constraint(
+                equalTo: bottomAnchor, constant: -metrics.Margin.vertical),
 
-            iconView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: metrics.Icon.leading),
+            iconView.leadingAnchor.constraint(
+                equalTo: containerView.leadingAnchor, constant: metrics.Icon.leading),
             iconView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: metrics.Icon.size),
             iconView.heightAnchor.constraint(equalToConstant: metrics.Icon.size),
 
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: metrics.Icon.trailing),
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: metrics.Text.titleTop),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: hintStack.leadingAnchor, constant: -10),
+            titleLabel.leadingAnchor.constraint(
+                equalTo: iconView.trailingAnchor, constant: metrics.Icon.trailing),
+            titleLabel.topAnchor.constraint(
+                equalTo: containerView.topAnchor, constant: metrics.Text.titleTop),
+            titleLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: hintStack.leadingAnchor, constant: -10),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: metrics.Text.subtitleTop),
+            subtitleLabel.topAnchor.constraint(
+                equalTo: titleLabel.bottomAnchor, constant: metrics.Text.subtitleTop),
             subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            
-            hintStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12),
-            hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
+
+            hintStack.trailingAnchor.constraint(
+                equalTo: containerView.trailingAnchor, constant: -12),
+            hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
         ])
     }
 
@@ -111,19 +121,24 @@ class ResultCellView: NSTableCellView {
 
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
-        
+
         // Background Logic
         // Active (Moved): System Accent
-        let activeBg = NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85) 
-                        ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
-        
+        let activeBg =
+            NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85)
+            ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
+
         // Passive (Default): Grey/White Alpha
         let passiveBg = NSColor.white.withAlphaComponent(0.12)
-        
+
         let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
         // Font
-        if let fontName = config?.font, let font = NSFont(name: fontName, size: MainPanelContentViewController.LayoutMetrics.Cell.Text.titleSize) {
+        if let fontName = config?.font,
+            let font = NSFont(
+                name: fontName,
+                size: MainPanelContentViewController.LayoutMetrics.Cell.Text.titleSize)
+        {
             titleLabel.font = font
         }
 
@@ -135,15 +150,16 @@ class ResultCellView: NSTableCellView {
                 iconView.image = img
             case .file(let url):
                 // Set default icon first to avoid flickering/empty state
-                iconView.image = NSWorkspace.shared.icon(for: .data) // Generic placeholder
-                
+                iconView.image = NSWorkspace.shared.icon(for: .data)  // Generic placeholder
+
                 // Async load
                 let currentActionId = action.id
-                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64)) { [weak self] image in
+                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64)) {
+                    [weak self] image in
                     guard let self = self else { return }
                     // Verify cell is still configured for this action (using ID check if possible, or just simplistic reload)
-                    // Since ResultCellView doesn't store the action ID in a property, we rely on the fact 
-                    // that table view cells reuse might happen. 
+                    // Since ResultCellView doesn't store the action ID in a property, we rely on the fact
+                    // that table view cells reuse might happen.
                     // Ideally check against current model, but we don't store it.
                     // Risk of race condition on fast scroll, but acceptable for now or I can add a tag/tracking.
                     // Let's rely on main thread dispatch and simple assignment.
@@ -155,22 +171,26 @@ class ResultCellView: NSTableCellView {
         } else {
             iconView.image = nil
         }
-        
+
         iconView.contentTintColor = isSelected ? selectedTextColor : mainTextColor
 
         titleLabel.stringValue = action.title
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
 
         subtitleLabel.stringValue = action.subtitle
-        subtitleLabel.textColor = isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
+        subtitleLabel.textColor =
+            isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
 
-        containerView.layer?.backgroundColor = isSelected
+        containerView.layer?.backgroundColor =
+            isSelected
             ? finalBgColor.cgColor
             : NSColor.clear.cgColor
-            
-        updateHint(action: action, isSelected: isSelected, textColor: isSelected ? selectedTextColor : mainTextColor)
+
+        updateHint(
+            action: action, isSelected: isSelected,
+            textColor: isSelected ? selectedTextColor : mainTextColor)
     }
-    
+
     private func updateHint(action: NerwAction, isSelected: Bool, textColor: NSColor) {
         // Only show if selected
         guard isSelected else {
@@ -182,7 +202,7 @@ class ResultCellView: NSTableCellView {
             hintStack.isHidden = false
             hintLabel.stringValue = hintText
             hintLabel.textColor = textColor.withAlphaComponent(0.7)
-            
+
             // Adjust badge color based on selection text color
             tabBadge.layer?.backgroundColor = textColor.withAlphaComponent(0.15).cgColor
             tabBadgeLabel.textColor = textColor
