@@ -325,7 +325,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func setIcons(_ icons: [NSImage]) {
-        iconContainer.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for subview in iconContainer.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
 
         if icons.isEmpty {
             iconContainer.addArrangedSubview(defaultSearchIcon)

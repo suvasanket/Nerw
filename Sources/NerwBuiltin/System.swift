@@ -246,17 +246,15 @@ public class System {
                 )
             )
 
-        /*
-        case "menu search":
-            return BuiltinResult(
-                title: "Menu Bar Search",
-                subtitle: "Search menu items of the active application",
-                icon: NSImage(systemSymbolName: "menubar.rectangle", accessibilityDescription: nil),
-                supportsArguments: true,
-                handler: { _ in },
-                searcher: { query, completion in self.searchMenuItems(query: query, completion: completion) }
-            )
-        */
+        //        case "menu search":
+        //            return BuiltinResult(
+        //                title: "Menu Bar Search",
+        //                subtitle: "Search menu items of the active application",
+        //                icon: NSImage(systemSymbolName: "menubar.rectangle", accessibilityDescription: nil),
+        //                supportsArguments: true,
+        //                handler: { _ in },
+        //                searcher: { query, completion in self.searchMenuItems(query: query, completion: completion) }
+        //            )
 
         default:
             return nil

@@ -51,7 +51,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func registerGlobalHotkey() {
         let configString = ConfigManager.shared.config.globalKeybind
-        let (modifiers, keyCode) = HotkeyParser.parse(configString) ?? (.command.union(.shift), 49)  // Default: Cmd+Shift+Space
+        let (modifiers, keyCode) =
+            HotkeyParser.parse(configString) ?? (.command.union(.shift), 49)
+        // Default: Cmd+Shift+Space
 
         HotKeyManager.shared.register(keyCode: keyCode, modifiers: modifiers) { [weak self] in
             DispatchQueue.main.async {

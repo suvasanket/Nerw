@@ -1,6 +1,6 @@
-/*
- Copyright [2021] Tomás Ruiz López Licensed under the Apache License, Version 2.0 (the «License»);
- */
+//
+// Copyright [2021] Tomás Ruiz López Licensed under the Apache License, Version 2.0 (the «License»);
+//
 
 import Foundation
 

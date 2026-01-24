@@ -14,24 +14,66 @@ public class SearchService {
 
         var newActions: [NerwAction] = []
 
-        // 1. "Add Search Engine" Special Command
-        if query.lowercased() == "add search engine" || query.lowercased() == "add" {
+        // 1. Special Command: Manage Bangs (!bang)
+        let lowerQuery = query.lowercased()
+        if lowerQuery == "!bang add" || lowerQuery == "add !bang" || lowerQuery == "!bang new"
+            || lowerQuery == "!bang create" || lowerQuery == "create !bang"
+        {
             newActions.append(
                 NerwAction(
-                    id: "nerw.builtin.addengine",
-                    title: "Add Search Engine",
-                    subtitle: "Add a custom search engine",
+                    id: "nerw.builtin.managebang.add",
+                    title: "Add New Bang",
+                    subtitle: "Create a new bang shortcut",
                     icon: .system("plus.circle"),
-                    triggers: ["add search engine", "add"],
-                    type: .arg(
-                        placeholders: ["Search URL (use %s)", "Trigger Keyword"],
-                        perform: { _, args in
-                            if args.count >= 2 {
-                                SearchEngine.shared.addEngine(url: args[0], trigger: args[1])
-                            }
+                    triggers: [],
+                    type: .form(
+                        fields: [
+                            NerwAction.Field(id: "name", title: "Name", placeholder: "e.g. GitHub"),
+                            NerwAction.Field(
+                                id: "trigger", title: "Trigger", placeholder: "e.g. gh (without !)"),
+                            NerwAction.Field(
+                                id: "url", title: "URL Template",
+                                placeholder: "https://site.com?q=%s"),
+                        ],
+                        submitLabel: "Add Bang",
+                        perform: { _, values in
+                            guard let name = values["name"],
+                                let trigger = values["trigger"],
+                                let url = values["url"],
+                                !name.isEmpty, !trigger.isEmpty, !url.isEmpty
+                            else { return }
+
+                            SearchEngine.shared.addEngine(
+                                name: name, url: url, trigger: trigger, icon: nil)
                         }
                     )
-                ))
+                )
+            )
+            completion(newActions)
+            return
+        }
+
+        // Delete Bangs
+        if lowerQuery.starts(with: "!bang delete") || lowerQuery.starts(with: "delete !bang")
+            || lowerQuery.starts(with: "!bang remove") || lowerQuery.starts(with: "remove !bang")
+        {
+            let engines = SearchEngine.shared.engines
+            let deleteActions = engines.map { engine in
+                NerwAction(
+                    id: "nerw.builtin.bang.delete.\(engine.name)",
+                    title: "Delete \(engine.name)",
+                    subtitle: "Triggers: \(engine.triggers.joined(separator: ", "))",
+                    icon: .system("trash"),
+                    triggers: [],
+                    type: .instant(perform: { _ in
+                        SearchEngine.shared.removeEngine(name: engine.name)
+                        // Ideally trigger a refresh or notify
+                        // Since we can't easily toast, we just close session
+                    })
+                )
+            }
+            completion(deleteActions)
+            return
         }
 
         guard !query.isEmpty else {
@@ -52,8 +94,10 @@ public class SearchService {
             let icon = IconManager.shared.icon(for: domain)
             if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
+            let actionID = "nerw.web.search.\(engineName)"
+
             bangAction = NerwAction(
-                id: "nerw.web.search",  // Singular Action ID
+                id: actionID,  // Unique ID per engine
                 title: "Search \(engineName)",
                 subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
                 icon: icon != nil ? .image(icon!) : .system("globe"),
@@ -66,13 +110,26 @@ public class SearchService {
                     if let url = URL(string: urlString) {
                         NSWorkspace.shared.open(url)
                     }
+                    // RECORD USAGE FOR CLEAN QUERY TOO
+                    // This enables "suggest previously used bang search for the exact query"
+                    // i.e. If I type "!yt swift", I record usage for "swift" -> YouTube.
+                    // Next time I type "swift", I can suggest YouTube.
+                    FrecencyManager.shared.recordUsage(id: actionID, forQuery: cleanedQuery)
                 })
             )
 
-            // If bang is detected, we return JUST this (or prioritize it).
-            // Requirement implies: "make it google" as fallback.
             // If explicit bang is used, we probably want only that.
             completion([bangAction!])
+            return
+        }
+
+        // 2.5 Strict Bang Guard
+        if query.starts(with: "!") {
+            // If we are here, resolveBang failed (invalid or partial bang).
+            // Prevent App/System search leakage.
+            let defaultEngine = SearchEngine.shared.getDefaultEngine()
+            let fallback = createWebSearchAction(query: query, engine: defaultEngine)
+            completion([fallback])
             return
         }
 
@@ -191,34 +248,61 @@ public class SearchService {
                 )
             }
 
-            // 6. DEFAULT FALLBACK: Google Search
-            // If we are here, no bang was used. Add Google as a generic fallback.
-            let defaultEngine = SearchEngine.shared.getDefaultEngine()
-            let domain =
-                URL(string: defaultEngine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
-                .host ?? defaultEngine.name
-            let icon = IconManager.shared.icon(for: domain)
-            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+            // 6. DEFAULT FALLBACK: Google Search OR History Suggestion
+            // First check if we have a preferred engine for this query in history
+            var fallbackAction: NerwAction? = nil
 
-            let fallbackAction = NerwAction(
-                id: "nerw.web.search",  // Singular Action ID
-                title: "Search \(defaultEngine.name)",
-                subtitle: "Search for '\(currentQuery)' on \(defaultEngine.name)",
-                icon: icon != nil ? .image(icon!) : .system("globe"),  // TODO: Use dynamic icon
-                triggers: [],
-                type: .instant(perform: { _ in
-                    let encodedQuery =
-                        currentQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                        ?? ""
-                    let urlString = String(format: defaultEngine.urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
-                    }
-                })
-            )
+            // Use Strict Recency (Most Recent) instead of Frecency Score to allow immediate switching
+            if let topMatch = FrecencyManager.shared.getMostRecentID(for: currentQuery),
+                topMatch.id.starts(with: "nerw.web.search.")
+            {
 
-            // Combine ALL actions (Apps + Fallback)
-            let allActions = newActions + finalAppActions + [fallbackAction]
+                // Extract Engine Name "nerw.web.search.YouTube" -> "YouTube"
+                let prefix = "nerw.web.search."
+                let engineName = String(topMatch.id.dropFirst(prefix.count))
+                // Find matching engine info to rebuild action
+                // Using SearchEngine.shared implies we need access to engines list or helper
+                // SearchService doesn't have direct access, but SearchEngine does.
+                // We'll iterate engines in SearchEngine (public access)
+
+                if let engine = SearchEngine.shared.engines.first(where: { $0.name == engineName })
+                {
+                    let domain =
+                        URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
+                        .host ?? engine.name
+                    let icon = IconManager.shared.icon(for: domain)
+                    if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+                    fallbackAction = NerwAction(
+                        id: topMatch.id,
+                        title: "Search \(engine.name)",
+                        subtitle: "Search for '\(currentQuery)' on \(engine.name)",
+                        icon: icon != nil ? .image(icon!) : .system("globe"),
+                        triggers: [],
+                        type: .instant(perform: { _ in
+                            let encodedQuery =
+                                currentQuery.addingPercentEncoding(
+                                    withAllowedCharacters: .urlQueryAllowed) ?? ""
+                            let urlString = String(format: engine.urlTemplate, encodedQuery)
+                            if let url = URL(string: urlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                            FrecencyManager.shared.recordUsage(
+                                id: topMatch.id, forQuery: currentQuery)
+                        })
+                    )
+                }
+            }
+
+            // If no history match (or failed to rebuild), use Default Google
+            if fallbackAction == nil {
+                let defaultEngine = SearchEngine.shared.getDefaultEngine()
+                fallbackAction = createWebSearchAction(query: currentQuery, engine: defaultEngine)
+            }
+
+            // Combine ALL actions
+            // Fallback action is guaranteed to exist now (either history or default)
+            let allActions = newActions + finalAppActions + [fallbackAction!]
 
             // Ranking
             let rankedActions = self.rankResults(actions: allActions, query: currentQuery)
@@ -286,14 +370,15 @@ public class SearchService {
         let config = ConfigManager.shared.config
         let wordCount = normalizedQuery.split(separator: " ").count
 
-        if wordCount >= config.SearchEngineSuggestThreshold {
+        if wordCount >= config.searchEngineSuggestThreshold {
             // Check if top result is an exact match
             let topIsExact = sortedActions.first?.title.lowercased() == normalizedQuery
 
             if !topIsExact {
                 // Find the fallback action
+                // Check prefix since IDs are now nerw.web.search.<engine>
                 if let fallbackIndex = sortedActions.firstIndex(where: {
-                    $0.id == "nerw.web.search"
+                    $0.id.hasPrefix("nerw.web.search.")
                 }) {
                     let fallbackAction = sortedActions.remove(at: fallbackIndex)
                     // Move to top
@@ -303,5 +388,33 @@ public class SearchService {
         }
 
         return sortedActions
+    }
+
+    private func createWebSearchAction(query: String, engine: Engine) -> NerwAction {
+        let domain =
+            URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
+            .host ?? engine.name
+        let icon = IconManager.shared.icon(for: domain)
+        if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+        let actionID = "nerw.web.search.\(engine.name)"
+
+        return NerwAction(
+            id: actionID,
+            title: "Search \(engine.name)",
+            subtitle: "Search for '\(query)' on \(engine.name)",
+            icon: icon != nil ? .image(icon!) : .system("globe"),
+            triggers: [],
+            type: .instant(perform: { _ in
+                let encodedQuery =
+                    query.addingPercentEncoding(
+                        withAllowedCharacters: .urlQueryAllowed) ?? ""
+                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                if let url = URL(string: urlString) {
+                    NSWorkspace.shared.open(url)
+                }
+                FrecencyManager.shared.recordUsage(id: actionID, forQuery: query)
+            })
+        )
     }
 }

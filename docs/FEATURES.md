@@ -11,12 +11,18 @@ Nerw is a Keyboard-First Spotlight replacement for macOS, designed for speed and
 ### Smart Search
 Nerw intelligently routes your query to the best provider via the `SearchService`:
 1.  **Applications**: Fuzzy search installed apps (e.g., "xcode" -> Xcode).
-2.  **Web Search**: Direct integration with:
-    - Google (`google [query]`)
-    - Bing (`bing [query]`)
-    - DuckDuckGo (`duck [query]`)
-    - Yahoo (`yahoo [query]`)
-    - **Adaptive Defaults**: If you have multiple default engines, Nerw learns your preference per query (e.g. preferring GitHub for code queries).
+2.  **Web Search (Bang Search)**:
+    -   **Explicit Trigger**: Use "bangs" to search specific engines instantly (e.g., `!g swift` for Google, `!yt cat videos` for YouTube).
+    -   **Supported Bangs**:
+        -   `!g` or `!google` : Google
+        -   `!yt` or `!youtube` : YouTube
+        -   `!gh` or `!github` : GitHub
+        -   `!ddg` or `!duckduckgo` : DuckDuckGo
+        -   `!b` or `!bing` : Bing
+    -   **Smart History**: Nerw remembers your preference. If you type `!yt swift`, the next time you type `swift`, Nerw will suggest **YouTube** automatically.
+    -   **Strict Recency**: The suggestion always tracks your *last used* engine for a query, allowing you to switch preferences instantly.
+    -   **Default Fallback**: If no bang is used and no history exists, a **Google Search** fallback is added to the bottom of the results.
+    -   **Smart Boosting**: If your query is long (typically > 3 words) and doesn't exactly match an app, the Web Search result (History or Fallback) automatically jumps to the top.
 3.  **Smart File Search**:
     - **Trigger**: `find [query]`, `file [query]`.
     - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
@@ -118,4 +124,4 @@ Designed for mouse-free usage:
 - **Native Swift**: Built with AppKit/Core Graphics for maximum performance.
 - **Low Footprint**: Minimal resource usage (`.accessory` activation policy).
 - **Fast Fuzzy Search**: Uses the integrated `NerwSearchBackend` search library (Fuse implementation).
-- **Async Icons**: Icons are loaded asynchronously to prevent UI stalling.
+- **Async Icons**: Icons are loaded asynchronously to prevent UI stalling. Cached at `~/Library/Application Support/Nerw/Icons`.

@@ -11,8 +11,15 @@ public class IconManager {
     private var memoryCache: [String: NSImage] = [:]
 
     private init() {
-        let home = fileManager.homeDirectoryForCurrentUser
-        self.iconDirectory = home.appendingPathComponent(".config/nerw/icons")
+        if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first
+        {
+            self.iconDirectory = appSupport.appendingPathComponent("Nerw/Icons")
+        } else {
+            // Fallback to old path if AppSupport not found (unlikely)
+            let home = fileManager.homeDirectoryForCurrentUser
+            self.iconDirectory = home.appendingPathComponent(".Nerw/icons")
+        }
 
         try? fileManager.createDirectory(
             at: iconDirectory, withIntermediateDirectories: true, attributes: nil)

@@ -50,7 +50,7 @@ extension Fuse {
                 (value: String, score: Double, ranges: [CountableClosedRange<Int>])
             ]()
 
-            item.properties.forEach { property in
+            for property in item.properties {
 
                 let value = property.value
 
@@ -130,53 +130,52 @@ extension Fuse {
         var collectionResult = [FusableSearchResult]()
         let resultLock = NSLock()
 
-        aList.splitBy(chunkSize).enumerated()
-            .forEach { (chunkIndex, chunk) in
+        for (chunkIndex, chunk) in aList.splitBy(chunkSize).enumerated() {
 
-                group.enter()
+            group.enter()
 
-                self.searchQueue.async {
-                    for (index, item) in chunk.enumerated() {
-                        var scores = [Double]()
-                        var totalScore = 0.0
+            self.searchQueue.async {
+                for (index, item) in chunk.enumerated() {
+                    var scores = [Double]()
+                    var totalScore = 0.0
 
-                        var propertyResults = [
-                            (value: String, score: Double, ranges: [CountableClosedRange<Int>])
-                        ]()
+                    var propertyResults = [
+                        (value: String, score: Double, ranges: [CountableClosedRange<Int>])
+                    ]()
 
-                        item.properties.forEach { property in
+                    for property in item.properties {
 
-                            let value = property.value
+                        let value = property.value
 
-                            if let result = self.search(pattern, in: value) {
-                                let weight = property.weight == 1 ? 1 : 1 - property.weight
-                                let score = result.score * weight
-                                totalScore += score
+                        if let result = self.search(pattern, in: value) {
+                            let weight = property.weight == 1 ? 1 : 1 - property.weight
+                            let score = result.score * weight
+                            totalScore += score
 
-                                scores.append(score)
+                            scores.append(score)
 
-                                propertyResults.append(
-                                    (value: property.value, score: score, ranges: result.ranges))
-                            }
+                            propertyResults.append(
+                                (value: property.value, score: score, ranges: result.ranges))
                         }
-
-                        if scores.count == 0 {
-                            continue
-                        }
-
-                        resultLock.lock()
-                        collectionResult.append(
-                            (
-                                index: chunkIndex * chunkSize + index,
-                                score: totalScore / Double(scores.count),
-                                results: propertyResults
-                            ))
-                        resultLock.unlock()
                     }
 
-                    group.leave()
+                    if scores.count == 0 {
+                        continue
+                    }
+
+                    resultLock.lock()
+                    collectionResult.append(
+                        (
+                            index: chunkIndex * chunkSize + index,
+                            score: totalScore / Double(scores.count),
+                            results: propertyResults
+                        ))
+                    resultLock.unlock()
                 }
+
+                group.leave()
             }
+        }
 
         group.notify(queue: self.searchQueue) {
             let sorted = collectionResult.sorted { $0.score < $1.score }

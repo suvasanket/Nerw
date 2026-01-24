@@ -58,7 +58,7 @@ extension Fuse {
 
         let group = DispatchGroup()
 
-        aList.splitBy(chunkSize).enumerated().forEach { (chunkIndex, chunk) in
+        for (chunkIndex, chunk) in aList.splitBy(chunkSize).enumerated() {
             group.enter()
 
             self.searchQueue.async {

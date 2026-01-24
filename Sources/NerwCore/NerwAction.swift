@@ -114,7 +114,7 @@ public struct NerwAction {
         switch mode {
         case .none: return nil
         case .arguments: return "arrow.right.to.line"
-        case .form: return "list.bullet.rectangle.portrait"
+        case .form: return "pencil"
         case .quickAction: return "bolt.fill"
         }
     }

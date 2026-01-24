@@ -8,6 +8,7 @@ class ResultCellView: NSTableCellView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
     private let containerView = NSView()
+    private var currentActionID: String?
 
     // Tab Hint UI
     private let hintStack = NSStackView()
@@ -118,6 +119,7 @@ class ResultCellView: NSTableCellView {
 
     func configure(with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false) {
         let config = ConfigManager.shared.config.uiConfig
+        self.currentActionID = action.id
 
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
@@ -153,18 +155,16 @@ class ResultCellView: NSTableCellView {
                 iconView.image = NSWorkspace.shared.icon(for: .data)  // Generic placeholder
 
                 // Async load
-                let currentActionId = action.id
+                let loadingActionID = action.id
                 NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64)) {
                     [weak self] image in
                     guard let self = self else { return }
-                    // Verify cell is still configured for this action (using ID check if possible, or just simplistic reload)
-                    // Since ResultCellView doesn't store the action ID in a property, we rely on the fact
-                    // that table view cells reuse might happen.
-                    // Ideally check against current model, but we don't store it.
-                    // Risk of race condition on fast scroll, but acceptable for now or I can add a tag/tracking.
-                    // Let's rely on main thread dispatch and simple assignment.
-                    if let image = image {
-                        self.iconView.image = image
+
+                    // Verify cell is still configured for this action
+                    if self.currentActionID == loadingActionID {
+                        if let image = image {
+                            self.iconView.image = image
+                        }
                     }
                 }
             }

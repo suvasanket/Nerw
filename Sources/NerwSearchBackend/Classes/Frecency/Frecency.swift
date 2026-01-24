@@ -185,6 +185,73 @@ public class FrecencyManager {
         }
     }
 
+    /// Returns the ID of the highest scoring iterm for a specific query.
+    /// This is used to "suggest previously used bang search".
+    public func getTopScoringID(for query: String) -> (id: String, score: Double)? {
+        let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !normalizedQuery.isEmpty else { return nil }
+
+        return queue.sync {
+            var bestID: String? = nil
+            var bestScore: Double = -1.0
+
+            // We need to iterate over queryScores to find keys starting with "query:"
+            // Iterating dictionary can be slow if large, but queryScores usually key= "query:id".
+            // We can construct the prefix if we knew the ID.
+            // But here we know the query, we want the ID.
+            // Scan keys.
+            // "normalizedQuery:ID"
+            let prefix = "\(normalizedQuery):"
+
+            for (key, data) in queryScores {
+                if key.hasPrefix(prefix) {
+                    // Extract ID
+                    // key is "query:id"
+                    let id = String(key.dropFirst(prefix.count))
+                    let score = calculateScore(count: data.count, lastUsed: data.lastUsed)
+                    if score > bestScore {
+                        bestScore = score
+                        bestID = id
+                    }
+                }
+            }
+
+            if let id = bestID, bestScore > 0 {
+                return (id, bestScore)
+            }
+            return nil
+        }
+    }
+
+    /// Returns the ID of the MOST RECENTLY USED item for a specific query.
+    /// This ignores frequency count and only looks at `lastUsed`.
+    public func getMostRecentID(for query: String) -> (id: String, timestamp: TimeInterval)? {
+        let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !normalizedQuery.isEmpty else { return nil }
+
+        return queue.sync {
+            var bestID: String? = nil
+            var bestTime: TimeInterval = 0
+
+            let prefix = "\(normalizedQuery):"
+
+            for (key, data) in queryScores {
+                if key.hasPrefix(prefix) {
+                    let id = String(key.dropFirst(prefix.count))
+                    if data.lastUsed > bestTime {
+                        bestTime = data.lastUsed
+                        bestID = id
+                    }
+                }
+            }
+
+            if let id = bestID, bestTime > 0 {
+                return (id, bestTime)
+            }
+            return nil
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func calculateScore(count: Int, lastUsed: TimeInterval) -> Double {
