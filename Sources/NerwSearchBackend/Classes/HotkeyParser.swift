@@ -91,4 +91,86 @@ public struct HotkeyParser {
         default: return nil
         }
     }
+
+    public static func string(for modifiers: NSEvent.ModifierFlags, keyCode: UInt16) -> String {
+        var components: [String] = []
+
+        if modifiers.contains(.command) { components.append("Cmd") }
+        if modifiers.contains(.shift) { components.append("Shift") }
+        if modifiers.contains(.control) { components.append("Ctrl") }
+        if modifiers.contains(.option) { components.append("Opt") }
+
+        if let keyStr = keyString(for: keyCode) {
+            components.append(keyStr)
+        }
+
+        return components.joined(separator: "+")
+    }
+
+    private static func keyString(for code: UInt16) -> String? {
+        // Reverse mapping manually for critical keys
+        switch code {
+        case 49: return "Space"
+        case 36: return "Return"
+        case 48: return "Tab"
+        case 53: return "Esc"
+        case 51: return "Delete"
+        case 123: return "Left"
+        case 124: return "Right"
+        case 125: return "Down"
+        case 126: return "Up"
+
+        case 0: return "A"
+        case 11: return "B"
+        case 8: return "C"
+        case 2: return "D"
+        case 14: return "E"
+        case 3: return "F"
+        case 5: return "G"
+        case 4: return "H"
+        case 34: return "I"
+        case 38: return "J"
+        case 40: return "K"
+        case 37: return "L"
+        case 46: return "M"
+        case 45: return "N"
+        case 31: return "O"
+        case 35: return "P"
+        case 12: return "Q"
+        case 15: return "R"
+        case 1: return "S"
+        case 17: return "T"
+        case 32: return "U"
+        case 9: return "V"
+        case 13: return "W"
+        case 7: return "X"
+        case 16: return "Y"
+        case 6: return "Z"
+
+        case 29: return "0"
+        case 18: return "1"
+        case 19: return "2"
+        case 20: return "3"
+        case 21: return "4"
+        case 23: return "5"
+        case 22: return "6"
+        case 26: return "7"
+        case 28: return "8"
+        case 25: return "9"
+
+        case 47: return "."
+        case 43: return ","
+        case 44: return "/"
+        case 41: return ";"
+        case 39: return "'"
+        case 50: return "`"
+        case 27: return "-"
+        case 24: return "="
+        case 33: return "["
+        case 30: return "]"
+        case 42: return "\\"
+
+        default: return nil
+        }
+    }
 }

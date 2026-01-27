@@ -274,6 +274,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         applyTheming()
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(configDidUpdate),
+            name: Notification.Name("NerwConfigDidUpdate"), object: nil)
+    }
+
+    @objc private func configDidUpdate() {
+        DispatchQueue.main.async {
+            self.applyTheming()
+        }
+    }
+
     private func applyTheming() {
         let config = ConfigManager.shared.config.uiConfig
 

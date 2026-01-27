@@ -34,6 +34,9 @@ public class SearchService {
                             NerwAction.Field(
                                 id: "url", title: "URL Template",
                                 placeholder: "https://site.com?q=%s"),
+                            NerwAction.Field(
+                                id: "icon", title: "Icon URL (Optional)",
+                                placeholder: "e.g. https://site.com/icon.png"),
                         ],
                         submitLabel: "Add Bang",
                         perform: { _, values in
@@ -43,8 +46,10 @@ public class SearchService {
                                 !name.isEmpty, !trigger.isEmpty, !url.isEmpty
                             else { return }
 
+                            let icon = values["icon"]?.isEmpty == false ? values["icon"] : nil
+
                             SearchEngine.shared.addEngine(
-                                name: name, url: url, trigger: trigger, icon: nil)
+                                name: name, url: url, trigger: trigger, icon: icon)
                         }
                     )
                 )
@@ -73,6 +78,37 @@ public class SearchService {
                 )
             }
             completion(deleteActions)
+            return
+        }
+
+        // Set Default Bang
+        if lowerQuery == "!bang default" || lowerQuery == "default !bang"
+            || lowerQuery == "!default"
+        {
+            let currentDefault = SearchEngine.shared.getDefaultEngine()
+            let engines = SearchEngine.shared.engines
+
+            let defaultActions = engines.compactMap { engine -> NerwAction? in
+                guard engine.name != currentDefault.name else { return nil }
+
+                let domain =
+                    URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
+                    ?? engine.name
+                let icon = IconManager.shared.icon(for: domain)
+                if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+                return NerwAction(
+                    id: "nerw.builtin.bang.setdefault.\(engine.name)",
+                    title: "Set Default: \(engine.name)",
+                    subtitle: "Current Default: \(currentDefault.name)",
+                    icon: icon != nil ? .image(icon!) : .system("star"),
+                    triggers: [],
+                    type: .instant(perform: { _ in
+                        SearchEngine.shared.setDefaultEngine(engine)
+                    })
+                )
+            }
+            completion(defaultActions)
             return
         }
 

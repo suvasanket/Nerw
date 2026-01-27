@@ -1,5 +1,6 @@
 import Cocoa
 import NerwCore
+import NerwSearchBackend
 
 public struct Engine: Codable {
     public let name: String
@@ -83,8 +84,23 @@ public class SearchEngine {
     }
 
     public func getDefaultEngine() -> Engine {
+        let configTriggers = ConfigManager.shared.config.defaultSearchEngine
+        // Find engine that matches AT LEAST ONE of the config triggers
+        if let engine = engines.first(where: { engine in
+            !Set(engine.triggers).isDisjoint(with: configTriggers)
+        }) {
+            return engine
+        }
+
         // Fallback to first if Google missing (unlikely)
         return engines.first(where: { $0.name == "Google" }) ?? engines.first!
+    }
+
+    public func setDefaultEngine(_ engine: Engine) {
+        var config = ConfigManager.shared.config
+        config.defaultSearchEngine = engine.triggers
+        ConfigManager.shared.config = config
+        ConfigManager.shared.save()
     }
 
     public func addEngine(name: String, url: String, trigger: String, icon: String? = nil) {
