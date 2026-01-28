@@ -47,8 +47,8 @@ class FormView: NSView, NSTextFieldDelegate {
 
             // Label
             let label = NSTextField(labelWithString: field.title)
-            label.font = .systemFont(ofSize: 13, weight: .medium)
-            label.textColor = .secondaryLabelColor
+            label.font = .systemFont(ofSize: 14, weight: .medium)
+            label.textColor = .white
             fieldContainer.addArrangedSubview(label)
 
             // Input
@@ -63,24 +63,16 @@ class FormView: NSView, NSTextFieldDelegate {
             if let ph = field.placeholder {
                 input.placeholderString = ph
             }
-            input.isBordered = false
-            input.drawsBackground = false
-            input.focusRingType = .none
+
+            input.bezelStyle = .roundedBezel
             input.textColor = .labelColor
 
             fieldContainer.addArrangedSubview(input)
 
-            // Separator Line
-            let separator = NSBox()
-            separator.boxType = .separator
-            fieldContainer.addArrangedSubview(separator)
-
             // Constraints
             input.translatesAutoresizingMaskIntoConstraints = false
-            separator.translatesAutoresizingMaskIntoConstraints = false
 
             input.widthAnchor.constraint(equalTo: fieldContainer.widthAnchor).isActive = true
-            separator.widthAnchor.constraint(equalTo: fieldContainer.widthAnchor).isActive = true
 
             stackView.addArrangedSubview(fieldContainer)
             fieldContainer.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true

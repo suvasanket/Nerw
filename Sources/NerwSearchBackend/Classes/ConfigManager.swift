@@ -81,5 +81,8 @@ public class ConfigManager {
         } catch {
             print("Nerw: Failed to save config: \(error)")
         }
+
+        // Notify listeners
+        NotificationCenter.default.post(name: Notification.Name("NerwConfigDidUpdate"), object: nil)
     }
 }

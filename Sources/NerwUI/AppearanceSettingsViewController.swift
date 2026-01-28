@@ -12,6 +12,8 @@ class AppearanceSettingsViewController: NSViewController {
         return stack
     }()
 
+    private var fontLabel: NSTextField!
+
     override func loadView() {
         self.view = NSView()
         self.view.wantsLayer = true
@@ -28,12 +30,21 @@ class AppearanceSettingsViewController: NSViewController {
 
         // Font Settings
         let fontSection = createSection(title: "Typography")
-        let fontNameField = NSTextField(
-            string: ConfigManager.shared.config.uiConfig?.font ?? "System")
-        fontNameField.placeholderString = "Font Name (e.g. Menlo)"
-        fontNameField.target = self
-        fontNameField.action = #selector(fontChanged(_:))
-        fontSection.addArrangedSubview(fontNameField)
+
+        let fontRow = NSStackView()
+        fontRow.orientation = .horizontal
+        fontRow.spacing = 10
+
+        fontLabel = NSTextField(
+            labelWithString: ConfigManager.shared.config.uiConfig?.font ?? "System")
+
+        let selectFontBtn = NSButton(
+            title: "Select...", target: self, action: #selector(selectFontClicked))
+
+        fontRow.addArrangedSubview(fontLabel)
+        fontRow.addArrangedSubview(selectFontBtn)
+
+        fontSection.addArrangedSubview(fontRow)
         stackView.addArrangedSubview(fontSection)
 
         addSeparator()
@@ -114,16 +125,36 @@ class AppearanceSettingsViewController: NSViewController {
     private func addSeparator() {
         let separator = NSBox()
         separator.boxType = .separator
-        separator.widthAnchor.constraint(equalToConstant: 370).isActive = true
         stackView.addArrangedSubview(separator)
+        separator.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true
     }
 
     // MARK: - Actions
 
-    @objc private func fontChanged(_ sender: NSTextField) {
+    @objc private func selectFontClicked() {
+        let fontManager = NSFontManager.shared
+        if let currentFontName = ConfigManager.shared.config.uiConfig?.font,
+            let font = NSFont(name: currentFontName, size: 13)
+        {
+            fontManager.setSelectedFont(font, isMultiple: false)
+        }
+        fontManager.target = self
+        fontManager.orderFrontFontPanel(self)
+    }
+
+    @objc func changeFont(_ sender: NSFontManager?) {
+        guard let validSender = sender else { return }
+        // Create a dummy font with current name to convert from
+        let oldFontName = ConfigManager.shared.config.uiConfig?.font ?? "System"
+        let oldFont = NSFont(name: oldFontName, size: 13) ?? NSFont.systemFont(ofSize: 13)
+
+        let newFont = validSender.convert(oldFont)
+
         ensureUIConfig()
-        ConfigManager.shared.config.uiConfig?.font = sender.stringValue
+        ConfigManager.shared.config.uiConfig?.font = newFont.fontName
         ConfigManager.shared.save()
+
+        fontLabel.stringValue = newFont.fontName
     }
 
     @objc private func mainBGColorChanged(_ sender: NSColorWell) {

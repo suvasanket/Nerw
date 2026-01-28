@@ -1,10 +1,21 @@
 import Cocoa
 import NerwSearchBackend
 
+private class SettingsWindow: NSWindow {
+    override func keyDown(with event: NSEvent) {
+        // Handle Cmd+W to close
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "w" {
+            self.close()
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
 public class SettingsWindowController: NSWindowController {
 
     public init() {
-        let window = NSWindow(
+        let window = SettingsWindow(
             contentRect: NSRect(x: 0, y: 0, width: 450, height: 300),
             styleMask: [.titled, .closable],
             backing: .buffered,

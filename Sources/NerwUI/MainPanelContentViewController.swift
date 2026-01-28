@@ -284,6 +284,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     @objc private func configDidUpdate() {
         DispatchQueue.main.async {
             self.applyTheming()
+            self.resultsTableView.reloadData()
         }
     }
 

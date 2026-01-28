@@ -136,12 +136,19 @@ class ResultCellView: NSTableCellView {
         let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
         // Font
-        if let fontName = config?.font,
-            let font = NSFont(
+        if let fontName = config?.font {
+            if let font = NSFont(
                 name: fontName,
                 size: MainPanelContentViewController.LayoutMetrics.Cell.Text.titleSize)
-        {
-            titleLabel.font = font
+            {
+                titleLabel.font = font
+            }
+            if let subFont = NSFont(
+                name: fontName,
+                size: MainPanelContentViewController.LayoutMetrics.Cell.Text.subtitleSize)
+            {
+                subtitleLabel.font = subFont
+            }
         }
 
         if let iconType = action.icon {
