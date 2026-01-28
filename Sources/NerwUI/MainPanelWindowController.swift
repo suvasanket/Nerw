@@ -120,7 +120,7 @@ extension MainPanelWindowController: MainPanelContentDelegate {
         hide()
     }
 
-    func didUpdateResults(count: Int) {
+    func didUpdateResults(count: Int, isSeparatorExpanded: Bool) {
         let metrics = MainPanelContentViewController.LayoutMetrics.self
         let rowHeight = metrics.Results.rowHeight
         let maxVisible = metrics.Results.maxVisibleRows
@@ -132,8 +132,11 @@ extension MainPanelWindowController: MainPanelContentDelegate {
             let searchSection = metrics.SearchField.top + metrics.SearchField.height
 
             // Separator Section (Top margin + Height + Bottom margin)
+            // Height is dynamic: 12 if expanded (any result), else 1
+            let separatorHeight =
+                isSeparatorExpanded ? metrics.Separator.expandedHeight : metrics.Separator.height
             let separatorSection =
-                metrics.Separator.top + metrics.Separator.height + metrics.Separator.bottom
+                metrics.Separator.top + separatorHeight + metrics.Separator.bottom
 
             // Results Section (Results height + Bottom margin matching expandedBottom)
             // We use the explicit expandedBottom metric from LayoutMetrics
