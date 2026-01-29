@@ -15,129 +15,125 @@ public class AppSearch {
     private let cacheQueue = DispatchQueue(
         label: "com.nerw.appsearch.cache", attributes: .concurrent)
 
+    private var metadataQuery: NSMetadataQuery!
+
     private init() {
-        refreshCache()
+        if Thread.isMainThread {
+            startLiveQuery()
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.startLiveQuery()
+            }
+        }
     }
 
     public func getAllApps() -> [AppInfo] {
         return cacheQueue.sync { cachedApps }
     }
 
+    // Manual refresh is no longer needed with live query, but kept for compatibility
     public func refreshCache() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let apps = self?.performSearch() ?? []
-            self?.cacheQueue.async(flags: .barrier) {
-                self?.cachedApps = apps
-            }
+        // No-op or force re-query if needed, but live query handles it.
+        // We can just log or trigger a stop/start if we really wanted to restart it.
+    }
+
+    private func startLiveQuery() {
+        print("[AppSearch] Starting NSMetadataQuery...")
+        metadataQuery = NSMetadataQuery()
+
+        // Search for Applications
+        metadataQuery.predicate = NSPredicate(
+            format: "kMDItemContentType == 'com.apple.application-bundle'")
+
+        // Explicitly set scopes to user-facing application directories only.
+        // Explicitly set scopes.
+        // Include /System/Library/CoreServices for Finder, Archive Utility, Screen Sharing, etc.
+        let searchScopes = [
+            URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/System/Applications"),
+            URL(fileURLWithPath: "/Users"),
+            URL(fileURLWithPath: "/System/Library/CoreServices"),
+        ]
+        metadataQuery.searchScopes = searchScopes
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(queryDidUpdate(_:)),
+            name: .NSMetadataQueryDidFinishGathering,
+            object: metadataQuery)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(queryDidUpdate(_:)),
+            name: .NSMetadataQueryDidUpdate,
+            object: metadataQuery)
+
+        if metadataQuery.start() {
+            print("[AppSearch] NSMetadataQuery started successfully")
+        } else {
+            print("[AppSearch] NSMetadataQuery failed to start")
         }
     }
 
-    private func performSearch() -> [AppInfo] {
-        var results: [AppInfo] = []
+    @objc private func queryDidUpdate(_ notification: Notification) {
+        metadataQuery.disableUpdates()
 
-        // Strategy 1: Snapshot MDQuery (Native API) - FASTEST & NATIVE
-        if let spotlightResults = runMDQuerySearch() {
-            results = spotlightResults
-        }
-        // Strategy 2: fd (if installed)
-        else if let fdResults = runFd() {
-            results = fdResults
-        }
-        // Strategy 3: find (Fallback)
-        else {
-            results = runFind()
-        }
-
-        // Explicitly ensure Finder is present (System Essential)
-        // Finder often lives in /System/Library/CoreServices, which might be out of scope for standard app queries
-        if !results.contains(where: { $0.name == "Finder" }) {
-            let finderPath = "/System/Library/CoreServices/Finder.app"
-            if FileManager.default.fileExists(atPath: finderPath) {
-                results.append(AppInfo(name: "Finder", path: finderPath))
-            }
-        }
-
-        return results
-    }
-
-    // MARK: - Strategies
-
-    private func runMDQuerySearch() -> [AppInfo]? {
-        let queryString = "kMDItemContentType == 'com.apple.application-bundle'" as CFString
-
-        // Create Query
-        // Scopes: Applications, System Apps, User Apps
-        // Note: MDQuery automatically respects permissions and user scope usually.
-        // We can optionally set explicit scope if needed, but default is usually good.
-        guard let mdQuery = MDQueryCreate(kCFAllocatorDefault, queryString, nil, nil) else {
-            print("[AppSearch] Failed to create MDQuery")
-            return nil
-        }
-
-        // Set explicit scope to match previous logic (broad app locations)
-        let searchScopes: [CFURL] =
-            [
-                URL(fileURLWithPath: "/Applications"),
-                URL(fileURLWithPath: "/System/Applications"),
-                URL(fileURLWithPath: "/Users"),
-            ] as [CFURL]
-        MDQuerySetSearchScope(mdQuery, searchScopes as CFArray, 0)
-
-        // Execute Synchronously ensures we get results immediately for this "snapshot"
-        if !MDQueryExecute(mdQuery, CFOptionFlags(kMDQuerySynchronous.rawValue)) {
-            print("[AppSearch] MDQueryExecute failed")
-            return nil
-        }
-
-        let count = MDQueryGetResultCount(mdQuery)
-        var results: [AppInfo] = []
+        var newApps: [AppInfo] = []
+        let count = metadataQuery.resultCount
 
         for i in 0..<count {
-            guard let rawPtr = MDQueryGetResultAtIndex(mdQuery, i) else { continue }
-            let item = Unmanaged<MDItem>.fromOpaque(rawPtr).takeUnretainedValue()
+            guard let item = metadataQuery.result(at: i) as? NSMetadataItem,
+                let path = item.value(forAttribute: kMDItemPath as String) as? String
+            else {
+                continue
+            }
 
-            if let path = MDItemCopyAttribute(item, kMDItemPath) as? String {
-                // Filter out helper apps (apps inside other apps)
-                if path.range(of: ".app/", options: .caseInsensitive) != nil {
+            // Filter out helper apps (apps inside other apps)
+            if path.range(of: ".app/", options: .caseInsensitive) != nil {
+                continue
+            }
+
+            // Refined Logic for System Libraries
+            if path.contains("/System/Library/") {
+                // Check for CoreServices
+                if path.contains("/CoreServices/") {
+                    // Allow:
+                    // 1. Apps in /System/Library/CoreServices/Applications/ (e.g. Keychain Access, Archive Utility)
+                    // 2. Finder.app (Root of CoreServices)
+                    let isCoreServicesApp = path.contains("/CoreServices/Applications/")
+                    let isFinder = path.hasSuffix("/CoreServices/Finder.app")
+
+                    if isCoreServicesApp || isFinder {
+                        // Keep it
+                    } else {
+                        // Block everything else in CoreServices (Dock, Siri, ControlCenter, etc.)
+                        continue
+                    }
+                } else {
+                    // Block all other System Libraries (Input Methods, Frameworks, etc.)
                     continue
                 }
-
-                let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-                results.append(AppInfo(name: name, path: path))
+            } else if path.contains("/Library/") {
+                // Block other general Library paths if any sneak in
+                continue
             }
-        }
 
-        // MDQuery doesn't need explicit "Release" in Swift ARC usually,
-        // but MDQueryStop is good practice if it were async.
-        // Generational Analysis: ARC handles MDQueryRef? Yes, usually treated as CFType.
+            // Exclude hidden folders/System internals
+            if path.contains("/.") || path.starts(with: "/private") {
+                continue
+            }
 
-        return results.isEmpty ? nil : results
-    }
-
-    private func runFd() -> [AppInfo]? {
-        // Check if fd exists
-        guard runShell("which fd") != nil else { return nil }
-
-        // Search in standard app paths
-        let command = "fd -e app . /Applications /System/Applications --max-depth 2"
-        guard let output = runShell(command) else { return nil }
-
-        let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        return paths.map { path in
             let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-            return AppInfo(name: name, path: path)
+            newApps.append(AppInfo(name: name, path: path))
         }
-    }
 
-    private func runFind() -> [AppInfo] {
-        let command = "find /Applications /System/Applications -maxdepth 2 -name \"*.app\""
-        guard let output = runShell(command) else { return [] }
+        // Removed manual Finder check as it should be found via CoreServices scope now.
 
-        let paths = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        return paths.map { path in
-            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-            return AppInfo(name: name, path: path)
+        cacheQueue.async(flags: .barrier) {
+            self.cachedApps = newApps
         }
+
+        metadataQuery.enableUpdates()
     }
 
     private func runShell(_ command: String) -> String? {
