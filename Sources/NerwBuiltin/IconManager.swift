@@ -66,7 +66,7 @@ public class IconManager {
 
         // Download
         // Use Google's service for high-res PNGs (sz=128)
-        let iconURLString = "https://www.google.com/s2/favicons?domain=\(domain)&sz=128"
+        let iconURLString = "https://icons.duckduckgo.com/ip3/\(domain).ico"
         guard let iconURL = URL(string: iconURLString) else {
             completion(nil)
             return

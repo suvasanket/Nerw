@@ -13,6 +13,8 @@ class AppearanceSettingsViewController: NSViewController {
     }()
 
     private var fontLabel: NSTextField!
+    private var selectionBGColorWell: NSColorWell?
+    private var useSystemSelectionSwitch: NSSwitch!
 
     override func loadView() {
         self.view = NSView()
@@ -52,37 +54,103 @@ class AppearanceSettingsViewController: NSViewController {
         // Color Settings
         let colorSection = createSection(title: "Colors")
 
-        // Main Background
+        // System Selection Color Option
+        let systemSelectionRow = NSStackView()
+        systemSelectionRow.orientation = .horizontal
+        systemSelectionRow.spacing = 10
+        systemSelectionRow.alignment = .centerY
+
+        let systemSelectionTextStack = NSStackView()
+        systemSelectionTextStack.orientation = .vertical
+        systemSelectionTextStack.spacing = 2
+        systemSelectionTextStack.alignment = .leading
+
+        let systemSelectionLabel = NSTextField(labelWithString: "Use System Selection Color")
+        let systemSelectionSubtitle = NSTextField(
+            labelWithString: "Overrides custom selection background with system accent")
+        systemSelectionSubtitle.font = .systemFont(ofSize: 11)
+        systemSelectionSubtitle.textColor = .secondaryLabelColor
+
+        systemSelectionTextStack.addArrangedSubview(systemSelectionLabel)
+        systemSelectionTextStack.addArrangedSubview(systemSelectionSubtitle)
+
+        useSystemSelectionSwitch = NSSwitch()
+        useSystemSelectionSwitch.controlSize = .mini
+        useSystemSelectionSwitch.target = self
+        useSystemSelectionSwitch.action = #selector(useSystemSelectionColorChanged(_:))
+
+        // Set initial state
+        let useSystem = ConfigManager.shared.config.uiConfig?.useSystemSelectionColor ?? false
+        useSystemSelectionSwitch.state = useSystem ? .on : .off
+
+        // Spacer
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        systemSelectionRow.addArrangedSubview(systemSelectionTextStack)
+        systemSelectionRow.addArrangedSubview(spacer)
+        systemSelectionRow.addArrangedSubview(useSystemSelectionSwitch)
+
+        // Constrain width to align with other rows (standardize width if needed, or rely on stack alignment)
+        // Ensure the row takes full width available in stackView (minus insets)
+        // The stackView width isn't fixed yet, but let's just add it.
+        colorSection.addArrangedSubview(systemSelectionRow)
+        systemSelectionRow.widthAnchor.constraint(equalTo: colorSection.widthAnchor).isActive = true
+
+        // Background
         addColorRow(
-            to: colorSection, title: "Background",
+            to: colorSection, title: "Background", subtitle: "Main window background color",
             hex: ConfigManager.shared.config.uiConfig?.mainBackgroundColor,
             action: #selector(mainBGColorChanged(_:)))
 
         // Selection Background
-        addColorRow(
+        selectionBGColorWell = addColorRow(
             to: colorSection, title: "Selection Background",
+            subtitle: "Background color of the selected item",
             hex: ConfigManager.shared.config.uiConfig?.selectionBackgroundColor,
             action: #selector(selectionBGColorChanged(_:)))
 
+        // Initial enabled state
+        selectionBGColorWell?.isEnabled = !useSystem
+
         // Main Text
         addColorRow(
-            to: colorSection, title: "Text Color",
+            to: colorSection, title: "Text Color", subtitle: "Primary text color",
             hex: ConfigManager.shared.config.uiConfig?.mainForegroundColor,
             action: #selector(textColorChanged(_:)))
 
         // Selection Text
         addColorRow(
             to: colorSection, title: "Selected Text Color",
+            subtitle: "Text color of the selected item",
             hex: ConfigManager.shared.config.uiConfig?.selectionForegroundColor,
             action: #selector(selectedTextColorChanged(_:)))
 
         stackView.addArrangedSubview(colorSection)
     }
 
-    private func addColorRow(to stack: NSStackView, title: String, hex: String?, action: Selector) {
+    @discardableResult
+    private func addColorRow(
+        to stack: NSStackView, title: String, subtitle: String, hex: String?, action: Selector
+    ) -> NSColorWell {
         let row = NSStackView()
         row.orientation = .horizontal
         row.spacing = 10
+        row.alignment = .top  // Top alignment for multiline text
+
+        // Text Stack (Title + Subtitle)
+        let textStack = NSStackView()
+        textStack.orientation = .vertical
+        textStack.spacing = 2
+        textStack.alignment = .leading
+
+        let label = NSTextField(labelWithString: title)
+        let subLabel = NSTextField(labelWithString: subtitle)
+        subLabel.font = .systemFont(ofSize: 11)
+        subLabel.textColor = .secondaryLabelColor
+
+        textStack.addArrangedSubview(label)
+        textStack.addArrangedSubview(subLabel)
 
         let colorWell = NSColorWell()
         colorWell.translatesAutoresizingMaskIntoConstraints = false
@@ -92,11 +160,19 @@ class AppearanceSettingsViewController: NSViewController {
         colorWell.target = self
         colorWell.action = action
 
-        let label = NSTextField(labelWithString: title)
+        // Spacer to push color well to right
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        row.addArrangedSubview(label)
+        row.addArrangedSubview(textStack)
+        row.addArrangedSubview(spacer)
         row.addArrangedSubview(colorWell)
+
         stack.addArrangedSubview(row)
+        // Ensure row width matches parent
+        row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+
+        return colorWell
     }
 
     private func setupConstraints() {
@@ -179,6 +255,15 @@ class AppearanceSettingsViewController: NSViewController {
         ensureUIConfig()
         ConfigManager.shared.config.uiConfig?.selectionForegroundColor = sender.color.toHexString()
         ConfigManager.shared.save()
+    }
+
+    @objc private func useSystemSelectionColorChanged(_ sender: NSSwitch) {
+        ensureUIConfig()
+        let useSystem = sender.state == .on
+        ConfigManager.shared.config.uiConfig?.useSystemSelectionColor = useSystem
+        ConfigManager.shared.save()
+
+        selectionBGColorWell?.isEnabled = !useSystem
     }
 
     private func ensureUIConfig() {

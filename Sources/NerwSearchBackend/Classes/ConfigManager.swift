@@ -7,6 +7,7 @@ public struct UIConfig: Codable {
     public var mainForegroundColor: String?
     public var selectionForegroundColor: String?
     public var hintColor: String?
+    public var useSystemSelectionColor: Bool?
 
     public init() {}
 }

@@ -126,9 +126,16 @@ class ResultCellView: NSTableCellView {
 
         // Background Logic
         // Active (Moved): System Accent
-        let activeBg =
-            NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85)
-            ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
+        let useSystemSelection = config?.useSystemSelectionColor ?? false
+        let activeBg: NSColor
+
+        if useSystemSelection {
+            activeBg = NSColor.controlAccentColor.withAlphaComponent(0.9)
+        } else {
+            activeBg =
+                NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85)
+                ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
+        }
 
         // Passive (Default): Grey/White Alpha
         let passiveBg = NSColor.white.withAlphaComponent(0.12)
