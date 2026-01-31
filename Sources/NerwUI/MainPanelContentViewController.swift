@@ -112,6 +112,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     // Tracks current search task
 
+    // Tracks current search task
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        // Refresh Shortcuts if enabled
+        if ConfigManager.shared.config.showShortcutsInMain {
+            ShortcutsEngine.shared.refresh()
+        }
+    }
+
     override func loadView() {
         // Initial height calculation for shrink view
         let initialHeight =
@@ -944,7 +954,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     @discardableResult
     private func updateStatusIcons() -> Bool {
         // Clear existing
-        statusIconContainer.subviews.forEach { $0.removeFromSuperview() }
+        for subview in statusIconContainer.subviews {
+            subview.removeFromSuperview()
+        }
 
         var activeIcon: String? = nil
         var activeColor: NSColor = .secondaryLabelColor

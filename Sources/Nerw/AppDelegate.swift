@@ -70,7 +70,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)  // Trigger menu immediately
-        statusItem?.menu = nil  // Clear it so standard click works next time if needed, or just keep it.
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)  // Trigger menu immediately
+        // Clear it so standard click works next time if needed, or just keep it.
+        statusItem?.menu = nil
         // Better pattern for status item with primary action AND menu:
         // Actually, for .accessory app, usually left click toggles main window, right click shows menu.
         // OR just show menu always.

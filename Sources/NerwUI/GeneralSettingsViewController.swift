@@ -73,6 +73,33 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
         behaviorSection.addArrangedSubview(findFileStack)
 
+        // Shortcuts Toggle
+        let shortcutsStack = NSStackView()
+        shortcutsStack.orientation = .horizontal
+        shortcutsStack.spacing = 10
+        shortcutsStack.alignment = .centerY
+
+        let shortcutsLabel = NSTextField(labelWithString: "Show Shortcuts in Main Results")
+        shortcutsLabel.font = .systemFont(ofSize: 13)
+
+        let shortcutsSwitch = NSSwitch()
+        shortcutsSwitch.controlSize = .mini
+        shortcutsSwitch.state = ConfigManager.shared.config.showShortcutsInMain ? .on : .off
+        shortcutsSwitch.target = self
+        shortcutsSwitch.action = #selector(shortcutsToggled(_:))
+
+        let shortcutsSpacer = NSView()
+        shortcutsSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        shortcutsStack.addArrangedSubview(shortcutsLabel)
+        shortcutsStack.addArrangedSubview(shortcutsSpacer)
+        shortcutsStack.addArrangedSubview(shortcutsSwitch)
+
+        shortcutsStack.translatesAutoresizingMaskIntoConstraints = false
+        shortcutsStack.widthAnchor.constraint(equalToConstant: 410).isActive = true
+
+        behaviorSection.addArrangedSubview(shortcutsStack)
+
         stackView.addArrangedSubview(behaviorSection)
 
         addSeparator()
@@ -146,6 +173,11 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
     @objc private func findFileToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.findFileOnSpace = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func shortcutsToggled(_ sender: NSSwitch) {
+        ConfigManager.shared.config.showShortcutsInMain = (sender.state == .on)
         ConfigManager.shared.save()
     }
 

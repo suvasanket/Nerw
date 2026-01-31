@@ -820,4 +820,116 @@ public class System {
         task.arguments = ["-c", command]
         try? task.run()
     }
+
+    // MARK: - System Settings
+
+    private struct SystemSetting {
+        let name: String
+        let icon: String  // SF Symbol
+        let paneID: String
+    }
+
+    private let systemSettings: [SystemSetting] = [
+        SystemSetting(
+            name: "Appearance", icon: "paintbrush.fill", paneID: "com.apple.preference.general"),
+        SystemSetting(
+            name: "Wallpaper", icon: "photo.fill",
+            paneID: "com.apple.preference.desktopscreeneffect"),
+        SystemSetting(
+            name: "Screen Saver", icon: "display.and.arrow.down",
+            paneID: "com.apple.preference.desktopscreeneffect?ScreenSaver"),
+        SystemSetting(
+            name: "Dock & Menu Bar", icon: "menubar.rectangle", paneID: "com.apple.preference.dock"),
+        SystemSetting(
+            name: "Control Center", icon: "switch.2", paneID: "com.apple.preference.controlcenter"),
+        SystemSetting(name: "Siri", icon: "mic.fill", paneID: "com.apple.preference.speech"),
+        SystemSetting(
+            name: "Spotlight", icon: "magnifyingglass", paneID: "com.apple.preference.spotlight"),
+        SystemSetting(name: "Language & Region", icon: "globe", paneID: "com.apple.localization"),
+        SystemSetting(
+            name: "Notifications", icon: "bell.fill", paneID: "com.apple.preference.notifications"),
+        SystemSetting(
+            name: "Internet Accounts", icon: "at", paneID: "com.apple.preferences.internetaccounts"),
+        SystemSetting(
+            name: "Users & Groups", icon: "person.2.fill", paneID: "com.apple.preferences.users"),
+        SystemSetting(
+            name: "Accessibility", icon: "figure.wave.circle.fill",
+            paneID: "com.apple.preference.universalaccess"),
+        SystemSetting(
+            name: "Screen Time", icon: "hourglass", paneID: "com.apple.preference.screentime"),
+        SystemSetting(
+            name: "Extensions", icon: "puzzlepiece.fill", paneID: "com.apple.preferences.extensions"
+        ),
+        SystemSetting(
+            name: "Security & Privacy", icon: "lock.shield.fill",
+            paneID: "com.apple.preference.security"),
+        SystemSetting(
+            name: "Software Update", icon: "gear.badge.arrow.2.clockwise",
+            paneID: "com.apple.preferences.softwareupdate"),
+        SystemSetting(name: "Network", icon: "network", paneID: "com.apple.preference.network"),
+        SystemSetting(
+            name: "Bluetooth", icon: "iphone.gen3.radiowaves.left.and.right",
+            paneID: "com.apple.preferences.bluetooth"),
+        SystemSetting(
+            name: "Sound", icon: "speaker.wave.2.fill", paneID: "com.apple.preference.sound"),
+        SystemSetting(
+            name: "Printers & Scanners", icon: "printer.fill",
+            paneID: "com.apple.preference.printfax"),
+        SystemSetting(
+            name: "Keyboard", icon: "keyboard.fill", paneID: "com.apple.preference.keyboard"),
+        SystemSetting(
+            name: "Trackpad", icon: "hand.point.up.left.fill",
+            paneID: "com.apple.preference.trackpad"),
+        SystemSetting(name: "Mouse", icon: "mouse.fill", paneID: "com.apple.preference.mouse"),
+        SystemSetting(name: "Displays", icon: "display", paneID: "com.apple.preference.displays"),
+        SystemSetting(
+            name: "Sidecar", icon: "ipad.and.arrow.forward", paneID: "com.apple.preference.sidecar"),
+        SystemSetting(
+            name: "Energy Saver", icon: "bolt.fill", paneID: "com.apple.preference.energysaver"),
+        SystemSetting(name: "Battery", icon: "battery.100", paneID: "com.apple.preference.battery"),
+        SystemSetting(
+            name: "Date & Time", icon: "clock.fill", paneID: "com.apple.preference.datetime"),
+        SystemSetting(
+            name: "Sharing", icon: "folder.fill.badge.person.crop",
+            paneID: "com.apple.preferences.sharing"),
+        SystemSetting(
+            name: "Time Machine", icon: "clock.arrow.circlepath", paneID: "com.apple.prefs.backup"),
+        SystemSetting(
+            name: "Startup Disk", icon: "internaldrive.fill",
+            paneID: "com.apple.preference.startupdisk"),
+        SystemSetting(
+            name: "Profiles", icon: "person.badge.shield.checkmark.fill",
+            paneID: "com.apple.preferences.configurationprofiles"),
+    ]
+
+    public func listSystemSettings(query: String, completion: @escaping ([NerwAction]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let lowerQuery = query.lowercased()
+            let filtered = self.systemSettings.filter { setting in
+                query.isEmpty || setting.name.lowercased().contains(lowerQuery)
+            }
+
+            let results = filtered.map { setting in
+                NerwAction(
+                    id: "nerw.system.settings.\(setting.paneID)",
+                    title: setting.name,
+                    subtitle: "System Preference Pane",
+                    icon: .system(setting.icon),
+                    triggers: [setting.name],
+                    type: .instant(perform: { _ in
+                        self.openSystemSetting(paneID: setting.paneID)
+                    })
+                )
+            }
+
+            DispatchQueue.main.async { completion(results) }
+        }
+    }
+
+    private func openSystemSetting(paneID: String) {
+        let urlString = "x-apple.systempreferences:\(paneID)"
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        }
+    }
 }

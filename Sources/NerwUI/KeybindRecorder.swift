@@ -118,7 +118,9 @@ class KeybindRecorder: NSView {
     }
 
     private func updateDisplay() {
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for subview in stackView.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
 
         if isRecording {
             layer?.borderColor = NSColor.controlAccentColor.cgColor
