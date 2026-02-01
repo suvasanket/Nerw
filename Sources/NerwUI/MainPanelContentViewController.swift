@@ -490,6 +490,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func resetToSearch() {
+        print("[DebugUI] resetToSearch called")
         inputState = .search
         activeAction = nil
 
@@ -578,11 +579,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
+        print("[DebugUI] Entering Argument Mode for action: \(action.title)")
         // Update State
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
 
-        // Update Placeholder based on argument name
+        // 1. Clear text first (Critical for placeholder update consistency)
+        inputField.stringValue = ""
+        inputField.currentEditor()?.moveToEndOfLine(nil)
+
+        // 2. Update Placeholder based on argument name
         var placeholder = action.title
         switch action.type {
         case .arg(let placeholders, _):
@@ -594,7 +600,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputField.placeholderString = placeholder
 
         // Update UI
-        inputField.stringValue = ""  // Clear for new arg
         updateIcon(for: action)
 
         // Clear list to focus on input
@@ -711,12 +716,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputState = .argument(action: action, step: 0, collectedArgs: [])
         inputField.stringValue = initialArg
         inputField.currentEditor()?.moveToEndOfLine(nil)
-        inputField.placeholderString = action.title
+
+        // Update Placeholder based on argument name
+        var placeholder = action.title
+        switch action.type {
+        case .arg(let placeholders, _):
+            if let first = placeholders.first { placeholder = first }
+        case .args(let ph, _, _):
+            placeholder = ph
+        default: break
+        }
+        inputField.placeholderString = placeholder
+
         updateIcon(for: action)
 
         // Clear list & trigger search
         actions = []
-        updateActions()
+        // updateActions()
         search(query: initialArg)
     }
 
@@ -1069,6 +1085,7 @@ class ThemedTextField: NSTextField {
     override var placeholderString: String? {
         get { _rawPlaceholder }
         set {
+            print("[DebugUI] ThemedTextField.placeholderString set to: \(newValue ?? "nil")")
             _rawPlaceholder = newValue
             updatePlaceholder()
         }
@@ -1080,7 +1097,10 @@ class ThemedTextField: NSTextField {
             return
         }
 
+        // Log to confirm underlying attribute string update
         let attr = NSMutableAttributedString(string: text)
+        print("[DebugUI] Updating placeholder visual for: \(text)")
+
         let range = NSRange(location: 0, length: attr.length)
 
         // Color

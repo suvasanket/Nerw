@@ -109,6 +109,10 @@ Some results offer a secondary action, indicated by a **lightning bolt icon** wh
     -   Search for **Finder**.
     -   Press `Tab` -> Enters "Find File" mode.
     -   Type a filename to search within Finder's scope.
+    -   **System Settings**:
+        -   Search for **System Settings**.
+        -   Press `Tab` -> Lists all individual settings panes (Appearance, Sound, Network, etc.).
+        -   Type to filter (e.g. "Sound") and Enter to open directly.
 
 ### ⌨️ Keyboard Navigation
 Designed for mouse-free usage:

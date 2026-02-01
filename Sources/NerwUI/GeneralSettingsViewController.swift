@@ -8,7 +8,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 20
-        // Even insets as requested (Right changed from 40 back to 20 to match Left)
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         return stack
     }()
@@ -67,7 +66,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         findFileStack.addArrangedSubview(spacer)
         findFileStack.addArrangedSubview(findFileSwitch)
 
-        // Constrain stack to full content width (Window 450 - Left 20 - Right 20 = 410)
         findFileStack.translatesAutoresizingMaskIntoConstraints = false
         findFileStack.widthAnchor.constraint(equalToConstant: 410).isActive = true
 
@@ -158,7 +156,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     private func addSeparator() {
         let separator = NSBox()
         separator.boxType = .separator
-        // Match content width (450 - 20 - 20 = 410)
         separator.widthAnchor.constraint(equalToConstant: 410).isActive = true
         stackView.addArrangedSubview(separator)
     }

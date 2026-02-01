@@ -188,22 +188,28 @@ public class SearchService {
 
         // 4. Check for Extension Triggers
         let components = query.split(separator: " ", maxSplits: 1)
-        if let firstWord = components.first,
-            let extensionManifest = ExtensionEngine.shared.extensions.first(where: {
-                $0.trigger == String(firstWord)
-            })
-        {
+        if let firstWord = components.first {
+            let extensions = ExtensionEngine.shared.extensions
+            // print("[SearchService] Checking trigger '\(firstWord)' against \(extensions.count) extensions: \(extensions.map { $0.trigger })")
 
-            let arg = components.count > 1 ? String(components[1]) : ""
+            if let extensionManifest = extensions.first(where: {
+                $0.allTriggers.contains(where: { $0.lowercased() == String(firstWord).lowercased() }
+                )
+            }) {
 
-            // Run Extension
-            ExtensionEngine.shared.runExtension(id: extensionManifest.id, query: arg) {
-                extResults in
-                DispatchQueue.main.async {
-                    completion(newActions + extResults)
+                let arg = components.count > 1 ? String(components[1]) : ""
+
+                // Run Extension
+                ExtensionEngine.shared.runExtension(
+                    id: extensionManifest.id, query: arg, trigger: String(firstWord)
+                ) {
+                    extResults in
+                    DispatchQueue.main.async {
+                        completion(newActions + extResults)
+                    }
                 }
+                return
             }
-            return
         }
 
         // 5. Default App Search (Fallback) - Async
