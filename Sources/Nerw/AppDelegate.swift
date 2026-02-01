@@ -7,6 +7,7 @@ import NerwUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupController: MainPanelWindowController!
     private var settingsController: SettingsWindowController?
+    private var extensionInstallController: ExtensionInstallWindowController?
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -38,6 +39,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.popupController.toggle()
         }
+    }
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        if filename.hasSuffix(".nerw") {
+            let url = URL(fileURLWithPath: filename)
+            if let manifest = ExtensionInstaller.shared.inspectPackage(at: url) {
+                if extensionInstallController == nil {
+                    extensionInstallController = ExtensionInstallWindowController()
+                }
+                extensionInstallController?.show(for: url, manifest: manifest)
+                return true
+            }
+        }
+        return false
     }
 
     @objc private func configDidUpdate() {

@@ -272,9 +272,3 @@ class AppearanceSettingsViewController: NSViewController {
         }
     }
 }
-
-// Minimal Hex Extensions for this file if not already globally available,
-// checking if I need to rely on NerwSearchBackend extensions or define here.
-// Assuming NerwSearchBackend has extensions, but usually NSColor extensions are in UI.
-// I'll check strictness. If they don't exist, I'll add a helper extension to NerwUI locally or use existing utils.
-// Checking `Extension` in backend.

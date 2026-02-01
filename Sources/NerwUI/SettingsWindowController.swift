@@ -63,33 +63,17 @@ class SettingsTabViewController: NSTabViewController {
             systemSymbolName: "paintbrush", accessibilityDescription: "Appearance Settings")
         self.addTabViewItem(appearanceItem)
 
+        // 3. Extensions Tab
+        let extensionsVC = ExtensionSettingsViewController()
+        extensionsVC.title = "Extensions"
+        let extensionsItem = NSTabViewItem(viewController: extensionsVC)
+        extensionsItem.label = "Extensions"
+        extensionsItem.image = NSImage(
+            systemSymbolName: "puzzlepiece.extension",
+            accessibilityDescription: "Extensions Settings")
+        self.addTabViewItem(extensionsItem)
+
         // Set initial size
         self.preferredContentSize = NSSize(width: 450, height: 300)
-    }
-
-    // To implement the "liquid glass" background properly with NSTabViewController:
-    // We need to inject the VisualEffectView as the background of this controller's view.
-    // However, NSTabViewController's view is often swapped or managed tightly.
-    // Best practice: The children VCs should be transparent, and the window's contentView (or a dedicated background view) should be the effect view.
-    // But since `contentViewController` takes over `window.contentView`, we wrap the logic or insert it here.
-
-    override func loadView() {
-        super.loadView()
-
-        // Add Visual Effect View as the bottom layer of the Tab View Controller's main view
-        let visualEffect = NSVisualEffectView()
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        visualEffect.material = .sidebar
-        visualEffect.translatesAutoresizingMaskIntoConstraints = false
-
-        self.view.addSubview(visualEffect, positioned: .below, relativeTo: nil)
-
-        NSLayoutConstraint.activate([
-            visualEffect.topAnchor.constraint(equalTo: self.view.topAnchor),
-            visualEffect.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
-            visualEffect.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-            visualEffect.bottomAnchor.constraint(equalTo: self.view.bottomAnchor),
-        ])
     }
 }

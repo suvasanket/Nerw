@@ -26,5 +26,43 @@
 	<string>Nerw needs location access to list available WiFi networks.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Nerw needs Bluetooth access to find and connect to devices.</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Nerw Extension Package</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.nerw.extension</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.archive</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Nerw Extension Package</string>
+			<key>UTTypeIconFile</key>
+			<string>AppIcon</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.nerw.extension</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>nerw</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>
