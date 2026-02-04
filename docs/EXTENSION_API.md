@@ -57,37 +57,31 @@ The `main(query)` function is the entry point.
 ```javascript
 {
     "title": "Main Title",
-    "subtitle": "Secondary text (optional)",
-    "icon": "star.fill", // SF Symbol name (optional)
-    "action": "https://google.com", // URL to open or value to copy
+    "subtitle": "Secondary text",
+    "icon": "star.fill", 
+    
+    // Explicit Action Type (Optional but recommended for complex actions)
+    // Values: "instant" (default), "arg", "hybrid", "form"
+    "type": "instant", 
 
-    // Multi-Argument Wizard
-    // If present, selecting this item enters Argument Mode.
-    // The user presses Tab to advance through these named steps.
-    "argumentNames": ["Title", "Description"],
+    // Action Handler
+    // Can be a URL (opens immediately) OR a Function Name (calls JS function)
+    "action": "handleAction", 
 
-    // Quick Action (Secondary Action)
-    // Available via Tab key. Supports recursive structure.
+    // For type: "arg"
+    "argNames": ["Query", "Optional 2nd Step"],
+
+    // For type: "hybrid"
     "quickAction": {
-        "title": "Sub Action Title",
-        "action": "value_or_url",
-        "icon": "bolt.fill"
+        "title": "Quick Action",
+        "action": "handleQuick",
+        "type": "instant"
     },
 
-    // Modifier Key Actions
-    // Alternative actions when holding keys
-    "mods": {
-        "cmd": "https://alternative.url", // Open this on Cmd+Enter
-        "ctrl": "copy", // Copy the action value on Ctrl+Enter
-        "opt": "other value"
-    },
-
-    // Form Input
-    // If present, displays a multi-field form.
-    // The 'action' URL supports {field_id} substitution.
+    // For type: "form"
     "form": {
         "fields": [
-            { "id": "u", "title": "User", "placeholder": "Name" },
+            { "id": "u", "title": "User" },
             { "id": "p", "title": "Pass", "secure": true }
         ],
         "submitLabel": "Log In"
@@ -95,23 +89,43 @@ The `main(query)` function is the entry point.
 }
 ```
 
-### Form Input
-If `form` is provided, the UI switches to a form view.
-When submitted, the `action` string is used as a template.
-Occurrences of `{field_id}` are replaced with the user's input (URL encoded).
+### JS Action Handlers
 
-**Example:**
-Action: `https://mysite.com/login?user={u}&pass={p}`
-Result: Opens URL with substituted values.
+Instead of a URL, you can provide the name of a function to call when the action is triggered.
+
+```javascript
+function main(query) {
+    return [{
+        title: "Search via JS",
+        type: "arg",
+        argNames: ["Query"],
+        action: "doSearch" // Calls doSearch(args)
+    }];
+}
+
+// Function receives an Array of strings (for args) or Dictionary (for forms)
+function doSearch(args) {
+    const query = args[0];
+    nerw.open("https://google.com/search?q=" + encodeURIComponent(query));
+}
+
+function handleForm(values) {
+    // values = { "u": "...", "p": "..." }
+    nerw.log("User: " + values["u"]);
+}
+```
 
 ### Argument Wizard
-If you provide `argumentNames`, the user will be prompted to enter arguments sequentially.
-When the user finishes and presses Enter, your extension's `main` function (or the `action` handler) receives the arguments joined by spaces.
-*Note: Currently, extensions are re-queried or valid actions are executed with the full string.*
+If `type` is `"arg"`, the user receives prompts defined in `argNames`. 
+When completed, your action function is called with an array of inputs: `[step1, step2]`.
+
+### Hybrid Actions
+If `type` is `"hybrid"`, pressing Enter executes `action`. Pressing Tab reveals the `quickAction`.
+The `quickAction` object structure matches a standard result object.
 
 ### Modifiers
-Supported keys for `mods`: `cmd` (Command), `ctrl` (Control), `opt` (Option).
-The value can be a URL or text to copy.
+Supported keys for `mods`: `cmd`, `ctrl`, `opt`.
+These can also point to function names or URLs.
 
 ---
 
