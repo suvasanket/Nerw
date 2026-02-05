@@ -34,6 +34,11 @@ public class FrecencyManager {
     private var saveQueryScoresWorkItem: DispatchWorkItem?
     private let saveDebounceInterval: TimeInterval = 0.5
 
+    // Pruning Constants
+    private let maxDaysHistory: TimeInterval = 90
+    private let maxGlobalItems: Int = 1000
+    private let maxQueryItems: Int = 2000
+
     private var storeFileURL: URL? {
         guard
             let appSupport = fileManager.urls(
@@ -65,6 +70,11 @@ public class FrecencyManager {
     private init() {
         loadScores()
         loadQueryScores()
+
+        // Schedule cleanup shortly after startup to avoid blocking critical path
+        queue.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            self?.pruneData()
+        }
     }
 
     // MARK: - Public API
@@ -249,6 +259,76 @@ public class FrecencyManager {
                 return (id, bestTime)
             }
             return nil
+        }
+    }
+
+    // MARK: - Maintenance
+
+    private func pruneData() {
+        queue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+
+            let now = Date().timeIntervalSince1970
+            let expirationTime = now - (self.maxDaysHistory * 24 * 60 * 60)
+            var statsChanged = false
+
+            // 1. Prune Global Scores
+            let initialScoreCount = self.scores.count
+
+            // Remove old entries
+            self.scores = self.scores.filter { $0.value.lastUsed >= expirationTime }
+
+            // Enforce capacity limit (remove least recently used if over limit)
+            if self.scores.count > self.maxGlobalItems {
+                let sortedKeys = self.scores.keys.sorted {
+                    // Sort descending by lastUsed (keep newest)
+                    let t1 = self.scores[$0]?.lastUsed ?? 0
+                    let t2 = self.scores[$1]?.lastUsed ?? 0
+                    return t1 > t2
+                }
+
+                // Keep only top N keys
+                let keysToKeep = sortedKeys.prefix(self.maxGlobalItems)
+                self.scores = self.scores.filter { keysToKeep.contains($0.key) }
+            }
+
+            if self.scores.count != initialScoreCount {
+                print(
+                    "[FrecencyManager] Pruned global scores: \(initialScoreCount) -> \(self.scores.count)"
+                )
+                self.scheduleSaveScores()
+                statsChanged = true
+            }
+
+            // 2. Prune Query Scores
+            let initialQueryCount = self.queryScores.count
+
+            // Remove old entries
+            self.queryScores = self.queryScores.filter { $0.value.lastUsed >= expirationTime }
+
+            // Enforce capacity limit
+            if self.queryScores.count > self.maxQueryItems {
+                let sortedKeys = self.queryScores.keys.sorted {
+                    let t1 = self.queryScores[$0]?.lastUsed ?? 0
+                    let t2 = self.queryScores[$1]?.lastUsed ?? 0
+                    return t1 > t2
+                }
+
+                let keysToKeep = sortedKeys.prefix(self.maxQueryItems)
+                self.queryScores = self.queryScores.filter { keysToKeep.contains($0.key) }
+            }
+
+            if self.queryScores.count != initialQueryCount {
+                print(
+                    "[FrecencyManager] Pruned query scores: \(initialQueryCount) -> \(self.queryScores.count)"
+                )
+                self.scheduleQuerySaveScores()
+                statsChanged = true
+            }
+
+            if statsChanged {
+                print("[FrecencyManager] Cleanup complete.")
+            }
         }
     }
 

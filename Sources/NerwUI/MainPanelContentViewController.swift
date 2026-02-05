@@ -422,6 +422,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         formView = nil
         inputField.isHidden = false
         iconContainer.isHidden = false
+        separatorView.isHidden = false
 
         updateActions()
     }
@@ -440,6 +441,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         formView = nil
         inputField.isHidden = false
         iconContainer.isHidden = false
+        separatorView.isHidden = false
 
         delegate?.didPressEscape()
     }
@@ -502,6 +504,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         previousSearchText = ""
 
         setIcons([])
+        separatorView.isHidden = false
         // Reset results
         actions = []
         updateActions()
@@ -527,12 +530,17 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             case .hybrid(_, let box):
                 let quickAction = box.value
                 // Check if quick action needs arguments
+                previousSearchText = inputField.stringValue
                 switch quickAction.type {
                 case .arg, .args:
                     activateArgumentMode(for: quickAction, initialArg: "")
                 case .form:
                     enterFormMode(action: quickAction)
                 case .instant, .hybrid:
+                    // Record Usage for Instant/Hybrid swap
+                    FrecencyManager.shared.recordUsage(
+                        id: quickAction.id, forQuery: previousSearchText)
+
                     // Direct Swap
                     activeAction = quickAction
                     inputField.placeholderString = quickAction.title
@@ -580,6 +588,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
         print("[DebugUI] Entering Argument Mode for action: \(action.title)")
+        if step == 0 {
+            FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
+        }
         // Update State
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
@@ -634,6 +645,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         inputState = .form(action: action)
         activeAction = action
+        FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
 
         // Hide Main Search UI
         inputField.isHidden = true
@@ -701,6 +713,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             {
 
                 if result.supportsArguments {
+                    previousSearchText = possibleTrigger
                     activateArgumentMode(for: result, initialArg: arg)
                     return
                 }
@@ -713,6 +726,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func activateArgumentMode(for action: NerwAction, initialArg: String) {
         // Switch to Argument Mode
         activeAction = action
+        FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
         inputState = .argument(action: action, step: 0, collectedArgs: [])
         inputField.stringValue = initialArg
         inputField.currentEditor()?.moveToEndOfLine(nil)

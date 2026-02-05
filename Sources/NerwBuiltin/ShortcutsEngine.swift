@@ -1,8 +1,7 @@
 import Cocoa
-import NerwBuiltin
 import NerwCore
 
-public class ShortcutsEngine {
+public class ShortcutsEngine: @unchecked Sendable {
     public static let shared = ShortcutsEngine()
 
     private var cachedShortcuts: [String] = []

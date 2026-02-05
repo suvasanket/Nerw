@@ -144,7 +144,6 @@ public class SearchService {
                     if let url = URL(string: urlString) {
                         NSWorkspace.shared.open(url)
                     }
-                    FrecencyManager.shared.recordUsage(id: actionID, forQuery: cleanedQuery)
                 })
             )
             completion([bangAction])
@@ -237,8 +236,6 @@ public class SearchService {
                                     withAllowedCharacters: .urlQueryAllowed) ?? ""
                             let urlString = String(format: engine.urlTemplate, encodedQuery)
                             if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
-                            FrecencyManager.shared.recordUsage(
-                                id: topMatch.id, forQuery: currentQuery)
                         })
                     )
                 }
@@ -476,7 +473,6 @@ public class SearchService {
                 if let url = URL(string: urlString) {
                     NSWorkspace.shared.open(url)
                 }
-                FrecencyManager.shared.recordUsage(id: actionID, forQuery: query)
             })
         )
     }

@@ -30,9 +30,10 @@ public class ExtensionEngine {
                 // The manifest doesn't strictly say. It assumes everything is a script runner "index.js".
                 // So treating it as .args with the Extension Name is safest.
 
+                // Or trigger? Spotlight usually matches trigger and shows App Name.
                 let action = NerwAction(
                     id: "nerw.ext.\(manifest.id).\(trigger)",
-                    title: manifest.name,  // Or trigger? Spotlight usually matches trigger and shows App Name.
+                    title: manifest.name,
                     subtitle: manifest.description,
                     icon: .system("puzzlepiece.extension"),  // Todo: Use manifest icon if available
                     triggers: [trigger],
