@@ -18,6 +18,40 @@ public class ExtensionEngine {
         loadedExtensions.map { $0.manifest }
     }
 
+    public func getAllEntryActions() -> [NerwAction] {
+        var actions: [NerwAction] = []
+        for ext in loadedExtensions {
+            let manifest = ext.manifest
+            for trigger in manifest.allTriggers {
+                // Create an action for each trigger
+                // We use type .arg because extensions usually expect args, or if they are instant
+                // they will ignore the empty arg. However, strictly most extensions are "search scripts".
+                // We need to know if it's instant or not?
+                // The manifest doesn't strictly say. It assumes everything is a script runner "index.js".
+                // So treating it as .args with the Extension Name is safest.
+
+                let action = NerwAction(
+                    id: "nerw.ext.\(manifest.id).\(trigger)",
+                    title: manifest.name,  // Or trigger? Spotlight usually matches trigger and shows App Name.
+                    subtitle: manifest.description,
+                    icon: .system("puzzlepiece.extension"),  // Todo: Use manifest icon if available
+                    triggers: [trigger],
+                    type: .args(
+                        placeholder: "Query...",
+                        searcher: { _, query, completion in
+                            self.runExtension(
+                                id: manifest.id, query: query, trigger: trigger,
+                                completion: completion)
+                        },
+                        perform: nil
+                    )
+                )
+                actions.append(action)
+            }
+        }
+        return actions
+    }
+
     private let fileManager = FileManager.default
 
     private var userExtensionsPath: URL {

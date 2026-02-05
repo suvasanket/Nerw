@@ -9,8 +9,8 @@ ICON_SET=AppIcon.iconset
 ICON_DEST=$(RESOURCES_DIR)/AppIcon.icns
 
 main:
-	swift-format lint -r . || true
 	@swift-format format -rip .
+	swift-format lint -r . || true
 	swift build
 
 clean:

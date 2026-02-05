@@ -32,11 +32,9 @@ public class Nerw {
         )
     }
 
-    public func check(query: String) -> NerwAction? {
-        let lowerQuery = query.lowercased()
-
-        if "nerw quit".starts(with: lowerQuery) {
-            return NerwAction(
+    public func getAllActions() -> [NerwAction] {
+        return [
+            NerwAction(
                 id: "nerw.builtin.quit",
                 title: "Quit Nerw",
                 subtitle: "Terminate the application",
@@ -45,15 +43,11 @@ public class Nerw {
                 type: .instant(perform: { _ in
                     NSApp.terminate(nil)
                 })
-            )
-        }
-
-        if "test form".starts(with: lowerQuery) {
-            return makeTestAction()
-        }
-
-        return nil
+            ),
+            makeTestAction(),
+        ]
     }
+
     public func findByTrigger(_ trigger: String) -> NerwAction? {
         let lowerTrigger = trigger.lowercased()
         if "nerw quit" == lowerTrigger {

@@ -36,12 +36,12 @@ public class System {
 
     // MARK: - Public API
 
-    public func check(query: String) -> NerwAction? {
-        let lowerQuery = query.lowercased()
+    // MARK: - Public API
 
-        // Empty Downloads
-        if "empty downloads".starts(with: lowerQuery) && lowerQuery.count >= 6 {
-            return NerwAction(
+    public func getAllActions() -> [NerwAction] {
+        return [
+            // Empty Downloads
+            NerwAction(
                 id: "nerw.system.emptydownloads",
                 title: "Empty Downloads",
                 subtitle: "Move all Downloads folder contents to Trash",
@@ -50,36 +50,30 @@ public class System {
                         systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
                 triggers: ["empty downloads"],
                 type: .instant(perform: { _ in self.emptyDownloads() })
-            )
-        }
+            ),
 
-        // Sleep
-        if "sleep".starts(with: lowerQuery) {
-            return NerwAction(
+            // Sleep
+            NerwAction(
                 id: "nerw.system.sleep",
                 title: "Sleep",
                 subtitle: "Put your Mac to sleep",
                 icon: .system("moon.zzz.fill"),
                 triggers: ["sleep"],
                 type: .instant(perform: { _ in self.sleep() })
-            )
-        }
+            ),
 
-        // Eject All
-        if "eject all".starts(with: lowerQuery) && lowerQuery.count >= 6 {
-            return NerwAction(
+            // Eject All
+            NerwAction(
                 id: "nerw.system.ejectall",
                 title: "Eject All",
                 subtitle: "Eject all external volumes",
                 icon: .system("eject.fill"),
                 triggers: ["eject all"],
                 type: .instant(perform: { _ in self.ejectAll() })
-            )
-        }
+            ),
 
-        // Eject (with argument)
-        if "eject".starts(with: lowerQuery) && !query.contains("all") {
-            return NerwAction(
+            // Eject (Argument)
+            NerwAction(
                 id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
@@ -98,12 +92,10 @@ public class System {
                         }
                     }
                 )
-            )
-        }
+            ),
 
-        // WiFi
-        if "wifi".starts(with: lowerQuery) {
-            return NerwAction(
+            // WiFi
+            NerwAction(
                 id: "nerw.system.wifi",
                 title: "WiFi",
                 subtitle: "Toggle WiFi or Connect to Network",
@@ -118,14 +110,10 @@ public class System {
                     },
                     perform: { _, _ in self.toggleWifi() }
                 )
-            )
-        }
+            ),
 
-        // Bluetooth
-        if "bluetooth".starts(with: lowerQuery)
-            || "bt".starts(with: lowerQuery) && lowerQuery.count >= 2
-        {
-            return NerwAction(
+            // Bluetooth
+            NerwAction(
                 id: "nerw.system.bluetooth",
                 title: "Bluetooth",
                 subtitle: "Toggle Bluetooth or Connect Device",
@@ -142,10 +130,8 @@ public class System {
                     },
                     perform: { _, _ in self.toggleBluetooth() }
                 )
-            )
-        }
-
-        return nil
+            ),
+        ]
     }
 
     public func findByTrigger(_ trigger: String) -> NerwAction? {

@@ -28,15 +28,8 @@ public class ShortcutsEngine {
         }
     }
 
-    public func search(query: String) -> [NerwAction] {
-        let lowerQuery = query.lowercased()
-
-        // Filter
-        let matches = cachedShortcuts.filter {
-            query.isEmpty || $0.lowercased().contains(lowerQuery)
-        }
-
-        return matches.map { name in
+    public func getAllActions() -> [NerwAction] {
+        return cachedShortcuts.map { name in
             NerwAction(
                 id: "nerw.shortcuts.main.\(name)",
                 title: name,

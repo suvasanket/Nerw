@@ -12,56 +12,55 @@ public class SearchService {
 
     public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
 
-        var newActions: [NerwAction] = []
+        // 0. Cancel previous pending search
+        searchWorkItem?.cancel()
 
-        // 1. Special Command: Manage Bangs (!bang)
+        // 1. Special Command: Manage Bangs (!bang) - Keep Strict for now as it's a CLI-like feature
         let lowerQuery = query.lowercased()
         if lowerQuery == "!bang add" || lowerQuery == "add !bang" || lowerQuery == "!bang new"
             || lowerQuery == "!bang create" || lowerQuery == "create !bang"
         {
-            newActions.append(
-                NerwAction(
-                    id: "nerw.builtin.managebang.add",
-                    title: "Add New Bang",
-                    subtitle: "Create a new bang shortcut",
-                    icon: .system("plus.circle"),
-                    triggers: [],
-                    type: .form(
-                        fields: [
-                            NerwAction.Field(id: "name", title: "Name", placeholder: "e.g. GitHub"),
-                            NerwAction.Field(
-                                id: "trigger", title: "Trigger", placeholder: "e.g. gh (without !)"),
-                            NerwAction.Field(
-                                id: "url", title: "URL Template",
-                                placeholder: "https://site.com?q=%s"),
-                            NerwAction.Field(
-                                id: "icon", title: "Icon URL (Optional)",
-                                placeholder: "e.g. https://site.com/icon.png"),
-                        ],
-                        submitLabel: "Add Bang",
-                        perform: { _, values in
-                            guard let name = values["name"],
-                                let trigger = values["trigger"],
-                                let url = values["url"],
-                                !name.isEmpty, !trigger.isEmpty, !url.isEmpty
-                            else { return }
+            // ... (Keep existing logic or refactor later. For now, preserving strictly to avoid regression)
+            // Re-implementing explicitly here for clarity/safety based on previous file content
+            let newAction = NerwAction(
+                id: "nerw.builtin.managebang.add",
+                title: "Add New Bang",
+                subtitle: "Create a new bang shortcut",
+                icon: .system("plus.circle"),
+                triggers: [],
+                type: .form(
+                    fields: [
+                        NerwAction.Field(id: "name", title: "Name", placeholder: "e.g. GitHub"),
+                        NerwAction.Field(
+                            id: "trigger", title: "Trigger", placeholder: "e.g. gh (without !)"),
+                        NerwAction.Field(
+                            id: "url", title: "URL Template",
+                            placeholder: "https://site.com?q=%s"),
+                        NerwAction.Field(
+                            id: "icon", title: "Icon URL (Optional)",
+                            placeholder: "e.g. https://site.com/icon.png"),
+                    ],
+                    submitLabel: "Add Bang",
+                    perform: { _, values in
+                        guard let name = values["name"],
+                            let trigger = values["trigger"],
+                            let url = values["url"],
+                            !name.isEmpty, !trigger.isEmpty, !url.isEmpty
+                        else { return }
 
-                            let icon = values["icon"]?.isEmpty == false ? values["icon"] : nil
+                        let icon = values["icon"]?.isEmpty == false ? values["icon"] : nil
 
-                            SearchEngine.shared.addEngine(
-                                name: name, url: url, trigger: trigger, icon: icon)
-                        }
-                    )
+                        SearchEngine.shared.addEngine(
+                            name: name, url: url, trigger: trigger, icon: icon)
+                    }
                 )
             )
-            completion(newActions)
+            completion([newAction])
             return
         }
 
         // Delete Bangs
-        if lowerQuery.starts(with: "!bang delete") || lowerQuery.starts(with: "delete !bang")
-            || lowerQuery.starts(with: "!bang remove") || lowerQuery.starts(with: "remove !bang")
-        {
+        if lowerQuery.starts(with: "!bang delete") || lowerQuery.starts(with: "delete !bang") {
             let engines = SearchEngine.shared.engines
             let deleteActions = engines.map { engine in
                 NerwAction(
@@ -72,8 +71,6 @@ public class SearchService {
                     triggers: [],
                     type: .instant(perform: { _ in
                         SearchEngine.shared.removeEngine(name: engine.name)
-                        // Ideally trigger a refresh or notify
-                        // Since we can't easily toast, we just close session
                     })
                 )
             }
@@ -90,7 +87,7 @@ public class SearchService {
 
             let defaultActions = engines.compactMap { engine -> NerwAction? in
                 guard engine.name != currentDefault.name else { return nil }
-
+                // Icon Logic...
                 let domain =
                     URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
                     ?? engine.name
@@ -113,17 +110,19 @@ public class SearchService {
         }
 
         guard !query.isEmpty else {
-            completion(newActions)
+            completion([])
             return
         }
 
-        // 2. Bang Search Detection
-        // Capture bang result primarily
-        var bangAction: NerwAction? = nil
+        // 2. Bang Search Detection (Explicit)
+        // If user typed "!yt swift", we still probably want that to take precedence immediately
+        // BUT, if they type "yt", we want "YouTube" (Bang) or "YouTube" (App) to appear via Fuzzy.
+        // So we keep the helper resolveBang check for EXPLICIT bangs starting with "!"
 
         if let (engineName, urlTemplate, cleanedQuery) = SearchEngine.shared.resolveBang(
             query: query)
         {
+            // ... Preserve existing logic ...
             let domain =
                 URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
                 ?? engineName
@@ -131,9 +130,8 @@ public class SearchService {
             if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
 
             let actionID = "nerw.web.search.\(engineName)"
-
-            bangAction = NerwAction(
-                id: actionID,  // Unique ID per engine
+            let bangAction = NerwAction(
+                id: actionID,
                 title: "Search \(engineName)",
                 subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
                 icon: icon != nil ? .image(icon!) : .system("globe"),
@@ -146,233 +144,79 @@ public class SearchService {
                     if let url = URL(string: urlString) {
                         NSWorkspace.shared.open(url)
                     }
-                    // RECORD USAGE FOR CLEAN QUERY TOO
-                    // This enables "suggest previously used bang search for the exact query"
-                    // i.e. If I type "!yt swift", I record usage for "swift" -> YouTube.
-                    // Next time I type "swift", I can suggest YouTube.
                     FrecencyManager.shared.recordUsage(id: actionID, forQuery: cleanedQuery)
                 })
             )
-
-            // If explicit bang is used, we probably want only that.
-            completion([bangAction!])
+            completion([bangAction])
             return
         }
 
-        // 2.5 Strict Bang Guard
-        if query.starts(with: "!") {
-            // If we are here, resolveBang failed (invalid or partial bang).
-            // Prevent App/System search leakage.
-            let defaultEngine = SearchEngine.shared.getDefaultEngine()
-            let fallback = createWebSearchAction(query: query, engine: defaultEngine)
-            completion([fallback])
-            return
-        }
-
-        // 3. Built-in Extensions
-        if let find = FindFile.shared.check(query: query) {
-            newActions.append(find)
-        }
-        if let result = Nerw.shared.check(query: query) {
-            newActions.append(result)
-        }
-        if let system = System.shared.check(query: query) {
-            newActions.append(system)
-        }
-
-        // 3.5 Shortcuts (If Enabled)
-        if ConfigManager.shared.config.showShortcutsInMain {
-            let shortcuts = ShortcutsEngine.shared.search(query: query)
-            newActions.append(contentsOf: shortcuts)
-        }
-
-        // 4. Check for Extension Triggers
-        let components = query.split(separator: " ", maxSplits: 1)
-        if let firstWord = components.first {
-            let extensions = ExtensionEngine.shared.extensions
-            // print("[SearchService] Checking trigger '\(firstWord)' against \(extensions.count) extensions: \(extensions.map { $0.trigger })")
-
-            if let extensionManifest = extensions.first(where: {
-                $0.allTriggers.contains(where: { $0.lowercased() == String(firstWord).lowercased() }
-                )
-            }) {
-
-                let arg = components.count > 1 ? String(components[1]) : ""
-
-                // Run Extension
-                ExtensionEngine.shared.runExtension(
-                    id: extensionManifest.id, query: arg, trigger: String(firstWord)
-                ) {
-                    extResults in
-                    DispatchQueue.main.async {
-                        completion(newActions + extResults)
-                    }
-                }
-                return
-            }
-        }
-
-        // 5. Default App Search (Fallback) - Async
+        // 3. UNIFIED SEARCH
+        // We do everything else async
         let currentQuery = query
-        // Cancel previous pending search
-        searchWorkItem?.cancel()
-
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-
             if self.searchWorkItem?.isCancelled == true { return }
 
-            // fetch all apps - cached internally by AppSearch
-            let allApps = AppSearch.shared.getAllApps()
+            // A. Aggregate Candidates
+            var candidates: [NerwAction] = []
 
-            if self.searchWorkItem?.isCancelled == true { return }
+            // Builtin
+            candidates.append(contentsOf: Nerw.shared.getAllActions())
+            candidates.append(contentsOf: System.shared.getAllActions())
+            candidates.append(FindFile.shared.getTriggerAction())
 
-            let fuse = Fuse()
-            let appNames = allApps.map { $0.name }
-            let searchResults = fuse.searchSync(currentQuery, in: appNames)
-
-            if self.searchWorkItem?.isCancelled == true { return }
-
-            let finalAppActions = searchResults.map { result -> NerwAction in
-                let app = allApps[result.index]
-
-                var quickAction: NerwAction? = nil
-
-                // --- Quick Action Injection ---
-                if app.name == "Activity Monitor" {
-                    quickAction = NerwAction(
-                        id: "nerw.quick.process",
-                        title: "Quit Process",
-                        subtitle: "Search and terminate running processes",
-                        icon: .file(URL(fileURLWithPath: app.path)),
-                        triggers: [],
-                        type: .args(
-                            placeholder: "Process Name",
-                            searcher: { _, query, completion in
-                                QuickAction.shared.searchProcesses(
-                                    query: query, completion: completion)
-                            },
-                            perform: nil
-                        )
-                    )
-                } else if app.name.lowercased() == "finder" {
-                    quickAction = NerwAction(
-                        id: "nerw.quick.findfile",
-                        title: "Find File",
-                        subtitle: "Search or open finder",
-                        icon: .file(URL(fileURLWithPath: app.path)),
-                        triggers: [],
-                        type: .args(
-                            placeholder: "Search",
-                            searcher: { _, query, completion in
-                                FindFile.shared.search(query: query, completion: completion)
-                            },
-                            perform: nil
-                        )
-                    )
-                } else if app.name.lowercased() == "shortcuts" {
-                    quickAction = NerwAction(
-                        id: "nerw.quick.shortcuts",
-                        title: "Run Shortcut",
-                        subtitle: "Run a shortcut from your library",
-                        icon: .file(URL(fileURLWithPath: app.path)),
-                        triggers: [],
-                        type: .args(
-                            placeholder: "Shortcut Name",
-                            searcher: { _, query, completion in
-                                Task {
-                                    do {
-                                        let allShortcuts = try await ShortcutsManager.shared
-                                            .listShortcuts()
-                                        let lowerQuery = query.lowercased()
-                                        let filtered = allShortcuts.filter {
-                                            query.isEmpty || $0.lowercased().contains(lowerQuery)
-                                        }
-
-                                        let actions = filtered.map { name in
-                                            NerwAction(
-                                                id: "nerw.shortcuts.run.\(name)",
-                                                title: name,
-                                                subtitle: "Run Shortcut",
-                                                icon: .file(URL(fileURLWithPath: app.path)),
-                                                triggers: [name],
-                                                type: .instant(perform: { _ in
-                                                    Task {
-                                                        try? await ShortcutsManager.shared
-                                                            .runShortcut(name)
-                                                    }
-                                                })
-                                            )
-                                        }
-                                        completion(actions)
-                                    } catch {
-                                        print("[SearchService] Shortcuts error: \(error)")
-                                        completion([])
-                                    }
-                                }
-                            },
-                            perform: nil
-                        )
-                    )
-                } else if app.name == "System Settings" {
-                    quickAction = NerwAction(
-                        id: "nerw.quick.systemsettings",
-                        title: "System Settings",
-                        subtitle: "Search preference panes",
-                        icon: .file(URL(fileURLWithPath: app.path)),
-                        triggers: [],
-                        type: .args(
-                            placeholder: "Setting Name",
-                            searcher: { _, query, completion in
-                                System.shared.listSystemSettings(
-                                    query: query, completion: completion)
-                            },
-                            perform: nil
-                        )
-                    )
-                }
-                // -----------------------------
-
-                let performOpen: (NerwAction) -> Void = { _ in
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-                    }
-                }
-
-                let type: NerwAction.ActionType
-                if let qa = quickAction {
-                    type = .hybrid(perform: performOpen, action: NerwActionBox(qa))
-                } else {
-                    type = .instant(perform: performOpen)
-                }
-
-                return NerwAction(
-                    id: "nerw.app." + app.path,
-                    title: app.name,
-                    subtitle: "Application",
-                    icon: .file(URL(fileURLWithPath: app.path)),
-                    triggers: [app.name],
-                    type: type
-                )
+            // Shortcuts
+            if ConfigManager.shared.config.showShortcutsInMain {
+                candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
             }
 
-            // 6. DEFAULT FALLBACK: Google Search OR History Suggestion
-            // First check if we have a preferred engine for this query in history
-            var fallbackAction: NerwAction? = nil
+            // Extensions
+            candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
 
-            // Use Strict Recency (Most Recent) instead of Frecency Score to allow immediate switching
+            // Apps
+            let allApps = AppSearch.shared.getAllApps()
+            // Map Apps to Actions
+            let appActions = allApps.map { self.createAction(for: $0) }
+            candidates.append(contentsOf: appActions)
+
+            // B. Fuzzy Search
+            // We search against "title" mainly. Triggers should be searchable too?
+            // Fuse normally searches properties.
+            // Let's create a Searchable wrapper or just search titles/triggers.
+            // Since Fuse() API in use seems to be: fuse.searchSync(query, in: [String]) for simple use
+            // Or we check how Fuse handles objects.
+            // Since I don't see the Fuse library code fully, but I see `fuse.searchSync(currentQuery, in: appNames)` usage.
+            // Assuming we want to match Titles AND Triggers.
+            // Simplest way: Map candidates to a list of strings? No, that loses index mapping if multiple strings per item.
+            // Better: Fuse usually supports searching objects with keys.
+            // checking usage: `fuse.searchSync(currentQuery, in: appNames)` returns `(index, score, ranges)`.
+            // So we can pass `candidates.map { $0.searchableString }` where searchableString = "Title" (or "Title Trigger")
+
+            let searchStrings = candidates.map { action in
+                // Combine Title and Triggers for broader matching
+                // e.g. "GitHub gh"
+                if action.triggers.isEmpty { return action.title }
+                return action.title + " " + action.triggers.joined(separator: " ")
+            }
+
+            let fuse = Fuse()
+            let results = fuse.searchSync(currentQuery, in: searchStrings)
+
+            if self.searchWorkItem?.isCancelled == true { return }
+
+            let matchedActions = results.map { candidates[$0.index] }
+
+            // C. Fallback (Web Search)
+            // Logic similar to before: if no good match, or if suggestion threshold met, add web search.
+            // We'll create the fallback action regardless and let rankResults sort it.
+
+            var fallbackAction: NerwAction? = nil
             if let topMatch = FrecencyManager.shared.getMostRecentID(for: currentQuery),
                 topMatch.id.starts(with: "nerw.web.search.")
             {
-
-                // Extract Engine Name "nerw.web.search.YouTube" -> "YouTube"
                 let prefix = "nerw.web.search."
                 let engineName = String(topMatch.id.dropFirst(prefix.count))
-                // Find matching engine info to rebuild action
-                // Using SearchEngine.shared implies we need access to engines list or helper
-                // SearchService doesn't have direct access, but SearchEngine does.
-                // We'll iterate engines in SearchEngine (public access)
-
                 if let engine = SearchEngine.shared.engines.first(where: { $0.name == engineName })
                 {
                     let domain =
@@ -392,9 +236,7 @@ public class SearchService {
                                 currentQuery.addingPercentEncoding(
                                     withAllowedCharacters: .urlQueryAllowed) ?? ""
                             let urlString = String(format: engine.urlTemplate, encodedQuery)
-                            if let url = URL(string: urlString) {
-                                NSWorkspace.shared.open(url)
-                            }
+                            if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
                             FrecencyManager.shared.recordUsage(
                                 id: topMatch.id, forQuery: currentQuery)
                         })
@@ -402,29 +244,142 @@ public class SearchService {
                 }
             }
 
-            // If no history match (or failed to rebuild), use Default Google
             if fallbackAction == nil {
                 let defaultEngine = SearchEngine.shared.getDefaultEngine()
-                fallbackAction = createWebSearchAction(query: currentQuery, engine: defaultEngine)
+                fallbackAction = self.createWebSearchAction(
+                    query: currentQuery, engine: defaultEngine)
             }
 
-            // Combine ALL actions
-            // Fallback action is guaranteed to exist now (either history or default)
-            let allActions = newActions + finalAppActions + [fallbackAction!]
+            // D. Combine & Rank
+            let finalResults = matchedActions + [fallbackAction!]
+            let ranked = self.rankResults(actions: finalResults, query: currentQuery)
 
-            // Ranking
-            let rankedActions = self.rankResults(actions: allActions, query: currentQuery)
-
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                guard self.searchWorkItem?.isCancelled == false else { return }
-
-                completion(rankedActions)
+            DispatchQueue.main.async {
+                completion(ranked)
             }
         }
 
         searchWorkItem = workItem
         DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+    }
+
+    private func createAction(for app: AppSearch.AppInfo) -> NerwAction {
+        var quickAction: NerwAction? = nil
+
+        if app.name == "Activity Monitor" {
+            quickAction = NerwAction(
+                id: "nerw.quick.process",
+                title: "Quit Process",
+                subtitle: "Search and terminate running processes",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Process Name",
+                    searcher: { _, query, completion in
+                        QuickAction.shared.searchProcesses(
+                            query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name.lowercased() == "finder" {
+            quickAction = NerwAction(
+                id: "nerw.quick.findfile",
+                title: "Find File",
+                subtitle: "Search or open finder",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Search",
+                    searcher: { _, query, completion in
+                        FindFile.shared.search(query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name.lowercased() == "shortcuts" {
+            quickAction = NerwAction(
+                id: "nerw.quick.shortcuts",
+                title: "Run Shortcut",
+                subtitle: "Run a shortcut from your library",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Shortcut Name",
+                    searcher: { _, query, completion in
+                        Task {
+                            do {
+                                let allShortcuts = try await ShortcutsManager.shared
+                                    .listShortcuts()
+                                let lowerQuery = query.lowercased()
+                                let filtered = allShortcuts.filter {
+                                    query.isEmpty || $0.lowercased().contains(lowerQuery)
+                                }
+
+                                let actions = filtered.map { name in
+                                    NerwAction(
+                                        id: "nerw.shortcuts.run.\(name)",
+                                        title: name,
+                                        subtitle: "Run Shortcut",
+                                        icon: .file(URL(fileURLWithPath: app.path)),
+                                        triggers: [name],
+                                        type: .instant(perform: { _ in
+                                            Task {
+                                                try? await ShortcutsManager.shared
+                                                    .runShortcut(name)
+                                            }
+                                        })
+                                    )
+                                }
+                                completion(actions)
+                            } catch {
+                                print("[SearchService] Shortcuts error: \(error)")
+                                completion([])
+                            }
+                        }
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name == "System Settings" {
+            quickAction = NerwAction(
+                id: "nerw.quick.systemsettings",
+                title: "System Settings",
+                subtitle: "Search preference panes",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Setting Name",
+                    searcher: { _, query, completion in
+                        System.shared.listSystemSettings(
+                            query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        }
+
+        let performOpen: (NerwAction) -> Void = { _ in
+            DispatchQueue.global(qos: .userInitiated).async {
+                NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
+            }
+        }
+
+        let type: NerwAction.ActionType
+        if let qa = quickAction {
+            type = .hybrid(perform: performOpen, action: NerwActionBox(qa))
+        } else {
+            type = .instant(perform: performOpen)
+        }
+
+        return NerwAction(
+            id: "nerw.app." + app.path,
+            title: app.name,
+            subtitle: "Application",
+            icon: .file(URL(fileURLWithPath: app.path)),
+            triggers: [app.name],
+            type: type
+        )
     }
 
     // Helper to allow delegation of sub-searchers (Argument Mode)

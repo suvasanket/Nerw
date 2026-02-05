@@ -52,13 +52,7 @@ public class FindFile {
 
     // MARK: - Entry Points
 
-    public func check(query: String) -> NerwAction? {
-        let triggers = ["find", "file"]
-        let lowerQuery = query.lowercased()
-
-        guard triggers.contains(where: { $0.starts(with: lowerQuery) }) else {
-            return nil
-        }
+    public func getTriggerAction() -> NerwAction {
         return createBaseResult()
     }
 
