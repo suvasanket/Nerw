@@ -7,6 +7,9 @@ RESOURCES_DIR=$(BUNDLE_NAME)/Contents/Resources
 ICON_SOURCE=Assets/icon.png
 ICON_SET=AppIcon.iconset
 ICON_DEST=$(RESOURCES_DIR)/AppIcon.icns
+EXT_ICON_SOURCE=Resources/nerw_ext.png
+EXT_ICON_SET=nerw_ext.iconset
+EXT_ICON_DEST=$(RESOURCES_DIR)/nerw_ext.icns
 
 main:
 	@swift-format format -rip .
@@ -46,6 +49,20 @@ bundle: main
 	@cp AppIcon.icns $(ICON_DEST)
 	@cp -r Resources/* $(RESOURCES_DIR)/ 2>/dev/null || :
 	@rm -rf $(ICON_SET) AppIcon.icns
+	@mkdir -p $(EXT_ICON_SET)
+	@sips -z 16 16     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_16x16.png > /dev/null 2>&1
+	@sips -z 32 32     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_16x16@2x.png > /dev/null 2>&1
+	@sips -z 32 32     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_32x32.png > /dev/null 2>&1
+	@sips -z 64 64     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_32x32@2x.png > /dev/null 2>&1
+	@sips -z 128 128   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_128x128.png > /dev/null 2>&1
+	@sips -z 256 256   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_128x128@2x.png > /dev/null 2>&1
+	@sips -z 256 256   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_256x256.png > /dev/null 2>&1
+	@sips -z 512 512   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512.png > /dev/null 2>&1
+	@sips -z 512 512   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512@2x.png > /dev/null 2>&1
+	@sips -z 1024 1024 $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512@2x.png > /dev/null 2>&1
+	@iconutil -c icns $(EXT_ICON_SET)
+	@cp nerw_ext.icns $(EXT_ICON_DEST)
+	@rm -rf $(EXT_ICON_SET) nerw_ext.icns
 
 clean-bundle:
 	rm -rf $(BUNDLE_NAME)

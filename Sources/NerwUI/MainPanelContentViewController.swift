@@ -556,7 +556,54 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
 
         case .argument(let action, let step, var args):
-            // Check if there is a next argument
+            // 1. Priority: Check if user selected a nested action from suggestions
+            if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
+                let selectedAction = actions[selectedIndex]
+
+                // Allow "drilling down" into the selected action
+                switch selectedAction.type {
+                case .form:
+                    previousSearchText = inputField.stringValue
+                    enterFormMode(action: selectedAction)
+                    return true
+
+                case .arg, .args:
+                    previousSearchText = inputField.stringValue
+                    enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+                    return true
+
+                case .hybrid(_, let box):
+                    let quickAction = box.value
+                    previousSearchText = inputField.stringValue
+                    // Similar logic to top-level hybrid handling
+                    switch quickAction.type {
+                    case .arg, .args:
+                        activateArgumentMode(for: quickAction, initialArg: "")
+                    case .form:
+                        enterFormMode(action: quickAction)
+                    default:
+                        // Instant/Hybrid swap
+                        FrecencyManager.shared.recordUsage(
+                            id: quickAction.id, forQuery: previousSearchText)
+                        activeAction = quickAction
+                        inputField.placeholderString = quickAction.title
+                        inputField.stringValue = ""
+                        updateIcon(for: quickAction)
+                        actions = []
+                        updateActions()
+                    }
+                    return true
+
+                case .instant:
+                    // Instant actions generally execute on Enter, not Tab.
+                    // But if user tabs on an instant action, maybe we do nothing or autocomplete?
+                    // Standard Spotlight behavior: Tab usually autocompletes text.
+                    // For now, return false to fallback (or maybe update text?)
+                    return false
+                }
+            }
+
+            // 2. Fallback: Advance to next step of CURRENT action (if multi-step)
             // Only .arg supports multiple steps via array
             if case .arg(let placeholders, _) = action.type, step < placeholders.count - 1 {
                 args.append(inputField.stringValue)

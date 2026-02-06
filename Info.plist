@@ -52,7 +52,7 @@
 			<key>UTTypeDescription</key>
 			<string>Nerw Extension Package</string>
 			<key>UTTypeIconFile</key>
-			<string>AppIcon</string>
+			<string>nerw_ext</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.nerw.extension</string>
 			<key>UTTypeTagSpecification</key>
