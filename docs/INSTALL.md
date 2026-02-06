@@ -42,4 +42,4 @@ mv Nerw.app /Applications/
 
 ### Hotkey not working?
 - Ensure the app is running (check Activity Monitor).
-- If you have other apps using `Cmd+Shift+Space`, you may need to change the keybinding in `~/.config/nerw/config.json`.
+- If you have other apps using `Cmd+Shift+Space`, you may need to change the keybinding in `~/.nerw/config.json`.

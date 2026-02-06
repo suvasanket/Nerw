@@ -10,14 +10,27 @@ class KeybindRecorder: NSView {
 
     weak var delegate: KeybindRecorderDelegate?
 
+    private var localMonitor: Any?
+
     private var isRecording = false {
         didSet {
             updateDisplay()
             if isRecording {
                 window?.makeFirstResponder(self)
                 startBlinking()
+
+                // Add local monitor to catch keys before they are consumed (e.g. Cmd+Space by menu)
+                localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+                    [weak self] event in
+                    return self?.handleEvent(event)
+                }
             } else {
                 stopBlinking()
+
+                if let monitor = localMonitor {
+                    NSEvent.removeMonitor(monitor)
+                    localMonitor = nil
+                }
             }
         }
     }
@@ -96,18 +109,15 @@ class KeybindRecorder: NSView {
         return super.resignFirstResponder()
     }
 
-    override func keyDown(with event: NSEvent) {
-        guard isRecording else {
-            super.keyDown(with: event)
-            return
-        }
-
+    // Helper to handle event from monitor
+    private func handleEvent(_ event: NSEvent) -> NSEvent? {
         let modifierFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let keyCode = event.keyCode
 
-        if modifierFlags.isEmpty && (keyCode == 53) {  // Escape
+        // Escape cancels recording
+        if modifierFlags.isEmpty && (keyCode == 53) {
             isRecording = false
-            return
+            return nil  // Consume event
         }
 
         let newKeybind = HotkeyParser.string(for: modifierFlags, keyCode: keyCode)
@@ -115,6 +125,18 @@ class KeybindRecorder: NSView {
         self.delegate?.keybindRecorder(self, didChangeKeybind: newKeybind)
 
         isRecording = false
+        return nil  // Consume event to prevent system beep/action
+    }
+
+    // We keep keyDown as a fallback or for consistency, but disable its logic if monitor is active
+    override func keyDown(with event: NSEvent) {
+        // If monitor didn't catch it for some reason, or if we are not recording (shouldn't happen due to guard)
+        guard isRecording else {
+            super.keyDown(with: event)
+            return
+        }
+        // Logic handled by monitor usually, but if it slipped through:
+        _ = handleEvent(event)
     }
 
     private func updateDisplay() {

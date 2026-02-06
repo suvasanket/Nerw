@@ -34,11 +34,34 @@ public class ConfigManager {
     private init() {
         // Default paths
         let home = FileManager.default.homeDirectoryForCurrentUser
-        self.configDirectory = home.appendingPathComponent(".config/nerw")
+
+        // Old paths
+        let oldConfigDir = home.appendingPathComponent(".config/nerw")
+        let oldConfigFile = oldConfigDir.appendingPathComponent("config.json")
+
+        // New paths
+        self.configDirectory = home.appendingPathComponent(".nerw")
         self.configFile = configDirectory.appendingPathComponent("config.json")
 
         // Initialize with default
         self.config = Config()
+
+        // Migration Logic
+        if FileManager.default.fileExists(atPath: oldConfigFile.path)
+            && !FileManager.default.fileExists(atPath: configFile.path)
+        {
+            print("Nerw: Migrating config from \(oldConfigFile.path) to \(configFile.path)")
+            do {
+                // Ensure new directory exists
+                try FileManager.default.createDirectory(
+                    at: configDirectory, withIntermediateDirectories: true)
+                // Move file
+                try FileManager.default.moveItem(at: oldConfigFile, to: configFile)
+                print("Nerw: Migration successful.")
+            } catch {
+                print("Nerw: Migration failed: \(error)")
+            }
+        }
 
         // Load or create
         load()

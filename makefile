@@ -7,7 +7,7 @@ RESOURCES_DIR=$(BUNDLE_NAME)/Contents/Resources
 ICON_SOURCE=Assets/icon.png
 ICON_SET=AppIcon.iconset
 ICON_DEST=$(RESOURCES_DIR)/AppIcon.icns
-EXT_ICON_SOURCE=Resources/nerw_ext.png
+EXT_ICON_SOURCE=Assets/nerw_ext.png
 EXT_ICON_SET=nerw_ext.iconset
 EXT_ICON_DEST=$(RESOURCES_DIR)/nerw_ext.icns
 

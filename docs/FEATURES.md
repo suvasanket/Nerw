@@ -76,7 +76,7 @@ Add your own search engines directly from the UI.
 4.  **Use**: Type `gh my-query` to search.
 
 ### UI Theming
-Nerw supports custom theming via `config.json` located at `~/.config/nerw/config.json`.
+Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`.
 You can customize:
 - `font`: Custom font name.
 - `mainBackgroundColor`: Hex color for the panel background.

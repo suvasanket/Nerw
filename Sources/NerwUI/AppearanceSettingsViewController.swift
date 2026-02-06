@@ -6,9 +6,9 @@ class AppearanceSettingsViewController: NSViewController {
     private let stackView: NSStackView = {
         let stack = NSStackView()
         stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 20
-        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 40)
+        stack.alignment = .leading  // Leading alignment
+        stack.spacing = 24
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         return stack
     }()
 
@@ -31,11 +31,10 @@ class AppearanceSettingsViewController: NSViewController {
         view.addSubview(stackView)
 
         // Font Settings
-        let fontSection = createSection(title: "Typography")
-
         let fontRow = NSStackView()
         fontRow.orientation = .horizontal
         fontRow.spacing = 10
+        fontRow.alignment = .centerY
 
         fontLabel = NSTextField(
             labelWithString: ConfigManager.shared.config.uiConfig?.font ?? "System")
@@ -45,14 +44,19 @@ class AppearanceSettingsViewController: NSViewController {
 
         fontRow.addArrangedSubview(fontLabel)
         fontRow.addArrangedSubview(selectFontBtn)
+        fontRow.addArrangedSubview(NSView())  // Spacer
 
-        fontSection.addArrangedSubview(fontRow)
+        let fontSection = SettingsSection(
+            title: "Typography",
+            contentViews: [fontRow]
+        )
         stackView.addArrangedSubview(fontSection)
-
-        addSeparator()
+        fontSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40).isActive =
+            true
 
         // Color Settings
-        let colorSection = createSection(title: "Colors")
+        // We will collect color settings rows
+        var colorRows: [NSView] = []
 
         // System Selection Color Option
         let systemSelectionRow = NSStackView()
@@ -91,48 +95,59 @@ class AppearanceSettingsViewController: NSViewController {
         systemSelectionRow.addArrangedSubview(spacer)
         systemSelectionRow.addArrangedSubview(useSystemSelectionSwitch)
 
-        // Constrain width to align with other rows (standardize width if needed, or rely on stack alignment)
-        // Ensure the row takes full width available in stackView (minus insets)
-        // The stackView width isn't fixed yet, but let's just add it.
-        colorSection.addArrangedSubview(systemSelectionRow)
-        systemSelectionRow.widthAnchor.constraint(equalTo: colorSection.widthAnchor).isActive = true
+        colorRows.append(systemSelectionRow)
 
         // Background
-        addColorRow(
-            to: colorSection, title: "Background", subtitle: "Main window background color",
-            hex: ConfigManager.shared.config.uiConfig?.mainBackgroundColor,
-            action: #selector(mainBGColorChanged(_:)))
+        colorRows.append(
+            createColorRow(
+                title: "Background", subtitle: "Main window background color",
+                hex: ConfigManager.shared.config.uiConfig?.mainBackgroundColor,
+                action: #selector(mainBGColorChanged(_:))))
 
         // Selection Background
-        selectionBGColorWell = addColorRow(
-            to: colorSection, title: "Selection Background",
+        let selectionRow = createColorRow(
+            title: "Selection Background",
             subtitle: "Background color of the selected item",
             hex: ConfigManager.shared.config.uiConfig?.selectionBackgroundColor,
             action: #selector(selectionBGColorChanged(_:)))
 
-        // Initial enabled state
+        // Find the color well in the returned row to keep reference
+        // Structure: [TextStack, Spacer, ColorWell]
+        if let colorWell = (selectionRow as? NSStackView)?.arrangedSubviews.last as? NSColorWell {
+            selectionBGColorWell = colorWell
+        }
         selectionBGColorWell?.isEnabled = !useSystem
 
+        colorRows.append(selectionRow)
+
         // Main Text
-        addColorRow(
-            to: colorSection, title: "Text Color", subtitle: "Primary text color",
-            hex: ConfigManager.shared.config.uiConfig?.mainForegroundColor,
-            action: #selector(textColorChanged(_:)))
+        colorRows.append(
+            createColorRow(
+                title: "Text Color", subtitle: "Primary text color",
+                hex: ConfigManager.shared.config.uiConfig?.mainForegroundColor,
+                action: #selector(textColorChanged(_:))))
 
         // Selection Text
-        addColorRow(
-            to: colorSection, title: "Selected Text Color",
-            subtitle: "Text color of the selected item",
-            hex: ConfigManager.shared.config.uiConfig?.selectionForegroundColor,
-            action: #selector(selectedTextColorChanged(_:)))
+        colorRows.append(
+            createColorRow(
+                title: "Selected Text Color",
+                subtitle: "Text color of the selected item",
+                hex: ConfigManager.shared.config.uiConfig?.selectionForegroundColor,
+                action: #selector(selectedTextColorChanged(_:))))
 
+        let colorSection = SettingsSection(
+            title: "Colors",
+            contentViews: colorRows
+        )
         stackView.addArrangedSubview(colorSection)
+        colorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
     }
 
-    @discardableResult
-    private func addColorRow(
-        to stack: NSStackView, title: String, subtitle: String, hex: String?, action: Selector
-    ) -> NSColorWell {
+    /// Creates and returns a row view for color settings
+    private func createColorRow(
+        title: String, subtitle: String, hex: String?, action: Selector
+    ) -> NSView {
         let row = NSStackView()
         row.orientation = .horizontal
         row.spacing = 10
@@ -168,41 +183,17 @@ class AppearanceSettingsViewController: NSViewController {
         row.addArrangedSubview(spacer)
         row.addArrangedSubview(colorWell)
 
-        stack.addArrangedSubview(row)
-        // Ensure row width matches parent
-        row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-
-        return colorWell
+        return row
     }
 
     private func setupConstraints() {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: view.topAnchor),
+            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stackView.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
         ])
-    }
-
-    private func createSection(title: String) -> NSStackView {
-        let sectionStack = NSStackView()
-        sectionStack.orientation = .vertical
-        sectionStack.alignment = .leading
-        sectionStack.spacing = 10
-
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.boldSystemFont(ofSize: 13)
-
-        sectionStack.addArrangedSubview(label)
-        return sectionStack
-    }
-
-    private func addSeparator() {
-        let separator = NSBox()
-        separator.boxType = .separator
-        stackView.addArrangedSubview(separator)
-        separator.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true
     }
 
     // MARK: - Actions

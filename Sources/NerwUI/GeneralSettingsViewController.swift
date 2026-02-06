@@ -6,8 +6,8 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     private let stackView: NSStackView = {
         let stack = NSStackView()
         stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 20
+        stack.alignment = .leading  // Leading alignment
+        stack.spacing = 24
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         return stack
     }()
@@ -27,23 +27,27 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         view.addSubview(stackView)
 
         // 1. Activation Shortcut
-        let shortcutSection = createSection(title: "Activation Shortcut")
-
         // Keybind Recorder
         let recorder = KeybindRecorder(keybind: ConfigManager.shared.config.globalKeybind)
         recorder.delegate = self
-        // Set fixed height for pill shape (28pt for cornerRadius 14), allow width to auto-size
         recorder.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
-        shortcutSection.addArrangedSubview(recorder)
+        let recorderRow = NSStackView()
+        recorderRow.orientation = .horizontal
+        recorderRow.alignment = .centerY
+        recorderRow.addArrangedSubview(recorder)
+        recorderRow.addArrangedSubview(NSView())  // Spacer
 
+        let shortcutSection = SettingsSection(
+            title: "Activation Shortcut",
+            contentViews: [recorderRow]
+        )
         stackView.addArrangedSubview(shortcutSection)
-
-        addSeparator()
+        // Constrain width to fill stack (minus 40 padding effectively)
+        shortcutSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
 
         // 2. Behavior
-        let behaviorSection = createSection(title: "Behavior")
-
         let findFileStack = NSStackView()
         findFileStack.orientation = .horizontal
         findFileStack.spacing = 10
@@ -58,18 +62,11 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         findFileSwitch.target = self
         findFileSwitch.action = #selector(findFileToggled(_:))
 
-        // Spacer to push switch to the far right
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
         findFileStack.addArrangedSubview(findFileLabel)
-        findFileStack.addArrangedSubview(spacer)
+        findFileStack.addArrangedSubview(NSView())  // Spacer
         findFileStack.addArrangedSubview(findFileSwitch)
 
-        findFileStack.translatesAutoresizingMaskIntoConstraints = false
-        findFileStack.widthAnchor.constraint(equalToConstant: 410).isActive = true
-
-        behaviorSection.addArrangedSubview(findFileStack)
+        findFileStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         // Shortcuts Toggle
         let shortcutsStack = NSStackView()
@@ -86,28 +83,25 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         shortcutsSwitch.target = self
         shortcutsSwitch.action = #selector(shortcutsToggled(_:))
 
-        let shortcutsSpacer = NSView()
-        shortcutsSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
         shortcutsStack.addArrangedSubview(shortcutsLabel)
-        shortcutsStack.addArrangedSubview(shortcutsSpacer)
+        shortcutsStack.addArrangedSubview(NSView())
         shortcutsStack.addArrangedSubview(shortcutsSwitch)
 
-        shortcutsStack.translatesAutoresizingMaskIntoConstraints = false
-        shortcutsStack.widthAnchor.constraint(equalToConstant: 410).isActive = true
+        shortcutsStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        behaviorSection.addArrangedSubview(shortcutsStack)
-
+        let behaviorSection = SettingsSection(
+            title: "Behavior",
+            contentViews: [findFileStack, shortcutsStack]
+        )
         stackView.addArrangedSubview(behaviorSection)
-
-        addSeparator()
+        behaviorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
 
         // 3. Search
-        let searchSection = createSection(title: "Search")
-
         let thresholdStack = NSStackView()
         thresholdStack.orientation = .horizontal
         thresholdStack.spacing = 10
+        thresholdStack.alignment = .centerY
 
         let thresholdLabel = NSTextField(labelWithString: "Suggestion Threshold:")
 
@@ -125,39 +119,25 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         thresholdStack.addArrangedSubview(thresholdLabel)
         thresholdStack.addArrangedSubview(thresholdValueLabel)
         thresholdStack.addArrangedSubview(thresholdStepper)
+        thresholdStack.addArrangedSubview(NSView())  // Spacer
 
-        searchSection.addArrangedSubview(thresholdStack)
+        let searchSection = SettingsSection(
+            title: "Search",
+            contentViews: [thresholdStack]
+        )
         stackView.addArrangedSubview(searchSection)
+        searchSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
     }
 
     private func setupConstraints() {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: view.topAnchor),
+            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stackView.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
         ])
-    }
-
-    private func createSection(title: String) -> NSStackView {
-        let sectionStack = NSStackView()
-        sectionStack.orientation = .vertical
-        sectionStack.alignment = .leading
-        sectionStack.spacing = 10
-
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.boldSystemFont(ofSize: 13)
-
-        sectionStack.addArrangedSubview(label)
-        return sectionStack
-    }
-
-    private func addSeparator() {
-        let separator = NSBox()
-        separator.boxType = .separator
-        separator.widthAnchor.constraint(equalToConstant: 410).isActive = true
-        stackView.addArrangedSubview(separator)
     }
 
     // MARK: - Actions
