@@ -108,11 +108,52 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case argument(action: NerwAction, step: Int, collectedArgs: [String])
         case form(action: NerwAction)
     }
-    private var inputState: InputState = .search
+    private var inputState: InputState = .search {
+        didSet {
+            updateUIForCurrentState()
+        }
+    }
 
-    // Tracks current search task
+    private func updateUIForCurrentState() {
+        print("[DebugUI] State changed to: \(inputState)")
 
-    // Tracks current search task
+        // 1. Reset standard visibility (States can override)
+        inputField.isHidden = false
+        iconContainer.isHidden = false
+        separatorView.isHidden = false
+
+        switch inputState {
+        case .search:
+            if let action = activeAction {
+                // Hybrid Swap Case: behaves like search but locked to action
+                inputField.placeholderString = action.title
+                updateIcon(for: action)
+            } else {
+                inputField.placeholderString = "Nerw"
+                // updateSelectionIcon will be called via updateActions or manually
+                updateSelectionIcon()
+            }
+
+        case .argument(let action, let step, _):
+            // Update Placeholder based on argument name
+            var placeholder = action.title
+            switch action.type {
+            case .arg(let placeholders, _):
+                if step < placeholders.count { placeholder = placeholders[step] }
+            case .args(let ph, _, _):
+                placeholder = ph
+            default: break
+            }
+            inputField.placeholderString = placeholder
+            updateIcon(for: action)
+
+        case .form:
+            inputField.isHidden = true
+            iconContainer.isHidden = true
+            separatorView.isHidden = true
+            scrollView.isHidden = true
+        }
+    }
 
     override func viewWillAppear() {
         super.viewWillAppear()
@@ -348,13 +389,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         if let fgHex = config?.mainForegroundColor, let fgColor = NSColor(hex: fgHex) {
             inputField.textColor = fgColor
             defaultSearchIcon.contentTintColor = fgColor
+        } else {
+            // Restore default if no override
+            defaultSearchIcon.contentTintColor = .secondaryLabelColor
         }
 
-        // Placeholder Color
-        var iconColor: NSColor = .secondaryLabelColor
-        if let fgHex = config?.mainForegroundColor, let fgColor = NSColor(hex: fgHex) {
-            iconColor = fgColor
-        }
+        // Placeholder Color - Match it exactly to the icon tint by default
+        let iconColor = defaultSearchIcon.contentTintColor ?? .secondaryLabelColor
 
         if let hintHex = config?.hintColor, let hintColor = NSColor(hex: hintHex) {
             inputField.placeholderColor = hintColor
@@ -407,11 +448,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func reset() {
-        inputState = .search
         activeAction = nil
-        inputField.placeholderString = "Nerw"
+        inputState = .search
         inputField.stringValue = ""
-        setIcons([])
         actions = []
         previousSearchText = ""
         selectedIndex = 0
@@ -420,28 +459,25 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Form Cleanup
         formView?.removeFromSuperview()
         formView = nil
-        inputField.isHidden = false
-        iconContainer.isHidden = false
-        separatorView.isHidden = false
 
         updateActions()
+        search(query: "")
     }
 
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true) {
         activeAction = nil
-        inputField.placeholderString = "Nerw"
+        inputState = .search
+
         if restoreText {
             inputField.stringValue = previousSearchText
+        } else {
+            inputField.stringValue = ""
         }
-        setIcons([])
 
         // Form Cleanup
         formView?.removeFromSuperview()
         formView = nil
-        inputField.isHidden = false
-        iconContainer.isHidden = false
-        separatorView.isHidden = false
 
         delegate?.didPressEscape()
     }
@@ -451,13 +487,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .instant(let perform):
             perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            closeSession()
+            closeSession(restoreText: false)
             return true
 
         case .hybrid(let perform, _):
             perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            closeSession()
+            closeSession(restoreText: false)
             return true
 
         case .arg, .args:
@@ -493,21 +529,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func resetToSearch() {
         print("[DebugUI] resetToSearch called")
-        inputState = .search
         activeAction = nil
-
-        // GUARD: update the placeholder first
-        inputField.placeholderString = "Nerw"
+        inputState = .search
 
         // Clear text (User Requirement: Do not recomplete previous string)
         inputField.stringValue = ""
         previousSearchText = ""
 
-        setIcons([])
-        separatorView.isHidden = false
-        // Reset results
-        actions = []
-        updateActions()
+        // Trigger search to restore default results
+        search(query: "")
     }
 
     private func handleTab() -> Bool {
@@ -543,9 +573,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
                     // Direct Swap
                     activeAction = quickAction
-                    inputField.placeholderString = quickAction.title
+                    // updateUIForCurrentState will handle placeholder/icon
+                    updateUIForCurrentState()
+
                     inputField.stringValue = ""
-                    updateIcon(for: quickAction)
                     actions = []
                     updateActions()
                 }
@@ -586,9 +617,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                         FrecencyManager.shared.recordUsage(
                             id: quickAction.id, forQuery: previousSearchText)
                         activeAction = quickAction
-                        inputField.placeholderString = quickAction.title
+                        updateUIForCurrentState()
+
                         inputField.stringValue = ""
-                        updateIcon(for: quickAction)
                         actions = []
                         updateActions()
                     }
@@ -638,33 +669,17 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         if step == 0 {
             FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
         }
-        // Update State
+
+        // 1. Clear text first (Critical for visual transition)
+        inputField.stringValue = ""
+
+        // 2. Update State (didSet will handle UI)
         inputState = .argument(action: action, step: step, collectedArgs: collectedArgs)
         activeAction = action
 
-        // 1. Clear text first (Critical for placeholder update consistency)
-        inputField.stringValue = ""
-        inputField.currentEditor()?.moveToEndOfLine(nil)
-
-        // 2. Update Placeholder based on argument name
-        var placeholder = action.title
-        switch action.type {
-        case .arg(let placeholders, _):
-            if step < placeholders.count { placeholder = placeholders[step] }
-        case .args(let ph, _, _):
-            placeholder = ph
-        default: break
-        }
-        inputField.placeholderString = placeholder
-
-        // Update UI
-        updateIcon(for: action)
-
-        // Clear list to focus on input
+        // 3. Clear list & trigger search
         actions = []
         updateActions()
-
-        // Trigger initial search for suggestions (e.g. list volumes for "eject")
         search(query: "")
     }
 
@@ -694,12 +709,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         activeAction = action
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
 
-        // Hide Main Search UI
-        inputField.isHidden = true
-        iconContainer.isHidden = true
-        separatorView.isHidden = true
-        scrollView.isHidden = true
-
         // Setup Form View
         let form = FormView(fields: fields)
         form.delegate = self
@@ -711,18 +720,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             form.topAnchor.constraint(equalTo: backgroundView.topAnchor),
             form.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             form.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            // Remove bottom anchor constraint to allow form to dictate height?
-            // No, we want to constrain form to window, but resize window to form.
-            // So we need to calculate height first.
             form.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
         ])
 
         // Calculate required height based on fields
-        // 20 (top) + 20 (bottom) + fields * (45 approx) + spacing
-        // Let's use fitting size after layout
         form.layoutSubtreeIfNeeded()
         let fittingSize = form.fittingSize
-        // Ensure minimum height (e.g. at least search bar height)
         let newHeight = max(
             fittingSize.height,
             LayoutMetrics.SearchField.top + LayoutMetrics.SearchField.height
@@ -774,26 +777,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Switch to Argument Mode
         activeAction = action
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
-        inputState = .argument(action: action, step: 0, collectedArgs: [])
+
         inputField.stringValue = initialArg
-        inputField.currentEditor()?.moveToEndOfLine(nil)
 
-        // Update Placeholder based on argument name
-        var placeholder = action.title
-        switch action.type {
-        case .arg(let placeholders, _):
-            if let first = placeholders.first { placeholder = first }
-        case .args(let ph, _, _):
-            placeholder = ph
-        default: break
-        }
-        inputField.placeholderString = placeholder
-
-        updateIcon(for: action)
+        // Update State (didSet will handle UI)
+        inputState = .argument(action: action, step: 0, collectedArgs: [])
 
         // Clear list & trigger search
         actions = []
-        // updateActions()
         search(query: initialArg)
     }
 
@@ -871,7 +862,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                         }
                     default: break
                     }
-                    closeSession()
+                    closeSession(restoreText: false)
                     return true
                 } else {
                     // Move to next step
@@ -908,13 +899,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     {
 
                         // Treat current input as the argument?
-                        // Legacy code did: selectedAction.handler?(inputField.stringValue)
-                        // If user typed "g test" -> input is "test", action is Google.
-                        // Execute it.
                         perform(selectedAction, [inputField.stringValue])
                         FrecencyManager.shared.recordUsage(
                             id: selectedAction.id, forQuery: inputField.stringValue)
-                        closeSession()
+                        closeSession(restoreText: false)
                         return true
                     }
 
@@ -980,8 +968,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             SearchService.shared.delegateSearch(action: action, query: query) {
                 [weak self] results in
                 DispatchQueue.main.async {  // Ensure Main Thread
-                    self?.actions = results
-                    self?.updateActions()
+                    guard let self = self, self.inputField.stringValue == query else { return }
+                    self.actions = results
+                    self.updateActions()
                 }
             }
             return
@@ -1107,8 +1096,6 @@ extension MainPanelContentViewController: FormViewDelegate {
         // 1. cleanup form FIRST to remove constraints that force window height
         formView?.removeFromSuperview()
         formView = nil
-        inputField.isHidden = false
-        iconContainer.isHidden = false
 
         // 2. Then reset to search which triggers resize
         resetToSearch()
@@ -1123,7 +1110,7 @@ extension MainPanelContentViewController: FormViewDelegate {
         else { return }
 
         perform(action, values)
-        closeSession()
+        closeSession(restoreText: false)
     }
 }
 
@@ -1154,17 +1141,18 @@ class ThemedTextField: NSTextField {
 
     private func updatePlaceholder() {
         guard let text = _rawPlaceholder else {
+            self.placeholderAttributedString = nil
             super.placeholderString = nil
             return
         }
 
         // Log to confirm underlying attribute string update
         let attr = NSMutableAttributedString(string: text)
-        print("[DebugUI] Updating placeholder visual for: \(text)")
+        print("[DebugUI] Updating placeholder visual for: \(text) with color \(placeholderColor)")
 
         let range = NSRange(location: 0, length: attr.length)
 
-        // Color
+        // Use the placeholderColor set during theming
         attr.addAttribute(.foregroundColor, value: placeholderColor, range: range)
 
         // Font
@@ -1177,6 +1165,9 @@ class ThemedTextField: NSTextField {
         style.alignment = self.alignment
         attr.addAttribute(.paragraphStyle, value: style, range: range)
 
+        // Sync both for consistency
+        super.placeholderString = text
         self.placeholderAttributedString = attr
+        self.needsDisplay = true
     }
 }

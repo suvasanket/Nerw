@@ -7,31 +7,6 @@ public class Nerw {
 
     private init() {}
 
-    private func makeTestAction() -> NerwAction {
-        return NerwAction(
-            id: "nerw.builtin.testform",
-            title: "Test Form",
-            subtitle: "Test multi-field input",
-            icon: .system("pencil.and.outline"),
-            triggers: ["test form"],
-            type: .form(
-                fields: [
-                    NerwAction.Field(id: "name", title: "Name", placeholder: "John Doe"),
-                    NerwAction.Field(id: "email", title: "Email", placeholder: "john@example.com"),
-                    NerwAction.Field(id: "password", title: "Password", isSecure: true),
-                ],
-                submitLabel: "Send Data",
-                perform: { _, values in
-                    let alert = NSAlert()
-                    alert.messageText = "Form Submitted"
-                    alert.informativeText = values.map { "\($0.key): \($0.value)" }.joined(
-                        separator: "\n")
-                    alert.runModal()
-                }
-            )
-        )
-    }
-
     public func getAllActions() -> [NerwAction] {
         return [
             NerwAction(
@@ -43,8 +18,7 @@ public class Nerw {
                 type: .instant(perform: { _ in
                     NSApp.terminate(nil)
                 })
-            ),
-            makeTestAction(),
+            )
         ]
     }
 
@@ -61,9 +35,6 @@ public class Nerw {
             )
         }
 
-        if "test form" == lowerTrigger {
-            return makeTestAction()
-        }
         return nil
     }
 }
