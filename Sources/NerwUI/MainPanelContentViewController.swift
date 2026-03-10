@@ -193,7 +193,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Input field
         inputField = ThemedTextField()
         inputField.font = .systemFont(ofSize: LayoutMetrics.SearchField.fontSize, weight: .light)
-        inputField.placeholderString = "nerw"
+        inputField.placeholderString = "Nerw"
         inputField.isBordered = false
         inputField.drawsBackground = false
         inputField.focusRingType = .none
@@ -409,7 +409,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     func reset() {
         inputState = .search
         activeAction = nil
-        inputField.placeholderString = "nerw"
+        inputField.placeholderString = "Nerw"
         inputField.stringValue = ""
         setIcons([])
         actions = []
@@ -430,7 +430,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true) {
         activeAction = nil
-        inputField.placeholderString = "nerw"
+        inputField.placeholderString = "Nerw"
         if restoreText {
             inputField.stringValue = previousSearchText
         }
@@ -497,7 +497,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         activeAction = nil
 
         // GUARD: update the placeholder first
-        inputField.placeholderString = "nerw"
+        inputField.placeholderString = "Nerw"
 
         // Clear text (User Requirement: Do not recomplete previous string)
         inputField.stringValue = ""
