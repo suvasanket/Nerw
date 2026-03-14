@@ -38,22 +38,7 @@ public class System {
 
     public func getAllActions() -> [NerwAction] {
         return [
-            // Test Peek Action
-            NerwAction(
-                id: "nerw.system.test.peek",
-                title: "define helo",
-                subtitle: "Search",
-                icon: .system("magnifyingglass"),
-                peek: NerwAction.PeekData(
-                    title: "helo — Oxford Dictionary of English",
-                    text: "a helicopter",
-                    icon: .system("textformat.size"),  // Aa icon placeholder
-                    primaryActionName: "iA Writer",
-                    secondaryActionName: "Dictionary"
-                ),
-                triggers: ["define helo"],
-                type: .instant(perform: { _ in print("Test peek executed") })
-            ),
+            // (Removed Define action, handled dynamically in SearchService)
 
             // Empty Downloads
             NerwAction(
@@ -115,22 +100,7 @@ public class System {
         let lowerTrigger = trigger.lowercased()
 
         switch lowerTrigger {
-        case "define helo":
-            return NerwAction(
-                id: "nerw.system.test.peek",
-                title: "define helo",
-                subtitle: "Search",
-                icon: .system("magnifyingglass"),
-                peek: NerwAction.PeekData(
-                    title: "helo — Oxford Dictionary of English",
-                    text: "a helicopter",
-                    icon: .system("textformat.size"),  // Aa icon placeholder
-                    primaryActionName: "iA Writer",
-                    secondaryActionName: "Dictionary"
-                ),
-                triggers: ["define helo"],
-                type: .instant(perform: { _ in print("Test peek executed") })
-            )
+        // (Removed explicit define trigger, handled in SearchService)
 
         case "empty downloads":
             return NerwAction(
@@ -615,6 +585,77 @@ public class System {
         let urlString = "x-apple.systempreferences:\(paneID)"
         if let url = URL(string: urlString) {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Dictionary Search
+
+    public func searchDictionary(query: String, completion: @escaping ([NerwAction]) -> Void) {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            completion([])
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let nsString = query as NSString
+            let range = DCSGetTermRangeInString(nil, nsString, 0)
+
+            // Note: DCSGetTermRangeInString returns kCFNotFound if it doesn't recognize the word,
+            // but DCSCopyTextDefinition sometimes still returns a definition. We will just try to fetch it.
+            let definitionCFString = DCSCopyTextDefinition(
+                nil, nsString as CFString, CFRangeMake(0, nsString.length))
+
+            var results: [NerwAction] = []
+
+            if let definition = definitionCFString?.takeRetainedValue() as String? {
+                results.append(
+                    NerwAction(
+                        id: "nerw.system.define.result",
+                        title: query,
+                        subtitle: "Open in Dictionary",
+                        icon: .system("text.book.closed.fill"),
+                        peek: NerwAction.PeekData(
+                            title: query,
+                            text: definition,
+                            icon: .system("character.book.closed.fill"),
+                            primaryActionName: nil,
+                            secondaryActionName: nil
+                        ),
+                        triggers: [query],
+                        type: .instant(perform: { _ in
+                            if let encodedQuery = query.addingPercentEncoding(
+                                withAllowedCharacters: .urlHostAllowed),
+                                let url = URL(string: "dict://\(encodedQuery)")
+                            {
+                                NSWorkspace.shared.open(url)
+                            }
+                        })
+                    )
+                )
+            } else {
+                results.append(
+                    NerwAction(
+                        id: "nerw.system.define.notfound",
+                        title: "No definition found for '\(query)'",
+                        subtitle: "Press Enter to search Webster online",
+                        icon: .system("magnifyingglass"),
+                        triggers: [],
+                        type: .instant(perform: { _ in
+                            if let encodedQuery = query.addingPercentEncoding(
+                                withAllowedCharacters: .urlHostAllowed),
+                                let url = URL(
+                                    string:
+                                        "https://www.merriam-webster.com/dictionary/\(encodedQuery)"
+                                )
+                            {
+                                NSWorkspace.shared.open(url)
+                            }
+                        })
+                    )
+                )
+            }
+
+            DispatchQueue.main.async { completion(results) }
         }
     }
 }

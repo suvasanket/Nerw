@@ -114,6 +114,21 @@ public class SearchService {
             return
         }
 
+        // 1.5 Dictionary Define Detection
+        if lowerQuery.starts(with: "define ") || lowerQuery.starts(with: "def ") {
+            let prefix = lowerQuery.starts(with: "define ") ? "define " : "def "
+            let wordToDefine = String(query.dropFirst(prefix.count)).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+
+            if !wordToDefine.isEmpty {
+                System.shared.searchDictionary(query: wordToDefine) { dictActions in
+                    // If we found a result or a fallback, just return it immediately as the sole search result.
+                    completion(dictActions)
+                }
+                return
+            }
+        }
+
         // 2. Bang Search Detection (Explicit)
         // If user typed "!yt swift", we still probably want that to take precedence immediately
         // BUT, if they type "yt", we want "YouTube" (Bang) or "YouTube" (App) to appear via Fuzzy.
