@@ -1018,7 +1018,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         let hasPeek =
             (selectedIndex >= 0 && selectedIndex < actions.count
                 && actions[selectedIndex].peek != nil)
-        let peekDiff: CGFloat = hasPeek ? (110.0 - LayoutMetrics.Results.rowHeight) : 0
+        let peekDiff: CGFloat =
+            hasPeek
+            ? (calculatePeekHeight(for: actions[selectedIndex].peek!.text)
+                - LayoutMetrics.Results.rowHeight) : 0
         let totalResultsHeight = baseHeight + peekDiff
 
         delegate?.didUpdateResults(
@@ -1078,6 +1081,20 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     // MARK: - NSTableViewDataSource
 
+    private func calculatePeekHeight(for text: String) -> CGFloat {
+        let textWidth: CGFloat = 550.0  // Safe estimate for subtitle width
+        let font = NSFont.systemFont(ofSize: 12, weight: .regular)
+        let rect = NSString(string: text).boundingRect(
+            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        )
+        // Base padding (approx: icon height, title height, top/bottom padding constraints)
+        let calculated = ceil(rect.height) + 70.0
+        return max(70.0, min(calculated, 400.0))
+    }
+
     func numberOfRows(in tableView: NSTableView) -> Int {
         actions.count
     }
@@ -1099,7 +1116,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         guard row < actions.count else { return LayoutMetrics.Results.rowHeight }
         let action = actions[row]
         if row == selectedIndex && action.peek != nil {
-            return 110.0  // Expanded Peek Layout Height
+            return calculatePeekHeight(for: action.peek!.text)
         }
         return LayoutMetrics.Results.rowHeight
     }
@@ -1138,7 +1155,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let maxVisible = LayoutMetrics.Results.maxVisibleRows
             let baseHeight =
                 CGFloat(min(actions.count, maxVisible)) * LayoutMetrics.Results.rowHeight
-            let peekDiff: CGFloat = newHasPeek ? (110.0 - LayoutMetrics.Results.rowHeight) : 0
+            let dynamicPeekHeight =
+                newHasPeek ? calculatePeekHeight(for: actions[selectedIndex].peek!.text) : 110.0
+            let peekDiff: CGFloat =
+                newHasPeek ? (dynamicPeekHeight - LayoutMetrics.Results.rowHeight) : 0
             let totalResultsHeight = baseHeight + peekDiff
 
             delegate?.didUpdateResults(

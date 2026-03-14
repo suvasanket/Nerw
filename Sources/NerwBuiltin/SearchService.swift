@@ -137,6 +137,28 @@ public class SearchService {
             }
         }
 
+        // 1.6 Wikipedia Detection
+        if lowerQuery.starts(with: "wiki ") {
+            let wordToWiki = String(query.dropFirst(5)).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+
+            if !wordToWiki.isEmpty {
+                System.shared.searchWikipedia(query: wordToWiki) { [weak self] wikiActions in
+                    guard let self = self else { return }
+                    var results = wikiActions
+
+                    // Append default web search fallback
+                    let defaultEngine = SearchEngine.shared.getDefaultEngine()
+                    let webSearchAction = self.createWebSearchAction(
+                        query: query, engine: defaultEngine)
+                    results.append(webSearchAction)
+
+                    completion(results)
+                }
+                return
+            }
+        }
+
         // 2. Bang Search Detection (Explicit)
         // If user typed "!yt swift", we still probably want that to take precedence immediately
         // BUT, if they type "yt", we want "YouTube" (Bang) or "YouTube" (App) to appear via Fuzzy.

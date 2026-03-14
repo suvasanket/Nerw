@@ -608,16 +608,18 @@ public class System {
             var results: [NerwAction] = []
 
             if let definition = definitionCFString?.takeRetainedValue() as String? {
+                let dictIcon = NSWorkspace.shared.icon(
+                    forFile: "/System/Applications/Dictionary.app")
                 results.append(
                     NerwAction(
                         id: "nerw.system.define.result",
                         title: query,
                         subtitle: "Open in Dictionary",
-                        icon: .system("text.book.closed.fill"),
+                        icon: .image(dictIcon),
                         peek: NerwAction.PeekData(
                             title: query,
                             text: definition,
-                            icon: .system("character.book.closed.fill"),
+                            icon: .image(dictIcon),
                             primaryActionName: nil,
                             secondaryActionName: nil
                         ),
@@ -633,12 +635,14 @@ public class System {
                     )
                 )
             } else {
+                let dictIcon = NSWorkspace.shared.icon(
+                    forFile: "/System/Applications/Dictionary.app")
                 results.append(
                     NerwAction(
                         id: "nerw.system.define.notfound",
                         title: "No definition found for '\(query)'",
                         subtitle: "Press Enter to search Webster online",
-                        icon: .system("magnifyingglass"),
+                        icon: .image(dictIcon),
                         triggers: [],
                         type: .instant(perform: { _ in
                             if let encodedQuery = query.addingPercentEncoding(
@@ -657,5 +661,143 @@ public class System {
 
             DispatchQueue.main.async { completion(results) }
         }
+    }
+
+    // MARK: - Wikipedia Search
+
+    private struct WikiExtractResponse: Codable {
+        let title: String
+        let extract: String?
+        let description: String?
+        let contentUrls: ContentUrls?
+
+        enum CodingKeys: String, CodingKey {
+            case title
+            case extract
+            case description
+            case contentUrls = "content_urls"
+        }
+
+        struct ContentUrls: Codable {
+            let desktop: DesktopUrl?
+        }
+        struct DesktopUrl: Codable {
+            let page: String?
+        }
+    }
+
+    public func searchWikipedia(query: String, completion: @escaping ([NerwAction]) -> Void) {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            completion([])
+            return
+        }
+
+        let encodedQuery =
+            query.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? query
+        let urlString = "https://en.wikipedia.org/api/rest_v1/page/summary/\(encodedQuery)"
+
+        guard let url = URL(string: urlString) else {
+            completion([])
+            return
+        }
+
+        // 1. Immediately yield a placeholder "loading" action
+        let fallbackAction = NerwAction(
+            id: "nerw.system.wiki.loading",
+            title: "Search Wikipedia",
+            subtitle: query,
+            icon: .image(
+                NSImage(named: "wikipedia")
+                    ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")),
+            triggers: [],
+            type: .instant(perform: { _ in
+                let queryWithPlus = query.replacingOccurrences(of: " ", with: "+")
+                if let fallbackUrlString =
+                    "https://en.wikipedia.org/w/index.php?search=\(queryWithPlus.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? queryWithPlus)"
+                    .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                    let fallbackUrl = URL(string: fallbackUrlString)
+                {
+                    NSWorkspace.shared.open(fallbackUrl)
+                }
+            })
+        )
+
+        completion([fallbackAction])
+
+        // 2. Fetch data asynchronously and yield updated results
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            var results: [NerwAction] = []
+
+            // Rebuild the fallback action for failure scenarios with the correct ID
+            let errorFallbackAction = NerwAction(
+                id: "nerw.system.wiki.notfound",
+                title: "Search Wikipedia for '\(query)'",
+                subtitle: "Open Wikipedia Search in Browser",
+                icon: .image(
+                    NSImage(named: "wikipedia")
+                        ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")),
+                triggers: [],
+                type: .instant(perform: { _ in
+                    let queryWithPlus = query.replacingOccurrences(of: " ", with: "+")
+                    if let fallbackUrlString =
+                        "https://en.wikipedia.org/w/index.php?search=\(queryWithPlus.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? queryWithPlus)"
+                        .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                        let fallbackUrl = URL(string: fallbackUrlString)
+                    {
+                        NSWorkspace.shared.open(fallbackUrl)
+                    }
+                })
+            )
+
+            guard let data = data, error == nil, let httpResponse = response as? HTTPURLResponse,
+                httpResponse.statusCode == 200
+            else {
+                results.append(errorFallbackAction)
+                DispatchQueue.main.async { completion(results) }
+                return
+            }
+
+            do {
+                let decoder = JSONDecoder()
+                let wikiResponse = try decoder.decode(WikiExtractResponse.self, from: data)
+
+                let title = wikiResponse.title
+                // Prefer extract, fallback to description, fallback to query
+                let summaryText =
+                    wikiResponse.extract ?? wikiResponse.description ?? "No summary available."
+                let pageUrlString =
+                    wikiResponse.contentUrls?.desktop?.page
+                    ?? "https://en.wikipedia.org/wiki/\(encodedQuery)"
+                let iconImage =
+                    NSImage(named: "wikipedia")
+                    ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")
+
+                results.append(
+                    NerwAction(
+                        id: "nerw.system.wiki.\(query)",
+                        title: title,
+                        subtitle: "Wikipedia Article",
+                        icon: .image(iconImage),
+                        peek: NerwAction.PeekData(
+                            title: title,
+                            text: summaryText,
+                            icon: .image(iconImage),
+                            primaryActionName: nil,
+                            secondaryActionName: nil
+                        ),
+                        type: .instant(perform: { _ in
+                            if let url = URL(string: pageUrlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        })
+                    )
+                )
+            } catch {
+                results.append(errorFallbackAction)
+            }
+
+            DispatchQueue.main.async { completion(results) }
+        }
+        task.resume()
     }
 }

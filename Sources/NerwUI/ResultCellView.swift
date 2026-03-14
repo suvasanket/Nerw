@@ -16,6 +16,10 @@ class ResultCellView: NSTableCellView {
     private let tabBadge = NSView()
     private let tabBadgeLabel = NSTextField(labelWithString: "tab")
 
+    // Icon Size Constraints
+    private var iconWidthConstraint: NSLayoutConstraint!
+    private var iconHeightConstraint: NSLayoutConstraint!
+
     // Peek UI Constraints
     private var normalIconCenterYConstraint: NSLayoutConstraint!
     private var peekIconTopConstraint: NSLayoutConstraint!
@@ -106,8 +110,6 @@ class ResultCellView: NSTableCellView {
 
             iconView.leadingAnchor.constraint(
                 equalTo: containerView.leadingAnchor, constant: metrics.Icon.leading),
-            iconView.widthAnchor.constraint(equalToConstant: metrics.Icon.size),
-            iconView.heightAnchor.constraint(equalToConstant: metrics.Icon.size),
 
             titleLabel.leadingAnchor.constraint(
                 equalTo: iconView.trailingAnchor, constant: metrics.Icon.trailing),
@@ -121,6 +123,11 @@ class ResultCellView: NSTableCellView {
                 equalTo: containerView.trailingAnchor, constant: -12),
             hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
         ])
+
+        iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: metrics.Icon.size)
+        iconHeightConstraint = iconView.heightAnchor.constraint(equalToConstant: metrics.Icon.size)
+        iconWidthConstraint.isActive = true
+        iconHeightConstraint.isActive = true
 
         normalIconCenterYConstraint = iconView.centerYAnchor.constraint(
             equalTo: containerView.centerYAnchor)
@@ -249,8 +256,12 @@ class ResultCellView: NSTableCellView {
             subtitleLabel.lineBreakMode = .byWordWrapping
 
             // Apply Fonts & Colors for Peek
-            titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+            titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
             titleLabel.textColor = .white
+
+            // Shrink icon size
+            iconWidthConstraint.constant = 22
+            iconHeightConstraint.constant = 22
 
             subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
             subtitleLabel.textColor = .secondaryLabelColor
@@ -280,6 +291,12 @@ class ResultCellView: NSTableCellView {
                 }
             }
 
+            // Reduce icon size for Peek
+            // Note: AutoLayout will handle this via existing constraints or scaling,
+            // but we can adjust the content scale or the frame if needed.
+            // The imageScaling = .scaleProportionallyUpOrDown helps.
+            iconView.contentTintColor = .white
+
             containerView.needsLayout = true
 
         } else {
@@ -292,6 +309,10 @@ class ResultCellView: NSTableCellView {
             peekSubtitleTopConstraint.isActive = false
             normalSubtitleBottomConstraint.isActive = true
             peekSubtitleBottomConstraint.isActive = false
+
+            // Revert icon size
+            iconWidthConstraint.constant = metrics.Icon.size
+            iconHeightConstraint.constant = metrics.Icon.size
 
             subtitleLabel.lineBreakMode = .byTruncatingTail
 

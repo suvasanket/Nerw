@@ -27,15 +27,23 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - **Trigger**: `find [query]`, `file [query]`.
     - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
     - **Filtering**: Automatically excludes developer artifacts like `node_modules`, `.git`, and `build` folders for cleaner results.
-4.  **System Commands**: Quick access to common macOS actions:
+4.  **Dictionary Lookup**:
+    - **Trigger**: `define [word]` or `def [word]`.
+    - **Engine**: Uses native macOS Dictionary index (`CoreServices.DCSCopyTextDefinition`).
+    - **Action**: Opens the native Dictionary app to the exact word.
+5.  **Wikipedia Search**:
+    - **Trigger**: `wiki [query]`.
+    - **Engine**: Real-time fetching from `en.wikipedia.org/api/rest_v1/page/summary`.
+    - **Action**: Opens the article in your default browser.
+6.  **System Commands**: Quick access to common macOS actions:
     - `sleep` - Put your Mac to sleep
     - `empty downloads` - Move Downloads folder contents to Trash
     - `eject [volume]` - Eject a specific volume (shows available volumes)
     - `eject all` - Eject all external volumes
     - `wifi` - Toggle WiFi or connect to known networks.
     - `bluetooth` - Toggle Bluetooth or connect to devices.
-5.  **Peek (Inline Previews)**: Provides rich, multi-line expanded previews for selected results. Supported actions can show an extended title, definition/description text, custom icons, and interactive buttons right inside the list when selected.
-6.  **Calculator**: (Planned/Upcoming) Basic math operations.
+7.  **Peek (Inline Previews)**: Provides rich, dynamic, multi-line expanded previews for selected results without leaving the search bar. Supported actions (like Dictionary definitions and Wikipedia summaries) can show extended titles, long typography-aware text blocks, custom icons, and interactive buttons right inside the list window that seamlessly scales vertically to fit exactly what you need.
+8.  **Calculator**: (Planned/Upcoming) Basic math operations.
 
 ### Trigger Rules
 - **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).
