@@ -34,7 +34,8 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - `eject all` - Eject all external volumes
     - `wifi` - Toggle WiFi or connect to known networks.
     - `bluetooth` - Toggle Bluetooth or connect to devices.
-5.  **Calculator**: (Planned/Upcoming) Basic math operations.
+5.  **Peek (Inline Previews)**: Provides rich, multi-line expanded previews for selected results. Supported actions can show an extended title, definition/description text, custom icons, and interactive buttons right inside the list when selected.
+6.  **Calculator**: (Planned/Upcoming) Basic math operations.
 
 ### Trigger Rules
 - **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).

@@ -12,6 +12,26 @@ public struct NerwAction {
     }
     public let icon: IconType?
 
+    public struct PeekData {
+        public let title: String
+        public let text: String
+        public let icon: IconType?
+        public let primaryActionName: String?
+        public let secondaryActionName: String?
+
+        public init(
+            title: String, text: String, icon: IconType? = nil, primaryActionName: String? = nil,
+            secondaryActionName: String? = nil
+        ) {
+            self.title = title
+            self.text = text
+            self.icon = icon
+            self.primaryActionName = primaryActionName
+            self.secondaryActionName = secondaryActionName
+        }
+    }
+    public let peek: PeekData?
+
     public let triggers: [String]
 
     public struct Field {
@@ -77,6 +97,7 @@ public struct NerwAction {
         title: String,
         subtitle: String,
         icon: IconType? = nil,
+        peek: PeekData? = nil,
         triggers: [String] = [],
         type: ActionType
     ) {
@@ -84,6 +105,7 @@ public struct NerwAction {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
+        self.peek = peek
         self.triggers = triggers
         self.type = type
     }

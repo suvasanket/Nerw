@@ -1055,11 +1055,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func moveSelection(by delta: Int) {
         guard !actions.isEmpty else { return }
-        selectedIndex = (selectedIndex + delta + actions.count) % actions.count
+
+        let newIndex = (selectedIndex + delta + actions.count) % actions.count
         userHasNavigated = true
+
+        // Let tableViewSelectionDidChange handle the redraw and animation
         resultsTableView.selectRowIndexes(
-            IndexSet(integer: selectedIndex), byExtendingSelection: false)
-        resultsTableView.scrollRowToVisible(selectedIndex)
+            IndexSet(integer: newIndex), byExtendingSelection: false)
+        resultsTableView.scrollRowToVisible(newIndex)
         updateSelectionIcon()
     }
 
@@ -1074,6 +1077,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
         -> NSView?
     {
+        guard row < actions.count else { return nil }
         let action = actions[row]
         let cell = ResultCellView()
         cell.configure(
@@ -1081,13 +1085,47 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         return cell
     }
 
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        guard row < actions.count else { return LayoutMetrics.Results.rowHeight }
+        let action = actions[row]
+        if row == selectedIndex && action.peek != nil {
+            return 110.0  // Expanded Peek Layout Height
+        }
+        return LayoutMetrics.Results.rowHeight
+    }
+
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         return ResultRowView()
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        let oldIndex = selectedIndex
         selectedIndex = resultsTableView.selectedRow >= 0 ? resultsTableView.selectedRow : 0
-        resultsTableView.reloadData()
+
+        // Handle animations and partial reloads
+        var rowsToUpdate = IndexSet()
+        if oldIndex >= 0 && oldIndex < actions.count { rowsToUpdate.insert(oldIndex) }
+        if selectedIndex >= 0 && selectedIndex < actions.count {
+            rowsToUpdate.insert(selectedIndex)
+        }
+
+        NSAnimationContext.beginGrouping()
+        NSAnimationContext.current.duration = 0.15
+        NSAnimationContext.current.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let cols = IndexSet(integer: 0)
+        resultsTableView.reloadData(forRowIndexes: rowsToUpdate, columnIndexes: cols)
+
+        // Only trigger height change animation if a peek changes
+        let oldHasPeek = oldIndex >= 0 && oldIndex < actions.count && actions[oldIndex].peek != nil
+        let newHasPeek =
+            selectedIndex >= 0 && selectedIndex < actions.count
+            && actions[selectedIndex].peek != nil
+        if oldHasPeek || newHasPeek {
+            resultsTableView.noteHeightOfRows(withIndexesChanged: rowsToUpdate)
+        }
+
+        NSAnimationContext.endGrouping()
     }
 }
 

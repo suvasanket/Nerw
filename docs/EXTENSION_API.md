@@ -85,6 +85,15 @@ The `main(query)` function is the entry point.
             { "id": "p", "title": "Pass", "secure": true }
         ],
         "submitLabel": "Log In"
+    },
+
+    // Expanded Preview (Peek)
+    "peek": {
+        "title": "Extended Title",
+        "text": "Multi-line description or definition",
+        "icon": "textformat.size",
+        "primaryActionName": "Open App",
+        "secondaryActionName": "Secondary Action"
     }
 }
 ```

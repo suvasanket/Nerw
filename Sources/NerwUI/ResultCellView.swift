@@ -16,6 +16,16 @@ class ResultCellView: NSTableCellView {
     private let tabBadge = NSView()
     private let tabBadgeLabel = NSTextField(labelWithString: "tab")
 
+    // Peek UI Constraints
+    private var normalIconCenterYConstraint: NSLayoutConstraint!
+    private var peekIconTopConstraint: NSLayoutConstraint!
+    private var normalTitleTopConstraint: NSLayoutConstraint!
+    private var peekTitleCenterYConstraint: NSLayoutConstraint!
+    private var normalSubtitleTopConstraint: NSLayoutConstraint!
+    private var peekSubtitleTopConstraint: NSLayoutConstraint!
+    private var normalSubtitleBottomConstraint: NSLayoutConstraint!
+    private var peekSubtitleBottomConstraint: NSLayoutConstraint!
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupViews()
@@ -47,7 +57,8 @@ class ResultCellView: NSTableCellView {
         subtitleLabel.font = .systemFont(ofSize: metrics.Text.subtitleSize)
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.lineBreakMode = .byTruncatingTail
+        subtitleLabel.lineBreakMode = .byWordWrapping  // allow multi-line for peek
+        subtitleLabel.maximumNumberOfLines = 0
         containerView.addSubview(subtitleLabel)
 
         // Hint Stack
@@ -95,25 +106,48 @@ class ResultCellView: NSTableCellView {
 
             iconView.leadingAnchor.constraint(
                 equalTo: containerView.leadingAnchor, constant: metrics.Icon.leading),
-            iconView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: metrics.Icon.size),
             iconView.heightAnchor.constraint(equalToConstant: metrics.Icon.size),
 
             titleLabel.leadingAnchor.constraint(
                 equalTo: iconView.trailingAnchor, constant: metrics.Icon.trailing),
-            titleLabel.topAnchor.constraint(
-                equalTo: containerView.topAnchor, constant: metrics.Text.titleTop),
             titleLabel.trailingAnchor.constraint(
                 lessThanOrEqualTo: hintStack.leadingAnchor, constant: -10),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.topAnchor.constraint(
-                equalTo: titleLabel.bottomAnchor, constant: metrics.Text.subtitleTop),
             subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
 
             hintStack.trailingAnchor.constraint(
                 equalTo: containerView.trailingAnchor, constant: -12),
             hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+        ])
+
+        normalIconCenterYConstraint = iconView.centerYAnchor.constraint(
+            equalTo: containerView.centerYAnchor)
+        peekIconTopConstraint = iconView.topAnchor.constraint(
+            equalTo: containerView.topAnchor, constant: 16)
+
+        normalTitleTopConstraint = titleLabel.topAnchor.constraint(
+            equalTo: containerView.topAnchor, constant: metrics.Text.titleTop)
+        peekTitleCenterYConstraint = titleLabel.centerYAnchor.constraint(
+            equalTo: iconView.centerYAnchor)
+
+        normalSubtitleTopConstraint = subtitleLabel.topAnchor.constraint(
+            equalTo: titleLabel.bottomAnchor, constant: metrics.Text.subtitleTop)
+        // give the peek subtitle some breathing room below the title
+        peekSubtitleTopConstraint = subtitleLabel.topAnchor.constraint(
+            equalTo: titleLabel.bottomAnchor, constant: 12)
+
+        normalSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
+            lessThanOrEqualTo: containerView.bottomAnchor, constant: -metrics.Text.subtitleTop)
+        peekSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
+            lessThanOrEqualTo: containerView.bottomAnchor, constant: -16)
+
+        NSLayoutConstraint.activate([
+            normalIconCenterYConstraint,
+            normalTitleTopConstraint,
+            normalSubtitleTopConstraint,
+            normalSubtitleBottomConstraint,
         ])
     }
 
@@ -142,20 +176,19 @@ class ResultCellView: NSTableCellView {
 
         let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
+        let metrics = MainPanelContentViewController.LayoutMetrics.Cell.self
+        let defaultTitleFont = NSFont.systemFont(ofSize: metrics.Text.titleSize, weight: .medium)
+        let defaultSubFont = NSFont.systemFont(ofSize: metrics.Text.subtitleSize)
+
         // Font
         if let fontName = config?.font {
-            if let font = NSFont(
-                name: fontName,
-                size: MainPanelContentViewController.LayoutMetrics.Cell.Text.titleSize)
-            {
-                titleLabel.font = font
-            }
-            if let subFont = NSFont(
-                name: fontName,
-                size: MainPanelContentViewController.LayoutMetrics.Cell.Text.subtitleSize)
-            {
-                subtitleLabel.font = subFont
-            }
+            titleLabel.font =
+                NSFont(name: fontName, size: metrics.Text.titleSize) ?? defaultTitleFont
+            subtitleLabel.font =
+                NSFont(name: fontName, size: metrics.Text.subtitleSize) ?? defaultSubFont
+        } else {
+            titleLabel.font = defaultTitleFont
+            subtitleLabel.font = defaultSubFont
         }
 
         if let iconType = action.icon {
@@ -200,6 +233,71 @@ class ResultCellView: NSTableCellView {
             ? finalBgColor.cgColor
             : NSColor.clear.cgColor
 
+        // Configure Peek Mode
+        if isSelected, let peek = action.peek {
+            // Apply Constraints
+            normalIconCenterYConstraint.isActive = false
+            peekIconTopConstraint.isActive = true
+            normalTitleTopConstraint.isActive = false
+            peekTitleCenterYConstraint.isActive = true
+            normalSubtitleTopConstraint.isActive = false
+            peekSubtitleTopConstraint.isActive = true
+            normalSubtitleBottomConstraint.isActive = false
+            peekSubtitleBottomConstraint.isActive = true
+
+            // Allow multiple lines
+            subtitleLabel.lineBreakMode = .byWordWrapping
+
+            // Apply Fonts & Colors for Peek
+            titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+            titleLabel.textColor = .white
+
+            subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+            subtitleLabel.textColor = .secondaryLabelColor
+
+            // Clean up old custom icon logic
+            iconView.subviews.forEach { $0.removeFromSuperview() }
+
+            // Apply Peek Overrides
+            titleLabel.stringValue = peek.title
+            subtitleLabel.stringValue = peek.text
+
+            // Override Icon
+            if let peekIcon = peek.icon {
+                switch peekIcon {
+                case .system(let name):
+                    iconView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                    iconView.contentTintColor = .white
+                case .image(let img):
+                    iconView.image = img
+                case .file(let url):
+                    NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64))
+                    { [weak self] image in
+                        if let self = self, self.currentActionID == action.id {
+                            self.iconView.image = image ?? self.iconView.image
+                        }
+                    }
+                }
+            }
+
+            containerView.needsLayout = true
+
+        } else {
+            // Normal Mode
+            normalIconCenterYConstraint.isActive = true
+            peekIconTopConstraint.isActive = false
+            normalTitleTopConstraint.isActive = true
+            peekTitleCenterYConstraint.isActive = false
+            normalSubtitleTopConstraint.isActive = true
+            peekSubtitleTopConstraint.isActive = false
+            normalSubtitleBottomConstraint.isActive = true
+            peekSubtitleBottomConstraint.isActive = false
+
+            subtitleLabel.lineBreakMode = .byTruncatingTail
+
+            iconView.subviews.forEach { $0.removeFromSuperview() }
+        }
+
         updateHint(
             action: action, isSelected: isSelected,
             textColor: isSelected ? selectedTextColor : mainTextColor)
@@ -229,5 +327,44 @@ class ResultCellView: NSTableCellView {
 class ResultRowView: NSTableRowView {
     override func drawSelection(in dirtyRect: NSRect) {
         // Custom selection handled in cell
+    }
+}
+
+class FlatButton: NSButton {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        isBordered = false
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+        font = .systemFont(ofSize: 12, weight: .medium)
+        contentTintColor = .labelColor
+        alignment = .center
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        let trackingArea = NSTrackingArea(
+            rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self,
+            userInfo: nil)
+        addTrackingArea(trackingArea)
     }
 }

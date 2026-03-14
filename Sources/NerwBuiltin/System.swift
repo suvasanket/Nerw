@@ -38,6 +38,23 @@ public class System {
 
     public func getAllActions() -> [NerwAction] {
         return [
+            // Test Peek Action
+            NerwAction(
+                id: "nerw.system.test.peek",
+                title: "define helo",
+                subtitle: "Search",
+                icon: .system("magnifyingglass"),
+                peek: NerwAction.PeekData(
+                    title: "helo — Oxford Dictionary of English",
+                    text: "a helicopter",
+                    icon: .system("textformat.size"),  // Aa icon placeholder
+                    primaryActionName: "iA Writer",
+                    secondaryActionName: "Dictionary"
+                ),
+                triggers: ["define helo"],
+                type: .instant(perform: { _ in print("Test peek executed") })
+            ),
+
             // Empty Downloads
             NerwAction(
                 id: "nerw.system.emptydownloads",
@@ -98,6 +115,23 @@ public class System {
         let lowerTrigger = trigger.lowercased()
 
         switch lowerTrigger {
+        case "define helo":
+            return NerwAction(
+                id: "nerw.system.test.peek",
+                title: "define helo",
+                subtitle: "Search",
+                icon: .system("magnifyingglass"),
+                peek: NerwAction.PeekData(
+                    title: "helo — Oxford Dictionary of English",
+                    text: "a helicopter",
+                    icon: .system("textformat.size"),  // Aa icon placeholder
+                    primaryActionName: "iA Writer",
+                    secondaryActionName: "Dictionary"
+                ),
+                triggers: ["define helo"],
+                type: .instant(perform: { _ in print("Test peek executed") })
+            )
+
         case "empty downloads":
             return NerwAction(
                 id: "nerw.system.emptydownloads",
