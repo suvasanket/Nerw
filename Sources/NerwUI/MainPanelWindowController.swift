@@ -120,11 +120,8 @@ extension MainPanelWindowController: MainPanelContentDelegate {
         hide()
     }
 
-    func didUpdateResults(count: Int, isSeparatorExpanded: Bool) {
+    func didUpdateResults(count: Int, resultsHeight: CGFloat, isSeparatorExpanded: Bool) {
         let metrics = MainPanelContentViewController.LayoutMetrics.self
-        let rowHeight = metrics.Results.rowHeight
-        let maxVisible = metrics.Results.maxVisibleRows
-        let resultsHeight = CGFloat(min(count, maxVisible)) * rowHeight
 
         if count > 0 {
             // Calculate total height dynamically based on all components
@@ -138,8 +135,7 @@ extension MainPanelWindowController: MainPanelContentDelegate {
             let separatorSection =
                 metrics.Separator.top + separatorHeight + metrics.Separator.bottom
 
-            // Results Section (Results height + Bottom margin matching expandedBottom)
-            // We use the explicit expandedBottom metric from LayoutMetrics
+            // Results Section uses the explicit resultsHeight provided by the content controller
             let bottomPadding = metrics.Results.expandedBottom
             let resultsSection = resultsHeight + bottomPadding
 

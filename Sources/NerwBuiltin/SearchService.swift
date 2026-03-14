@@ -121,9 +121,17 @@ public class SearchService {
                 in: .whitespacesAndNewlines)
 
             if !wordToDefine.isEmpty {
-                System.shared.searchDictionary(query: wordToDefine) { dictActions in
-                    // If we found a result or a fallback, just return it immediately as the sole search result.
-                    completion(dictActions)
+                System.shared.searchDictionary(query: wordToDefine) { [weak self] dictActions in
+                    guard let self = self else { return }
+                    var results = dictActions
+
+                    // Also append the default Web Search engine so the user has standard fallbacks available
+                    let defaultEngine = SearchEngine.shared.getDefaultEngine()
+                    let webSearchAction = self.createWebSearchAction(
+                        query: query, engine: defaultEngine)
+                    results.append(webSearchAction)
+
+                    completion(results)
                 }
                 return
             }

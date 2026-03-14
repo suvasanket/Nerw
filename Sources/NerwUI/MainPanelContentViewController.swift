@@ -8,7 +8,7 @@ import NerwUtils
 protocol MainPanelContentDelegate: AnyObject {
     func didPressEscape()
     func didSubmit(text: String)
-    func didUpdateResults(count: Int, isSeparatorExpanded: Bool)
+    func didUpdateResults(count: Int, resultsHeight: CGFloat, isSeparatorExpanded: Bool)
     func requestsResize(to height: CGFloat)
 }
 
@@ -1013,7 +1013,17 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         accessoryStackViewHeightConstraint.constant =
             isExpanded ? LayoutMetrics.Separator.expandedHeight : LayoutMetrics.Separator.height
 
-        delegate?.didUpdateResults(count: actions.count, isSeparatorExpanded: isExpanded)
+        let maxVisible = LayoutMetrics.Results.maxVisibleRows
+        let baseHeight = CGFloat(min(actions.count, maxVisible)) * LayoutMetrics.Results.rowHeight
+        let hasPeek =
+            (selectedIndex >= 0 && selectedIndex < actions.count
+                && actions[selectedIndex].peek != nil)
+        let peekDiff: CGFloat = hasPeek ? (110.0 - LayoutMetrics.Results.rowHeight) : 0
+        let totalResultsHeight = baseHeight + peekDiff
+
+        delegate?.didUpdateResults(
+            count: actions.count, resultsHeight: totalResultsHeight, isSeparatorExpanded: isExpanded
+        )
         updateSelectionIcon()
     }
 
@@ -1123,6 +1133,17 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             && actions[selectedIndex].peek != nil
         if oldHasPeek || newHasPeek {
             resultsTableView.noteHeightOfRows(withIndexesChanged: rowsToUpdate)
+
+            let isExpanded = !actions.isEmpty
+            let maxVisible = LayoutMetrics.Results.maxVisibleRows
+            let baseHeight =
+                CGFloat(min(actions.count, maxVisible)) * LayoutMetrics.Results.rowHeight
+            let peekDiff: CGFloat = newHasPeek ? (110.0 - LayoutMetrics.Results.rowHeight) : 0
+            let totalResultsHeight = baseHeight + peekDiff
+
+            delegate?.didUpdateResults(
+                count: actions.count, resultsHeight: totalResultsHeight,
+                isSeparatorExpanded: isExpanded)
         }
 
         NSAnimationContext.endGrouping()
