@@ -96,38 +96,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         stackView.addArrangedSubview(behaviorSection)
         behaviorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
-
-        // 3. Search
-        let thresholdStack = NSStackView()
-        thresholdStack.orientation = .horizontal
-        thresholdStack.spacing = 10
-        thresholdStack.alignment = .centerY
-
-        let thresholdLabel = NSTextField(labelWithString: "Suggestion Threshold:")
-
-        let thresholdStepper = NSStepper()
-        thresholdStepper.minValue = 1
-        thresholdStepper.maxValue = 10
-        thresholdStepper.intValue = Int32(ConfigManager.shared.config.searchEngineSuggestThreshold)
-        thresholdStepper.target = self
-        thresholdStepper.action = #selector(thresholdChanged(_:))
-
-        let thresholdValueLabel = NSTextField(
-            labelWithString: "\(ConfigManager.shared.config.searchEngineSuggestThreshold)")
-        thresholdValueLabel.tag = 101  // Tag to find it later
-
-        thresholdStack.addArrangedSubview(thresholdLabel)
-        thresholdStack.addArrangedSubview(thresholdValueLabel)
-        thresholdStack.addArrangedSubview(thresholdStepper)
-        thresholdStack.addArrangedSubview(NSView())  // Spacer
-
-        let searchSection = SettingsSection(
-            title: "Search",
-            contentViews: [thresholdStack]
-        )
-        stackView.addArrangedSubview(searchSection)
-        searchSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
     }
 
     private func setupConstraints() {
@@ -156,16 +124,5 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     @objc private func shortcutsToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.showShortcutsInMain = (sender.state == .on)
         ConfigManager.shared.save()
-    }
-
-    @objc private func thresholdChanged(_ sender: NSStepper) {
-        let value = Int(sender.intValue)
-        ConfigManager.shared.config.searchEngineSuggestThreshold = value
-        ConfigManager.shared.save()
-
-        // Update label
-        if let label = view.viewWithTag(101) as? NSTextField {
-            label.stringValue = "\(value)"
-        }
     }
 }

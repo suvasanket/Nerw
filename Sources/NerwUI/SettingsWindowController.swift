@@ -91,7 +91,17 @@ class SettingsTabViewController: NSTabViewController {
             systemSymbolName: "paintbrush", accessibilityDescription: "Appearance Settings")
         self.addTabViewItem(appearanceItem)
 
-        // 3. Extensions Tab
+        // 3. Search Tab
+        let searchVC = SearchEnginesSettingsViewController()
+        searchVC.title = "Search"
+        searchVC.preferredContentSize = Self.windowSize
+        let searchItem = NSTabViewItem(viewController: searchVC)
+        searchItem.label = "Search"
+        searchItem.image = NSImage(
+            systemSymbolName: "magnifyingglass", accessibilityDescription: "Search Settings")
+        self.addTabViewItem(searchItem)
+
+        // 4. Extensions Tab
         let extensionsVC = ExtensionSettingsViewController()
         extensionsVC.title = "Extensions"
         extensionsVC.preferredContentSize = Self.windowSize
