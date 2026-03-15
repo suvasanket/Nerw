@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import NerwSearchBackend
 
 public class SmartSearch {
     public static let shared = SmartSearch()
@@ -99,25 +100,37 @@ public class SmartSearch {
 
         // 4. Check if it matches direct navigation patterns
         if isMatch(q, patterns: directPatterns) {
-            let encoded = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
-            return .direct(url: "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)")
+            return .direct(url: getDirectURL(for: q))
         }
 
         // 5. Check if query is just a known site name
         if isKnownSite(q) {
-            let encoded = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
-            return .direct(url: "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)")
+            return .direct(url: getDirectURL(for: q))
         }
 
         // 6. Short queries
         let words = q.split(separator: " ")
         if words.count <= 2 && !isMatch(q, patterns: researchPatterns) {
-            let encoded = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
-            return .direct(url: "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)")
+            return .direct(url: getDirectURL(for: q))
         }
 
         // 7. Default
         return .results
+    }
+
+    private func getDirectURL(for query: String) -> String {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let provider =
+            ConfigManager.shared.config.directSearchProvider.lowercased().trimmingCharacters(
+                in: CharacterSet.whitespaces)
+
+        if provider == "google" {
+            // Google's "I'm Feeling Lucky" URL
+            return "https://www.google.com/search?btnI=1&q=\(encoded)"
+        } else {
+            // DuckDuckGo Lite with \ prefix for direct redirection
+            return "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)"
+        }
     }
 
     private func isURL(_ q: String) -> Bool {
@@ -179,13 +192,22 @@ public class SmartSearch {
                 NSWorkspace.shared.open(url)
             }
         case .results:
-            // Standard search URL
-            let encodedQuery =
-                query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-            let urlString = "https://duckduckgo.com/?q=\(encodedQuery)"
-            if let url = URL(string: urlString) {
+            if let url = URL(string: getResultsURL(for: query)) {
                 NSWorkspace.shared.open(url)
             }
+        }
+    }
+
+    private func getResultsURL(for query: String) -> String {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let provider =
+            ConfigManager.shared.config.directSearchProvider.lowercased().trimmingCharacters(
+                in: CharacterSet.whitespaces)
+
+        if provider == "google" {
+            return "https://www.google.com/search?q=\(encoded)"
+        } else {
+            return "https://duckduckgo.com/?q=\(encoded)"
         }
     }
 }

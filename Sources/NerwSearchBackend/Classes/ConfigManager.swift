@@ -18,6 +18,7 @@ public struct Config: Codable {
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false
+    public var directSearchProvider: String = "duckduckgo"
     public var uiConfig: UIConfig?
 
     public init() {}

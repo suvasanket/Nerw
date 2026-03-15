@@ -111,6 +111,38 @@ class SearchEnginesSettingsViewController: NSViewController {
         generalSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
+        // --- 2. Ducky Search Settings ---
+        let duckyStack = NSStackView()
+        duckyStack.orientation = .horizontal
+        duckyStack.spacing = 10
+        duckyStack.alignment = .centerY
+
+        let duckyLabel = NSTextField(labelWithString: "Direct Search Service:")
+        let duckyPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        duckyPopUp.addItems(withTitles: ["DuckDuckGo", "Google"])
+
+        let currentProvider = ConfigManager.shared.config.directSearchProvider.lowercased()
+        if currentProvider == "google" {
+            duckyPopUp.selectItem(withTitle: "Google")
+        } else {
+            duckyPopUp.selectItem(withTitle: "DuckDuckGo")
+        }
+
+        duckyPopUp.target = self
+        duckyPopUp.action = #selector(duckyProviderChanged(_:))
+
+        duckyStack.addArrangedSubview(duckyLabel)
+        duckyStack.addArrangedSubview(duckyPopUp)
+        duckyStack.addArrangedSubview(NSView())  // Spacer
+
+        let duckySection = SettingsSection(
+            title: "Ducky Search",
+            contentViews: [duckyStack]
+        )
+        stackView.addArrangedSubview(duckySection)
+        duckySection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
+
         // --- 3. Custom Bangs List ---
         enginesListStack = NSStackView()
         enginesListStack.orientation = .vertical
@@ -171,9 +203,11 @@ class SearchEnginesSettingsViewController: NSViewController {
         row.orientation = .horizontal
         row.spacing = 12
         row.alignment = .centerY
-        row.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)  // Tighter vertical padding
+        // Tighter vertical padding
+        row.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
         row.translatesAutoresizingMaskIntoConstraints = false
-        row.heightAnchor.constraint(equalToConstant: 36).isActive = true  // Tighter row height
+        // Tighter row height
+        row.heightAnchor.constraint(equalToConstant: 36).isActive = true
 
         // 1. Icon
         let iconView = NSImageView()
@@ -365,6 +399,12 @@ class SearchEnginesSettingsViewController: NSViewController {
         if let engine = SearchEngine.shared.engines.first(where: { $0.name == name }) {
             SearchEngine.shared.setDefaultEngine(engine)
         }
+    }
+
+    @objc private func duckyProviderChanged(_ sender: NSPopUpButton) {
+        let title = sender.titleOfSelectedItem?.lowercased() ?? "duckduckgo"
+        ConfigManager.shared.config.directSearchProvider = title
+        ConfigManager.shared.save()
     }
 
     @objc private func thresholdChanged(_ sender: NSStepper) {
