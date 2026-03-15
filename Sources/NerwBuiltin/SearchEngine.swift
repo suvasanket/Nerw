@@ -57,6 +57,9 @@ public class SearchEngine {
             Engine(
                 name: "GitHub", triggers: ["github", "gh"],
                 urlTemplate: "https://github.com/search?q=%@"),
+            Engine(
+                name: "Ducky Search", triggers: ["ducky", "dy"],
+                urlTemplate: "ducky://%@", icon: "ducky"),
         ]
     }
 
@@ -71,6 +74,18 @@ public class SearchEngine {
             return
         }
         engines = loaded
+
+        // Ensure "Ducky Search" is always present, even if older config loaded
+        if !engines.contains(where: { $0.name == "Ducky Search" }) {
+            // Also remove the old "Smart" one if it exists from our earlier experiment
+            engines.removeAll { $0.name == "Smart" }
+            engines.append(
+                Engine(
+                    name: "Ducky Search", triggers: ["ducky", "dy"],
+                    urlTemplate: "ducky://%@", icon: "ducky")
+            )
+            saveEngines()
+        }
     }
 
     private func saveEngines() {
@@ -120,6 +135,7 @@ public class SearchEngine {
     }
 
     public func removeEngine(name: String) {
+        if name == "Ducky Search" { return }  // Ducky Search engine cannot be deleted
         engines.removeAll { $0.name == name }
         saveEngines()
     }

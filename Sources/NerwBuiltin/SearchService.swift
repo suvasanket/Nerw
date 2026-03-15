@@ -87,18 +87,17 @@ public class SearchService {
 
             let defaultActions = engines.compactMap { engine -> NerwAction? in
                 guard engine.name != currentDefault.name else { return nil }
-                // Icon Logic...
                 let domain =
                     URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
                     ?? engine.name
-                let icon = IconManager.shared.icon(for: domain)
-                if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+                let iconType = self.resolveIcon(for: engine, domain: domain)
 
                 return NerwAction(
                     id: "nerw.builtin.bang.setdefault.\(engine.name)",
                     title: "Set Default: \(engine.name)",
                     subtitle: "Current Default: \(currentDefault.name)",
-                    icon: icon != nil ? .image(icon!) : .system("star"),
+                    icon: iconType ?? .system("star"),
                     triggers: [],
                     type: .instant(perform: { _ in
                         SearchEngine.shared.setDefaultEngine(engine)
@@ -171,23 +170,33 @@ public class SearchService {
             let domain =
                 URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
                 ?? engineName
-            let icon = IconManager.shared.icon(for: domain)
-            if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+
+            var iconType: NerwAction.IconType? = nil
+            if let engine = SearchEngine.shared.engines.first(where: {
+                $0.urlTemplate == urlTemplate
+            }) {
+                iconType = self.resolveIcon(for: engine, domain: domain)
+            }
 
             let actionID = "nerw.web.search.\(engineName)"
             let bangAction = NerwAction(
                 id: actionID,
                 title: "Search \(engineName)",
                 subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
-                icon: icon != nil ? .image(icon!) : .system("globe"),
+                icon: iconType ?? .system("globe"),
                 triggers: [],
                 type: .instant(perform: { _ in
                     let encodedQuery =
                         cleanedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
                         ?? ""
-                    let urlString = String(format: urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
+
+                    if engineName == "Ducky Search" {
+                        SmartSearch.shared.performSearch(query: cleanedQuery)
+                    } else {
+                        let urlString = String(format: urlTemplate, encodedQuery)
+                        if let url = URL(string: urlString) {
+                            NSWorkspace.shared.open(url)
+                        }
                     }
                 })
             )
@@ -266,21 +275,25 @@ public class SearchService {
                     let domain =
                         URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
                         .host ?? engine.name
-                    let icon = IconManager.shared.icon(for: domain)
-                    if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+                    let iconType = self.resolveIcon(for: engine, domain: domain)
 
                     fallbackAction = NerwAction(
                         id: topMatch.id,
                         title: "Search \(engine.name)",
                         subtitle: "Search for '\(currentQuery)' on \(engine.name)",
-                        icon: icon != nil ? .image(icon!) : .system("globe"),
+                        icon: iconType ?? .system("globe"),
                         triggers: [],
                         type: .instant(perform: { _ in
                             let encodedQuery =
                                 currentQuery.addingPercentEncoding(
                                     withAllowedCharacters: .urlQueryAllowed) ?? ""
-                            let urlString = String(format: engine.urlTemplate, encodedQuery)
-                            if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
+
+                            if engine.name == "Ducky Search" {
+                                SmartSearch.shared.performSearch(query: currentQuery)
+                            } else {
+                                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                                if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
+                            }
                         })
                     )
                 }
@@ -499,8 +512,7 @@ public class SearchService {
         let domain =
             URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
             .host ?? engine.name
-        let icon = IconManager.shared.icon(for: domain)
-        if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+        let iconType = resolveIcon(for: engine, domain: domain)
 
         let actionID = "nerw.web.search.\(engine.name)"
 
@@ -508,17 +520,31 @@ public class SearchService {
             id: actionID,
             title: "Search \(engine.name)",
             subtitle: "Search for '\(query)' on \(engine.name)",
-            icon: icon != nil ? .image(icon!) : .system("globe"),
+            icon: iconType ?? .system("globe"),
             triggers: [],
             type: .instant(perform: { _ in
                 let encodedQuery =
                     query.addingPercentEncoding(
                         withAllowedCharacters: .urlQueryAllowed) ?? ""
-                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                if let url = URL(string: urlString) {
-                    NSWorkspace.shared.open(url)
+
+                if engine.name == "Ducky Search" {
+                    SmartSearch.shared.performSearch(query: query)
+                } else {
+                    let urlString = String(format: engine.urlTemplate, encodedQuery)
+                    if let url = URL(string: urlString) {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
             })
         )
+    }
+
+    private func resolveIcon(for engine: Engine, domain: String) -> NerwAction.IconType? {
+        if let customIcon = engine.icon, let image = NSImage(named: NSImage.Name(customIcon)) {
+            return .image(image)
+        }
+        let icon = IconManager.shared.icon(for: domain)
+        if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
+        return icon != nil ? .image(icon!) : nil
     }
 }
