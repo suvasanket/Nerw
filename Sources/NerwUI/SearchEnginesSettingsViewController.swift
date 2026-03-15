@@ -11,6 +11,7 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     private var engines: [Engine] = []
 
     private var enginesTableView: NSTableView!
+    private var tableHeightConstraint: NSLayoutConstraint!
 
     override func loadView() {
         self.view = NSView()
@@ -24,6 +25,10 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     }
 
     private func setupUI() {
+        // ... (rest of setupUI stays same until bangs section)
+        // Note: I'm keeping the rest of the code for context in the replace call
+        // but focusing on the table section.
+
         // Scroll View Setup
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
@@ -123,12 +128,19 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
 
         // Add TableView
         let tableScroll = NSScrollView()
-        tableScroll.hasVerticalScroller = true
-        tableScroll.borderType = .bezelBorder
+        tableScroll.hasVerticalScroller = false
+        tableScroll.hasHorizontalScroller = false
+        tableScroll.verticalScrollElasticity = .none
+        tableScroll.horizontalScrollElasticity = .none
+        tableScroll.drawsBackground = false  // Transparency
+        tableScroll.borderType = .noBorder  // Remove border for cleaner look
         tableScroll.translatesAutoresizingMaskIntoConstraints = false
-        tableScroll.heightAnchor.constraint(equalToConstant: 180).isActive = true
+
+        tableHeightConstraint = tableScroll.heightAnchor.constraint(equalToConstant: 180)
+        tableHeightConstraint.isActive = true
 
         enginesTableView = NSTableView()
+        enginesTableView.backgroundColor = .clear  // Transparency
         enginesTableView.dataSource = self
         enginesTableView.delegate = self
         enginesTableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
@@ -151,6 +163,8 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         enginesTableView.addTableColumn(col3)
 
         tableScroll.documentView = enginesTableView
+        enginesTableView.doubleAction = #selector(editBangClicked)
+        enginesTableView.target = self
         bangsStack.addArrangedSubview(tableScroll)
         tableScroll.widthAnchor.constraint(equalTo: bangsStack.widthAnchor).isActive = true
 
@@ -161,11 +175,14 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
 
         let addBtn = NSButton(title: "Add Engine", target: self, action: #selector(addBangClicked))
         addBtn.bezelStyle = .rounded
+        let editBtn = NSButton(title: "Edit", target: self, action: #selector(editBangClicked))
+        editBtn.bezelStyle = .rounded
         let removeBtn = NSButton(
             title: "Remove", target: self, action: #selector(removeBangClicked))
         removeBtn.bezelStyle = .rounded
 
         controlsStack.addArrangedSubview(addBtn)
+        controlsStack.addArrangedSubview(editBtn)
         controlsStack.addArrangedSubview(removeBtn)
         controlsStack.addArrangedSubview(NSView())  // spacer
 
@@ -184,6 +201,128 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     private func reloadData() {
         engines = SearchEngine.shared.engines
         enginesTableView.reloadData()
+        updateTableHeight()
+    }
+
+    private func updateTableHeight() {
+        enginesTableView.layout()
+        let headerHeight = enginesTableView.headerView?.frame.height ?? 0
+        let rowHeight = enginesTableView.rowHeight
+        let spacing = enginesTableView.intercellSpacing.height
+        let count = CGFloat(engines.count)
+
+        // Height = header + (rows + spacing)
+        let totalHeight = headerHeight + (rowHeight + spacing) * count
+        tableHeightConstraint.constant = max(totalHeight, 40)
+    }
+
+    /// Shows a sheet for adding or editing an engine.
+    /// When `editing` is non-nil, the form is pre-filled and the save action calls `updateEngine`.
+    private func showEngineSheet(editing engine: Engine?) {
+        guard let window = self.view.window else { return }
+
+        let isEdit = engine != nil
+        let alert = NSAlert()
+        alert.messageText = isEdit ? "Edit Engine" : "Add Custom Engine / Bang"
+        alert.informativeText = "Use %@ in the URL as the search query placeholder."
+
+        // ── Outer horizontal stack: [icon drop zone] | [fields] ──
+        let outer = NSStackView(frame: NSRect(x: 0, y: 0, width: 480, height: 130))
+        outer.orientation = .horizontal
+        outer.spacing = 14
+        outer.alignment = .top
+
+        // Icon drop zone (72×72)
+        let dropView = IconDropView(frame: NSRect(x: 0, y: 0, width: 72, height: 72))
+        dropView.translatesAutoresizingMaskIntoConstraints = false
+        dropView.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        dropView.heightAnchor.constraint(equalToConstant: 72).isActive = true
+
+        // Pre-fill drop zone with existing icon (display only — does NOT mark icon as changed)
+        let existingIconKey: String? = engine?.icon
+        if let key = existingIconKey {
+            let existing =
+                IconManager.shared.icon(forKey: key)
+                ?? NSImage(named: NSImage.Name(key))
+                ?? IconManager.shared.icon(for: key)
+            dropView.image = existing
+        } else if let engine = engine {
+            let domain =
+                URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
+                ?? engine.name
+            dropView.image = IconManager.shared.icon(for: domain)
+        }
+
+        // Only set when user actively drops/picks a NEW image
+        var userPickedImage: NSImage?
+        dropView.onImageChanged = { img in
+            userPickedImage = img
+        }
+
+        // Fields stack (vertical)
+        let fields = NSStackView()
+        fields.orientation = .vertical
+        fields.spacing = 8
+        fields.alignment = .leading
+
+        let nameField = NSTextField(string: engine?.name ?? "")
+        nameField.placeholderString = "Name (e.g. Wikipedia)"
+
+        let triggerField = NSTextField(string: engine?.triggers.first ?? "")
+        triggerField.placeholderString = "Bang trigger (e.g. w)"
+
+        let urlField = NSTextField(string: engine?.urlTemplate ?? "")
+        urlField.placeholderString = "URL (e.g. https://en.wikipedia.org/wiki/%@)"
+
+        for field in [nameField, triggerField, urlField] {
+            field.translatesAutoresizingMaskIntoConstraints = false
+            fields.addArrangedSubview(field)
+        }
+
+        outer.addArrangedSubview(dropView)
+        outer.addArrangedSubview(fields)
+
+        // Make fields fill remaining width
+        fields.translatesAutoresizingMaskIntoConstraints = false
+        fields.widthAnchor.constraint(
+            equalTo: outer.widthAnchor, constant: -(72 + 14)
+        ).isActive = true
+
+        for field in [nameField, triggerField, urlField] {
+            field.widthAnchor.constraint(equalTo: fields.widthAnchor).isActive = true
+        }
+
+        alert.accessoryView = outer
+        alert.addButton(withTitle: isEdit ? "Save" : "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: window) { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
+            let trigger = triggerField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
+            let url = urlField.stringValue.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty, !trigger.isEmpty, !url.isEmpty else { return }
+
+            // Icon key: only re-save if user actually picked a NEW image
+            var iconKey: String? = existingIconKey
+            if let img = userPickedImage {
+                let rawKey = "custom_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
+                iconKey = IconManager.shared.saveCustomIcon(image: img, key: rawKey)
+            }
+
+            if let original = engine {
+                SearchEngine.shared.updateEngine(
+                    originalName: original.name,
+                    name: name,
+                    url: url,
+                    trigger: trigger,
+                    icon: iconKey
+                )
+            } else {
+                SearchEngine.shared.addEngine(name: name, url: url, trigger: trigger, icon: iconKey)
+            }
+            self.reloadData()
+        }
     }
 
     // MARK: - Actions
@@ -206,47 +345,13 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     }
 
     @objc private func addBangClicked() {
-        guard let window = self.view.window else { return }
+        showEngineSheet(editing: nil)
+    }
 
-        let alert = NSAlert()
-        alert.messageText = "Add Custom Engine / Bang"
-        alert.informativeText =
-            "Please enter the engine details. Use %@ in the URL for the search query."
-
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 300, height: 90))
-        stack.orientation = .vertical
-        stack.spacing = 8
-
-        let nameField = NSTextField(string: "")
-        nameField.placeholderString = "Name (e.g. Wikipedia)"
-
-        let triggerField = NSTextField(string: "")
-        triggerField.placeholderString = "Trigger (e.g. w)"
-
-        let urlField = NSTextField(string: "")
-        urlField.placeholderString = "URL (e.g. https://en.wikipedia.org/wiki/%@)"
-
-        stack.addArrangedSubview(nameField)
-        stack.addArrangedSubview(triggerField)
-        stack.addArrangedSubview(urlField)
-
-        alert.accessoryView = stack
-        alert.addButton(withTitle: "Add")
-        alert.addButton(withTitle: "Cancel")
-
-        alert.beginSheetModal(for: window) { response in
-            if response == .alertFirstButtonReturn {
-                let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
-                let trigger = triggerField.stringValue.trimmingCharacters(in: .whitespaces)
-                    .lowercased()
-                let url = urlField.stringValue.trimmingCharacters(in: .whitespaces)
-
-                if !name.isEmpty && !trigger.isEmpty && !url.isEmpty {
-                    SearchEngine.shared.addEngine(name: name, url: url, trigger: trigger, icon: nil)
-                    self.reloadData()
-                }
-            }
-        }
+    @objc private func editBangClicked() {
+        let row = enginesTableView.selectedRow
+        guard row >= 0 && row < engines.count else { return }
+        showEngineSheet(editing: engines[row])
     }
 
     @objc private func removeBangClicked() {

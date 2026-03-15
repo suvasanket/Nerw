@@ -52,6 +52,29 @@ public class IconManager {
         return nil
     }
 
+    /// Looks up an icon by its raw storage key (filename without extension),
+    /// bypassing domain extraction. Use this for custom user-provided icons.
+    public func icon(forKey key: String) -> NSImage? {
+        // Check Memory
+        var cached: NSImage?
+        queue.sync {
+            cached = memoryCache[key]
+        }
+        if let image = cached { return image }
+
+        // Check Disk
+        let fileURL = iconDirectory.appendingPathComponent("\(key).png")
+        if fileManager.fileExists(atPath: fileURL.path),
+            let image = NSImage(contentsOf: fileURL)
+        {
+            queue.async(flags: .barrier) {
+                self.memoryCache[key] = image
+            }
+            return image
+        }
+        return nil
+    }
+
     public func fetchIcon(for urlOrDomain: String, completion: @escaping (NSImage?) -> Void) {
         guard let domain = extractDomain(from: urlOrDomain) else {
             completion(nil)
@@ -94,6 +117,47 @@ public class IconManager {
 
             completion(image)
         }.resume()
+    }
+
+    /// Saves a custom user-provided image to disk under a given key (used for custom engine icons).
+    /// Returns the key that should be stored in `Engine.icon`.
+    @discardableResult
+    public func saveCustomIcon(image: NSImage, key: String) -> String {
+        let safeKey = key.replacingOccurrences(of: " ", with: "_").lowercased()
+
+        // Ensure directory exists (createDirectory is idempotent)
+        try? fileManager.createDirectory(
+            at: iconDirectory, withIntermediateDirectories: true, attributes: nil)
+
+        let fileURL = iconDirectory.appendingPathComponent("\(safeKey).png")
+
+        // Resize to 128×128 before saving
+        let targetSize = NSSize(width: 128, height: 128)
+        let resized = NSImage(size: targetSize)
+        resized.lockFocus()
+        image.draw(
+            in: NSRect(origin: .zero, size: targetSize),
+            from: .zero, operation: .sourceOver, fraction: 1.0)
+        resized.unlockFocus()
+
+        // Write PNG atomically
+        if let tiffData = resized.tiffRepresentation,
+            let bitmap = NSBitmapImageRep(data: tiffData),
+            let pngData = bitmap.representation(using: .png, properties: [:])
+        {
+            do {
+                try pngData.write(to: fileURL, options: .atomic)
+                print("Nerw: Saved custom icon → \(fileURL.path)")
+            } catch {
+                print("Nerw: Failed to save custom icon: \(error)")
+            }
+        }
+
+        // Update memory cache synchronously so callers see it immediately (no race)
+        queue.sync(flags: .barrier) {
+            self.memoryCache[safeKey] = resized
+        }
+        return safeKey
     }
 
     private func extractDomain(from urlString: String) -> String? {

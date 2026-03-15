@@ -121,22 +121,31 @@ public class SearchEngine {
     public func addEngine(name: String, url: String, trigger: String, icon: String? = nil) {
         // Convert %s to %@ for format string if needed
         let template = url.replacingOccurrences(of: "%s", with: "%@")
-
-        // Check if exists? For now, allow duplicates or new entry.
-        // Better: Append.
         let newEngine = Engine(name: name, triggers: [trigger], urlTemplate: template, icon: icon)
         engines.append(newEngine)
         saveEngines()
-
-        // Prefetch icon if it's a domain
-        if let host = URL(string: template.replacingOccurrences(of: "%@", with: ""))?.host {
-            IconManager.shared.fetchIcon(for: host) { _ in }
-        }
     }
 
     public func removeEngine(name: String) {
         if name == "Ducky Search" { return }  // Ducky Search engine cannot be deleted
         engines.removeAll { $0.name == name }
+        saveEngines()
+    }
+
+    /// Updates an existing engine by replacing it with new values.
+    public func updateEngine(
+        originalName: String, name: String, url: String, trigger: String, icon: String? = nil
+    ) {
+        // Protect built-ins: don't rename Ducky Search
+        let safeName = (originalName == "Ducky Search") ? originalName : name
+        let template = url.replacingOccurrences(of: "%s", with: "%@")
+        guard let idx = engines.firstIndex(where: { $0.name == originalName }) else { return }
+        engines[idx] = Engine(
+            name: safeName,
+            triggers: [trigger],
+            urlTemplate: template,
+            icon: icon ?? engines[idx].icon
+        )
         saveEngines()
     }
 

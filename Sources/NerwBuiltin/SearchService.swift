@@ -540,11 +540,25 @@ public class SearchService {
     }
 
     private func resolveIcon(for engine: Engine, domain: String) -> NerwAction.IconType? {
-        if let customIcon = engine.icon, let image = NSImage(named: NSImage.Name(customIcon)) {
+        // 1. Custom icon set by user via drag-and-drop (stored in IconManager by key)
+        if let key = engine.icon, let image = IconManager.shared.icon(forKey: key) {
             return .image(image)
         }
-        let icon = IconManager.shared.icon(for: domain)
-        if icon == nil { IconManager.shared.fetchIcon(for: domain) { _ in } }
-        return icon != nil ? .image(icon!) : nil
+
+        // 2. Built-in asset name (e.g. "ducky")
+        if let key = engine.icon, let image = NSImage(named: NSImage.Name(key)) {
+            return .image(image)
+        }
+
+        // 3. Try to resolve by domain (favicons)
+        if let image = IconManager.shared.icon(for: domain) {
+            return .image(image)
+        } else {
+            // Trigger background fetch for next time
+            IconManager.shared.fetchIcon(for: domain) { _ in }
+        }
+
+        // 4. No icon — caller provides fallback
+        return nil
     }
 }

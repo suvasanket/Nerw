@@ -516,7 +516,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
             let action = actions[selectedIndex]
 
-            // UI Automation: Use Model-provided Icon
+            // 1. Priority: Web Search Icon (Bang Search)
+            if action.id.hasPrefix("nerw.web.search.") {
+                updateIcon(for: action)
+                return
+            }
+
+            // 2. UI Automation: Use Model-provided Icon
             if let iconName = action.modeIconName {
                 let icon =
                     NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage()
