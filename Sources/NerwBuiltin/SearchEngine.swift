@@ -7,12 +7,27 @@ public struct Engine: Codable {
     public let triggers: [String]
     public let urlTemplate: String
     public let icon: String?  // Optional icon name or URL
+    public var isEnabled: Bool
 
-    public init(name: String, triggers: [String], urlTemplate: String, icon: String? = nil) {
+    public init(
+        name: String, triggers: [String], urlTemplate: String, icon: String? = nil,
+        isEnabled: Bool = true
+    ) {
         self.name = name
         self.triggers = triggers
         self.urlTemplate = urlTemplate
         self.icon = icon
+        self.isEnabled = isEnabled
+    }
+
+    // Custom decoding to handle migration
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        triggers = try container.decode([String].self, forKey: .triggers)
+        urlTemplate = try container.decode(String.self, forKey: .urlTemplate)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
     }
 }
 
@@ -41,51 +56,54 @@ public class SearchEngine {
         return [
             Engine(
                 name: "Google", triggers: ["google", "g"],
-                urlTemplate: "https://www.google.com/search?q=%@"),
-            Engine(
-                name: "Feeling Lucky", triggers: ["gl", "googlelucky"],
-                urlTemplate: "https://www.google.com/search?btnI=1&q=%@"),
+                urlTemplate: "https://www.google.com/search?q=%@", icon: "se_google"),
             Engine(
                 name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
-                urlTemplate: "https://duckduckgo.com/?q=%@"),
-            Engine(
-                name: "Bing", triggers: ["bing", "b"],
-                urlTemplate: "https://www.bing.com/search?q=%@"),
-            Engine(
-                name: "YouTube", triggers: ["youtube", "yt"],
-                urlTemplate: "https://www.youtube.com/results?search_query=%@"),
-            Engine(
-                name: "GitHub", triggers: ["github", "gh"],
-                urlTemplate: "https://github.com/search?q=%@"),
+                urlTemplate: "https://duckduckgo.com/?q=%@", icon: "se_duckduckgo"),
             Engine(
                 name: "Ducky Search", triggers: ["ducky", "dy"],
-                urlTemplate: "ducky://%@", icon: "ducky"),
+                urlTemplate: "ducky://%@", icon: "se_ducky"),
         ]
     }
 
     private func loadEngines() {
         guard let url = storageURL,
             let data = try? Data(contentsOf: url),
-            let loaded = try? JSONDecoder().decode([Engine].self, from: data)
+            var loaded = try? JSONDecoder().decode([Engine].self, from: data)
         else {
             // First run or error: Load defaults
             engines = getDefaults()
             saveEngines()
             return
         }
-        engines = loaded
 
-        // Ensure "Ducky Search" is always present, even if older config loaded
-        if !engines.contains(where: { $0.name == "Ducky Search" }) {
-            // Also remove the old "Smart" one if it exists from our earlier experiment
-            engines.removeAll { $0.name == "Smart" }
-            engines.append(
-                Engine(
-                    name: "Ducky Search", triggers: ["ducky", "dy"],
-                    urlTemplate: "ducky://%@", icon: "ducky")
-            )
-            saveEngines()
+        // 1. Remove old defaults that are no longer in our built-in list
+        let unwantedDefaults = ["Feeling Lucky", "Bing", "YouTube", "GitHub"]
+        loaded.removeAll { engine in
+            unwantedDefaults.contains(engine.name)
         }
+
+        // 2. Ensure our core built-ins are always present and icons are updated
+        let defaults = getDefaults()
+        for defaultEngine in defaults {
+            if let existingIdx = loaded.firstIndex(where: { $0.name == defaultEngine.name }) {
+                // Update icon if it's one of the new built-in names (migration)
+                if loaded[existingIdx].icon != defaultEngine.icon {
+                    loaded[existingIdx] = Engine(
+                        name: defaultEngine.name,
+                        triggers: defaultEngine.triggers,
+                        urlTemplate: defaultEngine.urlTemplate,
+                        icon: defaultEngine.icon,
+                        isEnabled: loaded[existingIdx].isEnabled
+                    )
+                }
+            } else {
+                loaded.append(defaultEngine)
+            }
+        }
+
+        engines = loaded
+        saveEngines()
     }
 
     private func saveEngines() {
@@ -102,13 +120,15 @@ public class SearchEngine {
         let configTriggers = ConfigManager.shared.config.defaultSearchEngine
         // Find engine that matches AT LEAST ONE of the config triggers
         if let engine = engines.first(where: { engine in
-            !Set(engine.triggers).isDisjoint(with: configTriggers)
+            engine.isEnabled && !Set(engine.triggers).isDisjoint(with: configTriggers)
         }) {
             return engine
         }
 
-        // Fallback to first if Google missing (unlikely)
-        return engines.first(where: { $0.name == "Google" }) ?? engines.first!
+        // Fallback to first enabled if Google missing (unlikely)
+        return engines.first(where: { $0.name == "Google" && $0.isEnabled })
+            ?? engines.first(where: { $0.isEnabled })
+            ?? engines.first!
     }
 
     public func setDefaultEngine(_ engine: Engine) {
@@ -127,24 +147,37 @@ public class SearchEngine {
     }
 
     public func removeEngine(name: String) {
-        if name == "Ducky Search" { return }  // Ducky Search engine cannot be deleted
+        if isBuiltIn(name: name) { return }
         engines.removeAll { $0.name == name }
         saveEngines()
+    }
+
+    public func toggleEngine(name: String, enabled: Bool) {
+        guard let idx = engines.firstIndex(where: { $0.name == name }) else { return }
+        engines[idx].isEnabled = enabled
+        saveEngines()
+    }
+
+    public func isBuiltIn(name: String) -> Bool {
+        let defaults = ["Google", "DuckDuckGo", "Ducky Search"]
+        return defaults.contains(name)
     }
 
     /// Updates an existing engine by replacing it with new values.
     public func updateEngine(
         originalName: String, name: String, url: String, trigger: String, icon: String? = nil
     ) {
-        // Protect built-ins: don't rename Ducky Search
-        let safeName = (originalName == "Ducky Search") ? originalName : name
+        // Protect built-ins: don't rename or edit them via the normal UI
+        if isBuiltIn(name: originalName) { return }
+
         let template = url.replacingOccurrences(of: "%s", with: "%@")
         guard let idx = engines.firstIndex(where: { $0.name == originalName }) else { return }
         engines[idx] = Engine(
-            name: safeName,
+            name: name,
             triggers: [trigger],
             urlTemplate: template,
-            icon: icon ?? engines[idx].icon
+            icon: icon ?? engines[idx].icon,
+            isEnabled: engines[idx].isEnabled
         )
         saveEngines()
     }
@@ -161,8 +194,10 @@ public class SearchEngine {
             if token.starts(with: "!") {
                 let bangTrigger = String(token.dropFirst()).lowercased()
 
-                // Check All Engines
-                if let engine = engines.first(where: { $0.triggers.contains(bangTrigger) }) {
+                // Check All Enabled Engines
+                if let engine = engines.first(where: {
+                    $0.isEnabled && $0.triggers.contains(bangTrigger)
+                }) {
                     var newTokens = tokens
                     newTokens.remove(at: index)
                     let cleanedQuery = newTokens.joined(separator: " ")

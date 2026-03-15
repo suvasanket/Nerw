@@ -2,16 +2,13 @@ import Cocoa
 import NerwBuiltin
 import NerwSearchBackend
 
-class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSource,
-    NSTableViewDelegate
-{
+class SearchEnginesSettingsViewController: NSViewController {
 
     private let scrollView = NSScrollView()
     private let stackView = FlippedStackView()
     private var engines: [Engine] = []
 
-    private var enginesTableView: NSTableView!
-    private var tableHeightConstraint: NSLayoutConstraint!
+    private var enginesListStack: NSStackView!
 
     override func loadView() {
         self.view = NSView()
@@ -25,10 +22,6 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     }
 
     private func setupUI() {
-        // ... (rest of setupUI stays same until bangs section)
-        // Note: I'm keeping the rest of the code for context in the replace call
-        // but focusing on the table section.
-
         // Scroll View Setup
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
@@ -49,7 +42,6 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         stackView.orientation = .vertical
         stackView.alignment = .centerX
         stackView.spacing = 16
-        // Increased bottom padding to make space for table view editing cleanly
         stackView.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 40, right: 20)
 
         NSLayoutConstraint.activate([
@@ -58,14 +50,19 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
             stackView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
         ])
 
-        // --- 1. Default Search Engine ---
+        // --- 1. General Section (Default Engine + Smart Search) ---
+        let generalSectionStack = NSStackView()
+        generalSectionStack.orientation = .vertical
+        generalSectionStack.spacing = 12
+        generalSectionStack.alignment = .leading
+
+        // Default Engine Row
         let defaultEngineRow = NSStackView()
         defaultEngineRow.orientation = .horizontal
         defaultEngineRow.spacing = 10
         defaultEngineRow.alignment = .centerY
 
         let defaultEngineLabel = NSTextField(labelWithString: "Default Engine:")
-
         let enginesPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
         let defaultEngine = SearchEngine.shared.getDefaultEngine()
 
@@ -80,22 +77,13 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         defaultEngineRow.addArrangedSubview(enginesPopUp)
         defaultEngineRow.addArrangedSubview(NSView())  // Spacer
 
-        let defaultEngineSection = SettingsSection(
-            title: "Default Search Engine",
-            contentViews: [defaultEngineRow]
-        )
-        stackView.addArrangedSubview(defaultEngineSection)
-        defaultEngineSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
-
-        // --- 2. Smart Search (Threshold) ---
+        // Smart Search Row
         let thresholdStack = NSStackView()
         thresholdStack.orientation = .horizontal
         thresholdStack.spacing = 10
         thresholdStack.alignment = .centerY
 
         let thresholdLabel = NSTextField(labelWithString: "Suggestion Threshold:")
-
         let thresholdStepper = NSStepper()
         thresholdStepper.minValue = 1
         thresholdStepper.maxValue = 10
@@ -105,88 +93,46 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
 
         let thresholdValueLabel = NSTextField(
             labelWithString: "\(ConfigManager.shared.config.searchEngineSuggestThreshold)")
-        thresholdValueLabel.tag = 101  // Tag to find it later
+        thresholdValueLabel.tag = 101
 
         thresholdStack.addArrangedSubview(thresholdLabel)
         thresholdStack.addArrangedSubview(thresholdValueLabel)
         thresholdStack.addArrangedSubview(thresholdStepper)
         thresholdStack.addArrangedSubview(NSView())  // Spacer
 
-        let smartSearchSection = SettingsSection(
-            title: "Smart Search",
-            contentViews: [thresholdStack]
+        generalSectionStack.addArrangedSubview(defaultEngineRow)
+        generalSectionStack.addArrangedSubview(thresholdStack)
+
+        let generalSection = SettingsSection(
+            title: "General",
+            contentViews: [generalSectionStack]
         )
-        stackView.addArrangedSubview(smartSearchSection)
-        smartSearchSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+        stackView.addArrangedSubview(generalSection)
+        generalSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
         // --- 3. Custom Bangs List ---
+        enginesListStack = NSStackView()
+        enginesListStack.orientation = .vertical
+        enginesListStack.spacing = 0
+        enginesListStack.alignment = .leading
+        enginesListStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let addBtn = NSButton(
+            title: "Add New Engine", target: self, action: #selector(addBangClicked))
+        addBtn.bezelStyle = .rounded
+        addBtn.controlSize = .small
+        addBtn.font = .systemFont(ofSize: 11)
+        addBtn.translatesAutoresizingMaskIntoConstraints = false
+
         let bangsStack = NSStackView()
         bangsStack.orientation = .vertical
-        bangsStack.spacing = 8
+        bangsStack.spacing = 12
         bangsStack.alignment = .leading
+        bangsStack.addArrangedSubview(enginesListStack)
+        bangsStack.addArrangedSubview(addBtn)
 
-        // Add TableView
-        let tableScroll = NSScrollView()
-        tableScroll.hasVerticalScroller = false
-        tableScroll.hasHorizontalScroller = false
-        tableScroll.verticalScrollElasticity = .none
-        tableScroll.horizontalScrollElasticity = .none
-        tableScroll.drawsBackground = false  // Transparency
-        tableScroll.borderType = .noBorder  // Remove border for cleaner look
-        tableScroll.translatesAutoresizingMaskIntoConstraints = false
-
-        tableHeightConstraint = tableScroll.heightAnchor.constraint(equalToConstant: 180)
-        tableHeightConstraint.isActive = true
-
-        enginesTableView = NSTableView()
-        enginesTableView.backgroundColor = .clear  // Transparency
-        enginesTableView.dataSource = self
-        enginesTableView.delegate = self
-        enginesTableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
-        enginesTableView.allowsMultipleSelection = false
-        enginesTableView.headerView = NSTableHeaderView()
-
-        let col1 = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("Name"))
-        col1.title = "Name"
-        col1.width = 100
-        enginesTableView.addTableColumn(col1)
-
-        let col2 = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("Trigger"))
-        col2.title = "Trigger"
-        col2.width = 60
-        enginesTableView.addTableColumn(col2)
-
-        let col3 = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("URL"))
-        col3.title = "URL Template"
-        col3.width = 200
-        enginesTableView.addTableColumn(col3)
-
-        tableScroll.documentView = enginesTableView
-        enginesTableView.doubleAction = #selector(editBangClicked)
-        enginesTableView.target = self
-        bangsStack.addArrangedSubview(tableScroll)
-        tableScroll.widthAnchor.constraint(equalTo: bangsStack.widthAnchor).isActive = true
-
-        // Add/Remove buttons
-        let controlsStack = NSStackView()
-        controlsStack.orientation = .horizontal
-        controlsStack.spacing = 8
-
-        let addBtn = NSButton(title: "Add Engine", target: self, action: #selector(addBangClicked))
-        addBtn.bezelStyle = .rounded
-        let editBtn = NSButton(title: "Edit", target: self, action: #selector(editBangClicked))
-        editBtn.bezelStyle = .rounded
-        let removeBtn = NSButton(
-            title: "Remove", target: self, action: #selector(removeBangClicked))
-        removeBtn.bezelStyle = .rounded
-
-        controlsStack.addArrangedSubview(addBtn)
-        controlsStack.addArrangedSubview(editBtn)
-        controlsStack.addArrangedSubview(removeBtn)
-        controlsStack.addArrangedSubview(NSView())  // spacer
-
-        bangsStack.addArrangedSubview(controlsStack)
+        enginesListStack.widthAnchor.constraint(equalTo: bangsStack.widthAnchor).isActive = true
 
         let customBangsSection = SettingsSection(
             title: "Search Engines & Bangs",
@@ -199,25 +145,126 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
     }
 
     private func reloadData() {
-        engines = SearchEngine.shared.engines
-        enginesTableView.reloadData()
-        updateTableHeight()
+        engines = SearchEngine.shared.engines.sorted { a, b in
+            let aIsBuiltIn = SearchEngine.shared.isBuiltIn(name: a.name)
+            let bIsBuiltIn = SearchEngine.shared.isBuiltIn(name: b.name)
+            if aIsBuiltIn && !bIsBuiltIn { return true }
+            if !aIsBuiltIn && bIsBuiltIn { return false }
+            return a.name < b.name
+        }
+
+        // Clear current list
+        for subview in enginesListStack.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
+
+        // Rebuild list
+        for engine in engines {
+            let row = createEngineRow(for: engine)
+            enginesListStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: enginesListStack.widthAnchor).isActive = true
+        }
     }
 
-    private func updateTableHeight() {
-        enginesTableView.layout()
-        let headerHeight = enginesTableView.headerView?.frame.height ?? 0
-        let rowHeight = enginesTableView.rowHeight
-        let spacing = enginesTableView.intercellSpacing.height
-        let count = CGFloat(engines.count)
+    private func createEngineRow(for engine: Engine) -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 12
+        row.alignment = .centerY
+        row.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)  // Tighter vertical padding
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.heightAnchor.constraint(equalToConstant: 36).isActive = true  // Tighter row height
 
-        // Height = header + (rows + spacing)
-        let totalHeight = headerHeight + (rowHeight + spacing) * count
-        tableHeightConstraint.constant = max(totalHeight, 40)
+        // 1. Icon
+        let iconView = NSImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 20).isActive = true
+
+        let domain =
+            URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
+            ?? engine.name
+
+        var iconImage: NSImage?
+        if let key = engine.icon {
+            iconImage = IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+        }
+        if iconImage == nil {
+            iconImage =
+                IconManager.shared.icon(for: domain)
+                ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        }
+        iconView.image = iconImage
+        row.addArrangedSubview(iconView)
+
+        // 2. Name
+        let nameLabel = NSTextField(labelWithString: engine.name)
+        nameLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        nameLabel.textColor = engine.isEnabled ? .labelColor : .secondaryLabelColor
+        row.addArrangedSubview(nameLabel)
+
+        // 3. Triggers (Bangs)
+        let triggers = engine.triggers.map { "!\($0)" }.joined(separator: " ")
+        let triggerLabel = NSTextField(labelWithString: triggers)
+        triggerLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        triggerLabel.textColor = .secondaryLabelColor
+        row.addArrangedSubview(triggerLabel)
+
+        // Spacer to push buttons to the right
+        row.addArrangedSubview(NSView())
+
+        if SearchEngine.shared.isBuiltIn(name: engine.name) {
+            // Built-in: Toggle only
+            let toggle = NSSwitch()
+            toggle.controlSize = .mini
+            toggle.state = engine.isEnabled ? .on : .off
+            toggle.target = self
+            toggle.action = #selector(toggleEngineClicked(_:))
+            toggle.identifier = NSUserInterfaceItemIdentifier(engine.name)
+            row.addArrangedSubview(toggle)
+        } else {
+            // Custom: Edit & Delete
+            // 4. Edit Button
+            let editBtn = NSButton(
+                image: NSImage(systemSymbolName: "pencil", accessibilityDescription: "Edit")!,
+                target: self, action: #selector(editEngineRowClicked(_:)))
+            editBtn.isBordered = false
+            editBtn.bezelStyle = .recessed
+            editBtn.controlSize = .small
+            editBtn.identifier = NSUserInterfaceItemIdentifier(engine.name)
+            row.addArrangedSubview(editBtn)
+
+            // 5. Delete Button
+            let deleteBtn = NSButton(
+                image: NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")!,
+                target: self, action: #selector(deleteEngineRowClicked(_:)))
+            deleteBtn.isBordered = false
+            deleteBtn.bezelStyle = .recessed
+            deleteBtn.controlSize = .small
+            deleteBtn.contentTintColor = .systemRed
+            deleteBtn.identifier = NSUserInterfaceItemIdentifier(engine.name)
+            row.addArrangedSubview(deleteBtn)
+        }
+
+        // Separator line at bottom
+        let line = NSBox()
+        line.boxType = .separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSStackView()
+        container.orientation = .vertical
+        container.spacing = 0
+        container.addArrangedSubview(row)
+        container.addArrangedSubview(line)
+
+        // Ensure container (and thus row) spans full width
+        container.translatesAutoresizingMaskIntoConstraints = false
+        row.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+        line.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+
+        return container
     }
 
-    /// Shows a sheet for adding or editing an engine.
-    /// When `editing` is non-nil, the form is pre-filled and the save action calls `updateEngine`.
     private func showEngineSheet(editing engine: Engine?) {
         guard let window = self.view.window else { return }
 
@@ -226,24 +273,20 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         alert.messageText = isEdit ? "Edit Engine" : "Add Custom Engine / Bang"
         alert.informativeText = "Use %@ in the URL as the search query placeholder."
 
-        // ── Outer horizontal stack: [icon drop zone] | [fields] ──
         let outer = NSStackView(frame: NSRect(x: 0, y: 0, width: 480, height: 130))
         outer.orientation = .horizontal
         outer.spacing = 14
         outer.alignment = .top
 
-        // Icon drop zone (72×72)
         let dropView = IconDropView(frame: NSRect(x: 0, y: 0, width: 72, height: 72))
         dropView.translatesAutoresizingMaskIntoConstraints = false
         dropView.widthAnchor.constraint(equalToConstant: 72).isActive = true
         dropView.heightAnchor.constraint(equalToConstant: 72).isActive = true
 
-        // Pre-fill drop zone with existing icon (display only — does NOT mark icon as changed)
         let existingIconKey: String? = engine?.icon
         if let key = existingIconKey {
             let existing =
-                IconManager.shared.icon(forKey: key)
-                ?? NSImage(named: NSImage.Name(key))
+                IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
                 ?? IconManager.shared.icon(for: key)
             dropView.image = existing
         } else if let engine = engine {
@@ -253,13 +296,11 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
             dropView.image = IconManager.shared.icon(for: domain)
         }
 
-        // Only set when user actively drops/picks a NEW image
         var userPickedImage: NSImage?
         dropView.onImageChanged = { img in
             userPickedImage = img
         }
 
-        // Fields stack (vertical)
         let fields = NSStackView()
         fields.orientation = .vertical
         fields.spacing = 8
@@ -282,12 +323,9 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         outer.addArrangedSubview(dropView)
         outer.addArrangedSubview(fields)
 
-        // Make fields fill remaining width
         fields.translatesAutoresizingMaskIntoConstraints = false
-        fields.widthAnchor.constraint(
-            equalTo: outer.widthAnchor, constant: -(72 + 14)
-        ).isActive = true
-
+        fields.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -(72 + 14)).isActive =
+            true
         for field in [nameField, triggerField, urlField] {
             field.widthAnchor.constraint(equalTo: fields.widthAnchor).isActive = true
         }
@@ -303,7 +341,6 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
             let url = urlField.stringValue.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty, !trigger.isEmpty, !url.isEmpty else { return }
 
-            // Icon key: only re-save if user actually picked a NEW image
             var iconKey: String? = existingIconKey
             if let img = userPickedImage {
                 let rawKey = "custom_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
@@ -312,12 +349,8 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
 
             if let original = engine {
                 SearchEngine.shared.updateEngine(
-                    originalName: original.name,
-                    name: name,
-                    url: url,
-                    trigger: trigger,
-                    icon: iconKey
-                )
+                    originalName: original.name, name: name, url: url, trigger: trigger,
+                    icon: iconKey)
             } else {
                 SearchEngine.shared.addEngine(name: name, url: url, trigger: trigger, icon: iconKey)
             }
@@ -348,77 +381,34 @@ class SearchEnginesSettingsViewController: NSViewController, NSTableViewDataSour
         showEngineSheet(editing: nil)
     }
 
-    @objc private func editBangClicked() {
-        let row = enginesTableView.selectedRow
-        guard row >= 0 && row < engines.count else { return }
-        showEngineSheet(editing: engines[row])
+    @objc private func toggleEngineClicked(_ sender: NSSwitch) {
+        guard let name = sender.identifier?.rawValue else { return }
+        SearchEngine.shared.toggleEngine(name: name, enabled: sender.state == .on)
+        self.reloadData()
     }
 
-    @objc private func removeBangClicked() {
-        let row = enginesTableView.selectedRow
-        guard row >= 0 && row < engines.count else { return }
-        let engine = engines[row]
+    @objc private func editEngineRowClicked(_ sender: NSButton) {
+        guard let name = sender.identifier?.rawValue else { return }
+        if let engine = engines.first(where: { $0.name == name }) {
+            showEngineSheet(editing: engine)
+        }
+    }
+
+    @objc private func deleteEngineRowClicked(_ sender: NSButton) {
+        guard let name = sender.identifier?.rawValue else { return }
 
         guard let window = self.view.window else { return }
-
         let alert = NSAlert()
         alert.messageText = "Remove Engine"
-        alert.informativeText = "Are you sure you want to remove \(engine.name)?"
+        alert.informativeText = "Are you sure you want to remove \(name)?"
         alert.addButton(withTitle: "Remove")
         alert.addButton(withTitle: "Cancel")
 
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
-                SearchEngine.shared.removeEngine(name: engine.name)
+                SearchEngine.shared.removeEngine(name: name)
                 self.reloadData()
             }
-        }
-    }
-
-    // MARK: - NSTableViewDataSource & Delegate
-
-    func numberOfRows(in tableView: NSTableView) -> Int {
-        return engines.count
-    }
-
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
-        -> NSView?
-    {
-        let engine = engines[row]
-        let identifier = tableColumn?.identifier.rawValue ?? ""
-
-        var text = ""
-        switch identifier {
-        case "Name":
-            text = engine.name
-        case "Trigger":
-            text = engine.triggers.joined(separator: ", ")
-        case "URL":
-            text = engine.urlTemplate
-        default:
-            break
-        }
-
-        if let cell = tableView.makeView(
-            withIdentifier: NSUserInterfaceItemIdentifier(identifier), owner: nil)
-            as? NSTableCellView
-        {
-            cell.textField?.stringValue = text
-            return cell
-        } else {
-            let cell = NSTableCellView()
-            let textField = NSTextField(labelWithString: text)
-            textField.translatesAutoresizingMaskIntoConstraints = false
-            textField.lineBreakMode = .byTruncatingTail
-            cell.addSubview(textField)
-            cell.textField = textField
-            cell.identifier = NSUserInterfaceItemIdentifier(identifier)
-            NSLayoutConstraint.activate([
-                textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-                textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
-            ])
-            return cell
         }
     }
 }
