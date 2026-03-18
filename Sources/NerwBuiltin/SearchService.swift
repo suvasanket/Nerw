@@ -190,7 +190,7 @@ public class SearchService {
                         cleanedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
                         ?? ""
 
-                    if engineName == "Ducky Search" {
+                    if engineName == "Smart Search" {
                         SmartSearch.shared.performSearch(query: cleanedQuery)
                     } else {
                         let urlString = String(format: urlTemplate, encodedQuery)
@@ -288,7 +288,7 @@ public class SearchService {
                                 currentQuery.addingPercentEncoding(
                                     withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-                            if engine.name == "Ducky Search" {
+                            if engine.name == "Smart Search" {
                                 SmartSearch.shared.performSearch(query: currentQuery)
                             } else {
                                 let urlString = String(format: engine.urlTemplate, encodedQuery)
@@ -527,7 +527,7 @@ public class SearchService {
                     query.addingPercentEncoding(
                         withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-                if engine.name == "Ducky Search" {
+                if engine.name == "Smart Search" {
                     SmartSearch.shared.performSearch(query: query)
                 } else {
                     let urlString = String(format: engine.urlTemplate, encodedQuery)
@@ -545,7 +545,7 @@ public class SearchService {
             return .image(image)
         }
 
-        // 2. Built-in asset name (e.g. "ducky")
+        // 2. Built-in asset name (e.g. "smart")
         if let key = engine.icon, let image = NSImage(named: NSImage.Name(key)) {
             return .image(image)
         }

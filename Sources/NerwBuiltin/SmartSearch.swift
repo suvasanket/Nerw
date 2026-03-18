@@ -38,7 +38,6 @@ public class SmartSearch {
         "\\b(should i|can i|is it worth|is it safe|is it possible)\\b",
         "\\b(error|fix|solve|debug|troubleshoot|issue|problem)\\b",
         "\\b(recipe|ingredients|instructions|steps)\\b",
-        "\\b(salary|cost|price|how much|pricing)\\b",
         "\\b(near me|in \\w+|around)\\b",
         "\\b(reddit|forum|discussion|opinions?)\\s*$",
         "\\b(2024|2025|latest|newest|recent|update)\\b",
@@ -52,6 +51,7 @@ public class SmartSearch {
         "\\b(download|install)\\s+\\w+$",
         "\\b(official\\s*(site|website|page|docs?))\\b",
         "\\b(docs?|documentation|api|reference)\\s+(for\\s+)?\\w+$",
+        "\\b(salary|cost|price|how much|pricing)\\b",
     ].compactMap { try? NSRegularExpression(pattern: $0, options: .caseInsensitive) }
 
     // Site-specific navigations

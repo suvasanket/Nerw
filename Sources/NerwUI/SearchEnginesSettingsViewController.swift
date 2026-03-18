@@ -111,36 +111,36 @@ class SearchEnginesSettingsViewController: NSViewController {
         generalSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
-        // --- 2. Ducky Search Settings ---
-        let duckyStack = NSStackView()
-        duckyStack.orientation = .horizontal
-        duckyStack.spacing = 10
-        duckyStack.alignment = .centerY
+        // --- 2. Smart Search Settings ---
+        let smartSearchStack = NSStackView()
+        smartSearchStack.orientation = .horizontal
+        smartSearchStack.spacing = 10
+        smartSearchStack.alignment = .centerY
 
-        let duckyLabel = NSTextField(labelWithString: "Direct Search Service:")
-        let duckyPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        duckyPopUp.addItems(withTitles: ["DuckDuckGo", "Google"])
+        let smartSearchLabel = NSTextField(labelWithString: "Direct Search Service:")
+        let smartSearchPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        smartSearchPopUp.addItems(withTitles: ["DuckDuckGo", "Google"])
 
         let currentProvider = ConfigManager.shared.config.directSearchProvider.lowercased()
         if currentProvider == "google" {
-            duckyPopUp.selectItem(withTitle: "Google")
+            smartSearchPopUp.selectItem(withTitle: "Google")
         } else {
-            duckyPopUp.selectItem(withTitle: "DuckDuckGo")
+            smartSearchPopUp.selectItem(withTitle: "DuckDuckGo")
         }
 
-        duckyPopUp.target = self
-        duckyPopUp.action = #selector(duckyProviderChanged(_:))
+        smartSearchPopUp.target = self
+        smartSearchPopUp.action = #selector(smartSearchProviderChanged(_:))
 
-        duckyStack.addArrangedSubview(duckyLabel)
-        duckyStack.addArrangedSubview(duckyPopUp)
-        duckyStack.addArrangedSubview(NSView())  // Spacer
+        smartSearchStack.addArrangedSubview(smartSearchLabel)
+        smartSearchStack.addArrangedSubview(smartSearchPopUp)
+        smartSearchStack.addArrangedSubview(NSView())  // Spacer
 
-        let duckySection = SettingsSection(
-            title: "Ducky Search",
-            contentViews: [duckyStack]
+        let smartSearchSection = SettingsSection(
+            title: "Smart Search",
+            contentViews: [smartSearchStack]
         )
-        stackView.addArrangedSubview(duckySection)
-        duckySection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+        stackView.addArrangedSubview(smartSearchSection)
+        smartSearchSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
         // --- 3. Custom Bangs List ---
@@ -401,7 +401,7 @@ class SearchEnginesSettingsViewController: NSViewController {
         }
     }
 
-    @objc private func duckyProviderChanged(_ sender: NSPopUpButton) {
+    @objc private func smartSearchProviderChanged(_ sender: NSPopUpButton) {
         let title = sender.titleOfSelectedItem?.lowercased() ?? "duckduckgo"
         ConfigManager.shared.config.directSearchProvider = title
         ConfigManager.shared.save()

@@ -61,8 +61,8 @@ public class SearchEngine {
                 name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
                 urlTemplate: "https://duckduckgo.com/?q=%@", icon: "se_duckduckgo"),
             Engine(
-                name: "Ducky Search", triggers: ["ducky", "dy"],
-                urlTemplate: "ducky://%@", icon: "se_ducky"),
+                name: "Smart Search", triggers: ["smart", "ss"],
+                urlTemplate: "smart://%@", icon: "se_smart"),
         ]
     }
 
@@ -77,26 +77,30 @@ public class SearchEngine {
             return
         }
 
-        // 1. Remove old defaults that are no longer in our built-in list
-        let unwantedDefaults = ["Feeling Lucky", "Bing", "YouTube", "GitHub"]
-        loaded.removeAll { engine in
-            unwantedDefaults.contains(engine.name)
+        // 1. Migration: Rename old "Ducky Search" to "Smart Search" if found
+        if let idx = loaded.firstIndex(where: { $0.name == "Ducky Search" }) {
+            let old = loaded[idx]
+            loaded[idx] = Engine(
+                name: "Smart Search",
+                triggers: ["smart", "ss"],
+                urlTemplate: "smart://%@",
+                icon: "se_smart",
+                isEnabled: old.isEnabled
+            )
         }
 
-        // 2. Ensure our core built-ins are always present and icons are updated
+        // 2. Ensure our core built-ins are always present and updated
         let defaults = getDefaults()
         for defaultEngine in defaults {
             if let existingIdx = loaded.firstIndex(where: { $0.name == defaultEngine.name }) {
-                // Update icon if it's one of the new built-in names (migration)
-                if loaded[existingIdx].icon != defaultEngine.icon {
-                    loaded[existingIdx] = Engine(
-                        name: defaultEngine.name,
-                        triggers: defaultEngine.triggers,
-                        urlTemplate: defaultEngine.urlTemplate,
-                        icon: defaultEngine.icon,
-                        isEnabled: loaded[existingIdx].isEnabled
-                    )
-                }
+                // Force update built-in triggers/template/icon to stay in sync with code
+                loaded[existingIdx] = Engine(
+                    name: defaultEngine.name,
+                    triggers: defaultEngine.triggers,
+                    urlTemplate: defaultEngine.urlTemplate,
+                    icon: defaultEngine.icon,
+                    isEnabled: loaded[existingIdx].isEnabled
+                )
             } else {
                 loaded.append(defaultEngine)
             }
@@ -159,7 +163,7 @@ public class SearchEngine {
     }
 
     public func isBuiltIn(name: String) -> Bool {
-        let defaults = ["Google", "DuckDuckGo", "Ducky Search"]
+        let defaults = ["Google", "DuckDuckGo", "Smart Search"]
         return defaults.contains(name)
     }
 
