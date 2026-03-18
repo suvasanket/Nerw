@@ -246,4 +246,9 @@ class KeybindRecorder: NSView {
     private func stopBlinking() {
         layer?.removeAnimation(forKey: "blink")
     }
+
+    public func setKeybind(_ keybind: String) {
+        self.currentKeybind = keybind
+        updateDisplay()
+    }
 }

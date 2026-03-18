@@ -9,6 +9,11 @@ class SearchEnginesSettingsViewController: NSViewController {
     private var engines: [Engine] = []
 
     private var enginesListStack: NSStackView!
+    private var enginesPopUp: NSPopUpButton!
+    private var thresholdStepper: NSStepper!
+    private var thresholdValueLabel: NSTextField!
+    private var directSearchPopUp: NSPopUpButton!
+    private var resultSearchPopUp: NSPopUpButton!
 
     override func loadView() {
         self.view = NSView()
@@ -19,6 +24,10 @@ class SearchEnginesSettingsViewController: NSViewController {
         super.viewDidLoad()
         setupUI()
         reloadData()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(refreshUI), name: Notification.Name("NerwConfigDidUpdate"),
+            object: nil)
     }
 
     private func setupUI() {
@@ -63,13 +72,10 @@ class SearchEnginesSettingsViewController: NSViewController {
         defaultEngineRow.alignment = .centerY
 
         let defaultEngineLabel = NSTextField(labelWithString: "Default Engine:")
-        let enginesPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        let defaultEngine = SearchEngine.shared.getDefaultEngine()
+        enginesPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
 
-        for engine in SearchEngine.shared.engines {
-            enginesPopUp.addItem(withTitle: engine.name)
-        }
-        enginesPopUp.selectItem(withTitle: defaultEngine.name)
+        refreshDefaultEnginePopUp()
+
         enginesPopUp.target = self
         enginesPopUp.action = #selector(defaultEngineChanged(_:))
 
@@ -84,14 +90,14 @@ class SearchEnginesSettingsViewController: NSViewController {
         thresholdStack.alignment = .centerY
 
         let thresholdLabel = NSTextField(labelWithString: "Suggestion Threshold:")
-        let thresholdStepper = NSStepper()
+        thresholdStepper = NSStepper()
         thresholdStepper.minValue = 1
         thresholdStepper.maxValue = 10
         thresholdStepper.intValue = Int32(ConfigManager.shared.config.searchEngineSuggestThreshold)
         thresholdStepper.target = self
         thresholdStepper.action = #selector(thresholdChanged(_:))
 
-        let thresholdValueLabel = NSTextField(
+        thresholdValueLabel = NSTextField(
             labelWithString: "\(ConfigManager.shared.config.searchEngineSuggestThreshold)")
         thresholdValueLabel.tag = 101
 
@@ -113,27 +119,54 @@ class SearchEnginesSettingsViewController: NSViewController {
 
         // --- 2. Smart Search Settings ---
         let smartSearchStack = NSStackView()
-        smartSearchStack.orientation = .horizontal
+        smartSearchStack.orientation = .vertical
         smartSearchStack.spacing = 10
-        smartSearchStack.alignment = .centerY
+        smartSearchStack.alignment = .leading
 
-        let smartSearchLabel = NSTextField(labelWithString: "Direct Search Service:")
-        let smartSearchPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        smartSearchPopUp.addItems(withTitles: ["DuckDuckGo", "Google"])
+        // Direct Provider Row
+        let directRow = NSStackView()
+        directRow.orientation = .horizontal
+        directRow.spacing = 10
+        directRow.alignment = .centerY
 
-        let currentProvider = ConfigManager.shared.config.directSearchProvider.lowercased()
-        if currentProvider == "google" {
-            smartSearchPopUp.selectItem(withTitle: "Google")
+        let directLabel = NSTextField(labelWithString: "Direct Search Provider:")
+        directSearchPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        directSearchPopUp.addItems(withTitles: ["DuckDuckGo", "Google"])
+
+        let currentDirect = ConfigManager.shared.config.directSearchProvider.lowercased()
+        if currentDirect == "google" {
+            directSearchPopUp.selectItem(withTitle: "Google")
         } else {
-            smartSearchPopUp.selectItem(withTitle: "DuckDuckGo")
+            directSearchPopUp.selectItem(withTitle: "DuckDuckGo")
         }
 
-        smartSearchPopUp.target = self
-        smartSearchPopUp.action = #selector(smartSearchProviderChanged(_:))
+        directSearchPopUp.target = self
+        directSearchPopUp.action = #selector(directSearchProviderChanged(_:))
 
-        smartSearchStack.addArrangedSubview(smartSearchLabel)
-        smartSearchStack.addArrangedSubview(smartSearchPopUp)
-        smartSearchStack.addArrangedSubview(NSView())  // Spacer
+        directRow.addArrangedSubview(directLabel)
+        directRow.addArrangedSubview(directSearchPopUp)
+        directRow.addArrangedSubview(NSView())
+
+        // Results Provider Row
+        let resultRow = NSStackView()
+        resultRow.orientation = .horizontal
+        resultRow.spacing = 10
+        resultRow.alignment = .centerY
+
+        let resultLabel = NSTextField(labelWithString: "Research Provider:")
+        resultSearchPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+
+        refreshSmartSearchPopUps()
+
+        resultSearchPopUp.target = self
+        resultSearchPopUp.action = #selector(resultSearchProviderChanged(_:))
+
+        resultRow.addArrangedSubview(resultLabel)
+        resultRow.addArrangedSubview(resultSearchPopUp)
+        resultRow.addArrangedSubview(NSView())
+
+        smartSearchStack.addArrangedSubview(directRow)
+        smartSearchStack.addArrangedSubview(resultRow)
 
         let smartSearchSection = SettingsSection(
             title: "Smart Search",
@@ -185,6 +218,9 @@ class SearchEnginesSettingsViewController: NSViewController {
             return a.name < b.name
         }
 
+        refreshDefaultEnginePopUp()
+        refreshSmartSearchPopUps()
+
         // Clear current list
         for subview in enginesListStack.arrangedSubviews {
             subview.removeFromSuperview()
@@ -196,6 +232,55 @@ class SearchEnginesSettingsViewController: NSViewController {
             enginesListStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: enginesListStack.widthAnchor).isActive = true
         }
+    }
+
+    private func refreshDefaultEnginePopUp() {
+        guard let popUp = enginesPopUp else { return }
+        popUp.removeAllItems()
+        for engine in SearchEngine.shared.engines {
+            popUp.addItem(withTitle: engine.name)
+        }
+        let defaultEngine = SearchEngine.shared.getDefaultEngine()
+        popUp.selectItem(withTitle: defaultEngine.name)
+    }
+
+    private func refreshSmartSearchPopUps() {
+        guard let resultPopUp = resultSearchPopUp, let directPopUp = directSearchPopUp else {
+            return
+        }
+
+        // Result Provider
+        let currentResultProvider = ConfigManager.shared.config.resultSearchProvider
+        resultPopUp.removeAllItems()
+        let allEngines = SearchEngine.shared.engines
+        for engine in allEngines {
+            resultPopUp.addItem(withTitle: engine.name)
+        }
+
+        if let engine = allEngines.first(where: { $0.name == currentResultProvider }) {
+            resultPopUp.selectItem(withTitle: engine.name)
+        } else if let engine = allEngines.first(where: {
+            $0.name.lowercased() == currentResultProvider.lowercased()
+        }) {
+            resultPopUp.selectItem(withTitle: engine.name)
+        }
+
+        // Direct Provider
+        let currentDirect = ConfigManager.shared.config.directSearchProvider.lowercased()
+        if currentDirect == "google" {
+            directPopUp.selectItem(withTitle: "Google")
+        } else {
+            directPopUp.selectItem(withTitle: "DuckDuckGo")
+        }
+    }
+
+    @objc private func refreshUI() {
+        let config = ConfigManager.shared.config
+        thresholdStepper.intValue = Int32(config.searchEngineSuggestThreshold)
+        thresholdValueLabel.stringValue = "\(config.searchEngineSuggestThreshold)"
+        refreshDefaultEnginePopUp()
+        refreshSmartSearchPopUps()
+        reloadData()
     }
 
     private func createEngineRow(for engine: Engine) -> NSView {
@@ -401,10 +486,17 @@ class SearchEnginesSettingsViewController: NSViewController {
         }
     }
 
-    @objc private func smartSearchProviderChanged(_ sender: NSPopUpButton) {
+    @objc private func directSearchProviderChanged(_ sender: NSPopUpButton) {
         let title = sender.titleOfSelectedItem?.lowercased() ?? "duckduckgo"
         ConfigManager.shared.config.directSearchProvider = title
         ConfigManager.shared.save()
+    }
+
+    @objc private func resultSearchProviderChanged(_ sender: NSPopUpButton) {
+        if let title = sender.titleOfSelectedItem {
+            ConfigManager.shared.config.resultSearchProvider = title
+            ConfigManager.shared.save()
+        }
     }
 
     @objc private func thresholdChanged(_ sender: NSStepper) {

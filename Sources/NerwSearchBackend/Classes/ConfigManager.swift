@@ -13,12 +13,13 @@ public struct UIConfig: Codable {
 }
 
 public struct Config: Codable {
-    public var searchEngineSuggestThreshold: Int = 3
-    public var defaultSearchEngine: [String] = ["google", "gl"]
+    public var searchEngineSuggestThreshold: Int = 2
+    public var defaultSearchEngine: [String] = ["smart", "ss"]
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false
     public var directSearchProvider: String = "duckduckgo"
+    public var resultSearchProvider: String = "google"
     public var uiConfig: UIConfig?
 
     public init() {}
@@ -71,6 +72,12 @@ public class ConfigManager {
     public func reload() {
         load()
         NotificationCenter.default.post(name: Notification.Name("NerwConfigDidUpdate"), object: nil)
+    }
+
+    public func reset() {
+        self.config = Config()
+        save()
+        reload()
     }
 
     private func load() {

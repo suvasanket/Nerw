@@ -120,13 +120,17 @@ public class SmartSearch {
 
     private func getDirectURL(for query: String) -> String {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let provider =
-            ConfigManager.shared.config.directSearchProvider.lowercased().trimmingCharacters(
-                in: CharacterSet.whitespaces)
+        let providerName = ConfigManager.shared.config.directSearchProvider
 
-        if provider == "google" {
+        if providerName.lowercased() == "google" {
             // Google's "I'm Feeling Lucky" URL
             return "https://www.google.com/search?btnI=1&q=\(encoded)"
+        } else if providerName == "Smart Search" {
+            // Avoid recursion: fallback to DDG Lite for Smart Search itself if somehow selected
+            return "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)"
+        } else if let engine = SearchEngine.shared.engines.first(where: { $0.name == providerName })
+        {
+            return String(format: engine.urlTemplate, encoded)
         } else {
             // DuckDuckGo Lite with \ prefix for direct redirection
             return "https://lite.duckduckgo.com/lite/?q=%5C\(encoded)"
@@ -200,11 +204,18 @@ public class SmartSearch {
 
     private func getResultsURL(for query: String) -> String {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let provider =
-            ConfigManager.shared.config.directSearchProvider.lowercased().trimmingCharacters(
-                in: CharacterSet.whitespaces)
+        let providerName = ConfigManager.shared.config.resultSearchProvider
 
-        if provider == "google" {
+        if let engine = SearchEngine.shared.engines.first(where: { $0.name == providerName }) {
+            // If it's Smart Search itself, we should probably fallback to something else to avoid recursion
+            if engine.name == "Smart Search" {
+                return "https://www.google.com/search?q=\(encoded)"
+            }
+            return String(format: engine.urlTemplate, encoded)
+        }
+
+        // Fallbacks for legacy "google" or "duckduckgo" lowercase strings in config
+        if providerName.lowercased() == "google" {
             return "https://www.google.com/search?q=\(encoded)"
         } else {
             return "https://duckduckgo.com/?q=\(encoded)"
