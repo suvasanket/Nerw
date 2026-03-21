@@ -77,19 +77,7 @@ public class SearchEngine {
             return
         }
 
-        // 1. Migration: Rename old "Ducky Search" to "Smart Search" if found
-        if let idx = loaded.firstIndex(where: { $0.name == "Ducky Search" }) {
-            let old = loaded[idx]
-            loaded[idx] = Engine(
-                name: "Smart Search",
-                triggers: ["smart", "ss"],
-                urlTemplate: "smart://%@",
-                icon: "se_smart",
-                isEnabled: old.isEnabled
-            )
-        }
-
-        // 2. Ensure our core built-ins are always present and updated
+        // 1. Ensure our core built-ins are always present and updated
         let defaults = getDefaults()
         for defaultEngine in defaults {
             if let existingIdx = loaded.firstIndex(where: { $0.name == defaultEngine.name }) {

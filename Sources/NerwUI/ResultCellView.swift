@@ -266,9 +266,6 @@ class ResultCellView: NSTableCellView {
             subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
             subtitleLabel.textColor = .secondaryLabelColor
 
-            // Clean up old custom icon logic
-            iconView.subviews.forEach { $0.removeFromSuperview() }
-
             // Apply Peek Overrides
             titleLabel.stringValue = peek.title
             subtitleLabel.stringValue = peek.text
@@ -315,8 +312,6 @@ class ResultCellView: NSTableCellView {
             iconHeightConstraint.constant = metrics.Icon.size
 
             subtitleLabel.lineBreakMode = .byTruncatingTail
-
-            iconView.subviews.forEach { $0.removeFromSuperview() }
         }
 
         updateHint(
@@ -382,7 +377,9 @@ class FlatButton: NSButton {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        trackingAreas.forEach { removeTrackingArea($0) }
+        for trackingArea in trackingAreas {
+            removeTrackingArea(trackingArea)
+        }
         let trackingArea = NSTrackingArea(
             rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self,
             userInfo: nil)

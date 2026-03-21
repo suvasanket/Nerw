@@ -79,7 +79,7 @@ public class FrecencyManager {
 
     // MARK: - Public API
 
-    /// Record usage of an item (legacy, query-agnostic)
+    /// Record usage of an item (Global Frecency)
     public func recordUsage(id: String) {
         queue.async(flags: .barrier) {
             var data =
@@ -112,7 +112,7 @@ public class FrecencyManager {
         }
     }
 
-    /// Calculate score based on frequency and recency decay (legacy).
+    /// Calculate score based on frequency and recency decay (Global Frecency).
     public func score(for id: String) -> Double {
         return queue.sync {
             guard let data = scores[id] else { return 0.0 }
