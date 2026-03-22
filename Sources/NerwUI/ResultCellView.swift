@@ -80,7 +80,7 @@ class ResultCellView: NSTableCellView {
         // Tab Badge
         tabBadge.wantsLayer = true
         tabBadge.layer?.cornerRadius = 4
-        tabBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
+        tabBadge.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
         tabBadge.translatesAutoresizingMaskIntoConstraints = false
 
         tabBadgeLabel.font = .systemFont(ofSize: 10, weight: .semibold)
@@ -166,20 +166,20 @@ class ResultCellView: NSTableCellView {
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
 
         // Background Logic
-        // Active (Moved): System Accent
+        // Active (Moved): System Accent with frosted glass translucency
         let useSystemSelection = config?.useSystemSelectionColor ?? false
         let activeBg: NSColor
 
         if useSystemSelection {
-            activeBg = NSColor.controlAccentColor.withAlphaComponent(0.9)
+            activeBg = NSColor.controlAccentColor.withAlphaComponent(0.65)
         } else {
             activeBg =
-                NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.85)
-                ?? NSColor.controlAccentColor.withAlphaComponent(0.85)
+                NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.60)
+                ?? NSColor.controlAccentColor.withAlphaComponent(0.60)
         }
 
-        // Passive (Default): Grey/White Alpha
-        let passiveBg = NSColor.white.withAlphaComponent(0.12)
+        // Passive (Default): Subtle frosted glass highlight
+        let passiveBg = NSColor.white.withAlphaComponent(0.08)
 
         let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
 
@@ -239,6 +239,15 @@ class ResultCellView: NSTableCellView {
             isSelected
             ? finalBgColor.cgColor
             : NSColor.clear.cgColor
+
+        // Add subtle border for selected cells (frosted glass edge)
+        if isSelected {
+            containerView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+            containerView.layer?.borderWidth = 0.5
+        } else {
+            containerView.layer?.borderColor = NSColor.clear.cgColor
+            containerView.layer?.borderWidth = 0
+        }
 
         // Configure Peek Mode
         if isSelected, let peek = action.peek {

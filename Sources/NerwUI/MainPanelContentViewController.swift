@@ -56,7 +56,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         struct Cell {
-            static let cornerRadius: CGFloat = 20
+            static let cornerRadius: CGFloat = 14
 
             struct Margin {
                 static let vertical: CGFloat = 3
@@ -176,27 +176,37 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func setupViews() {
-        // Background - NSVisualEffectView for blur
+        // Background - NSVisualEffectView for frosted glass (Glassmorphic)
         backgroundView = NSVisualEffectView()
-        backgroundView.material = .hudWindow
+        backgroundView.material = .fullScreenUI
         backgroundView.appearance = NSAppearance(named: .vibrantDark)
         backgroundView.blendingMode = .behindWindow
         backgroundView.state = .active
         backgroundView.wantsLayer = true
         backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
         backgroundView.layer?.masksToBounds = true
-        backgroundView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        backgroundView.layer?.borderWidth = 0.8
+        backgroundView.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        backgroundView.layer?.borderWidth = 1.0
 
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(backgroundView)
 
-        // Tint View - Pitch Black Overlay
+        // Tint View - Light overlay for frosted glass depth
         tintView = NSView()
         tintView.wantsLayer = true
-        tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.15).cgColor
         tintView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(tintView)
+
+        // Inner highlight edge - subtle white glow for liquid glass feel
+        let innerGlow = NSView()
+        innerGlow.wantsLayer = true
+        innerGlow.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius - 1
+        innerGlow.layer?.borderColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        innerGlow.layer?.borderWidth = 1.0
+        innerGlow.layer?.masksToBounds = true
+        innerGlow.translatesAutoresizingMaskIntoConstraints = false
+        backgroundView.addSubview(innerGlow)
 
         // Constraint Tint to Background
         NSLayoutConstraint.activate([
@@ -204,6 +214,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             tintView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             tintView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
             tintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
+
+            innerGlow.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 1),
+            innerGlow.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor, constant: 1),
+            innerGlow.trailingAnchor.constraint(
+                equalTo: backgroundView.trailingAnchor, constant: -1),
+            innerGlow.bottomAnchor.constraint(
+                equalTo: backgroundView.bottomAnchor, constant: -1),
         ])
 
         // Icon Container
