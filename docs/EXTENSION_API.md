@@ -1,16 +1,18 @@
 # Nerw Extension API Documentation
 
-Nerw is designed to be extensible using JavaScript. Extensions can add new commands, search capabilities, and integrations. This guide details how to create extensions and use the available APIs.
+Nerw extensions are written in **Swift** and run as compiled executables. By importing `NerwExtensionKit`, you get a clean, type-safe builder API to create search results and handle actions.
+
+You have full access to all macOS frameworks (EventKit, Contacts, URLSession, AppleScript, etc.).
 
 ## Extension Structure
 
-An extension is a folder inside `~/.nerw/extensions/` containing at least two files:
+An extension is a `.nerw` package (a renamed `.zip` file) containing:
 1.  `manifest.json`: Metadata about the extension.
-2.  `index.js`: The JavaScript logic.
+2.  `main.swift`: Your Swift source code.
+
+When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/extensions/` and compiles the `main.swift` file against the `NerwExtensionKit` SDK. **No app restart required.**
 
 ### 1. `manifest.json`
-
-This file defines your extension's identity and triggers.
 
 ```json
 {
@@ -24,230 +26,178 @@ This file defines your extension's identity and triggers.
 
 -   **id**: A unique identifier (reverse domain notation recommended).
 -   **name**: Display name of the extension.
--   **trigger**: The keyword that activates your extension (e.g., typing "example query" runs this extension).
+-   **trigger**: The keyword that activates your extension (e.g., typing "example query" runs this).
+-   **triggers**: (Optional) Array of additional trigger keywords.
 -   **icon**: SF Symbol name (e.g., "star", "gear", "cloud").
 
-### 2. `index.js`
+### 2. `main.swift`
 
-This file must implement a `main` function that takes the user's query and returns results.
+Your Swift script must import `NerwExtensionKit`, conform to the `NerwExtension` protocol, and call `Nerw.run()` at the end.
 
-```javascript
-function main(query) {
-    // 1. Return static results
-    return [
-        {
-            title: "Hello " + query,
-            subtitle: "Static result",
-            action: "copy"
-        }
-    ];
-}
-```
+```swift
+import Foundation
+import NerwExtensionKit
 
-## The `main` Function
-
-The `main(query)` function is the entry point.
--   **Argument**: `query` (String) - The text typed after the trigger.
--   **Return Value**:
-    -   An **Array** of Result objects.
-    -   A **Promise** that resolves to an Array of Result objects (for async operations).
-
-### Result Object Structure
-
-```javascript
-{
-    "title": "Main Title",
-    "subtitle": "Secondary text",
-    "icon": "star.fill", 
+struct MyExtension: NerwExtension {
     
-    // Explicit Action Type (Optional but recommended for complex actions)
-    // Values: "instant" (default), "arg", "hybrid", "form"
-    "type": "instant", 
+    // 1. Return search results based on the query
+    func query(input: QueryInput) -> [NerwResult] {
+        return [
+            NerwResult("Hello \(input.query)")
+                .subtitle("Click to search Google")
+                .icon(.system("magnifyingglass"))
+                .instant(action: "https://www.google.com/search?q=\(input.query)")
+        ]
+    }
 
-    // Action Handler
-    // Can be a URL (opens immediately) OR a Function Name (calls JS function)
-    "action": "handleAction", 
-
-    // For type: "arg"
-    "argNames": ["Query", "Optional 2nd Step"],
-
-    // For type: "hybrid"
-    "quickAction": {
-        "title": "Quick Action",
-        "action": "handleQuick",
-        "type": "instant"
-    },
-
-    // For type: "form"
-    "form": {
-        "fields": [
-            { "id": "u", "title": "User" },
-            { "id": "p", "title": "Pass", "secure": true }
-        ],
-        "submitLabel": "Log In"
-    },
-
-    // Expanded Preview (Peek)
-    "peek": {
-        "title": "Extended Title",
-        "text": "Multi-line description or definition",
-        "icon": "textformat.size",
-        "primaryActionName": "Open App",
-        "secondaryActionName": "Secondary Action"
+    // 2. Handle function-based actions (optional)
+    func perform(action: ActionInput) {
+        if action.function == "handleCustomClick" {
+            Nerw.open("https://github.com")
+        }
     }
 }
-```
 
-### JS Action Handlers
-
-Instead of a URL, you can provide the name of a function to call when the action is triggered.
-
-```javascript
-function main(query) {
-    return [{
-        title: "Search via JS",
-        type: "arg",
-        argNames: ["Query"],
-        action: "doSearch" // Calls doSearch(args)
-    }];
-}
-
-// Function receives an Array of strings (for args) or Dictionary (for forms)
-function doSearch(args) {
-    const query = args[0];
-    nerw.open("https://google.com/search?q=" + encodeURIComponent(query));
-}
-
-function handleForm(values) {
-    // values = { "u": "...", "p": "..." }
-    nerw.log("User: " + values["u"]);
-}
-```
-
-### Argument Wizard
-If `type` is `"arg"`, the user receives prompts defined in `argNames`. 
-When completed, your action function is called with an array of inputs: `[step1, step2]`.
-
-### Hybrid Actions
-If `type` is `"hybrid"`, pressing Enter executes `action`. Pressing Tab reveals the `quickAction`.
-The `quickAction` object structure matches a standard result object.
-
-### Modifiers
-Supported keys for `mods`: `cmd`, `ctrl`, `opt`.
-These can also point to function names or URLs.
-
----
-
-## Global API: `nerw`
-
-The `nerw` object is available globally in your JavaScript environment and provides access to system features.
-
-### HTTP Requests
-
-#### `nerw.fetch(url)`
-Fetches content from a URL.
-
--   **Returns**: A `Promise` that resolves to the response body (String).
-
-```javascript
-nerw.fetch("https://api.example.com/data")
-    .then(response => {
-        nerw.log("Got data: " + response);
-    });
-```
-
-### System Actions
-
-#### `nerw.open(url)`
-Opens a URL in the default browser or a file path in Finder.
-
-```javascript
-nerw.open("https://www.google.com");
-nerw.open("file:///Users/me/Documents");
-```
-
-#### `nerw.copyToClipboard(text)`
-Copies the specified text to the system clipboard.
-
-```javascript
-nerw.copyToClipboard("Copied text!");
-```
-
-#### `nerw.log(message)`
-Logs a message to the Nerw debug console or stdout.
-
-```javascript
-nerw.log("Debug message");
-```
-
-### Caching & Persistence
-
-Store data persistently across sessions using the key-value cache.
-
-#### `nerw.cache.set(key, value)`
-Saves a value. The value can be a String, Number, Array, or Object.
-
-```javascript
-nerw.cache.set("api_token", "12345");
-nerw.cache.set("recent_items", ["a", "b", "c"]);
-```
-
-#### `nerw.cache.get(key)`
-Retrieves a value. Returns `undefined` if the key does not exist.
-
-```javascript
-let token = nerw.cache.get("api_token");
-```
-
-#### `nerw.cache.remove(key)`
-Deletes a value from the cache.
-
-```javascript
-nerw.cache.remove("api_token");
+// 3. Start the extension
+Nerw.run(MyExtension())
 ```
 
 ---
 
-## Example: Async Fetch Extension
+## The `NerwResult` Builder API
 
-Here is a complete example of an extension that fetches JSON data from an API.
+`NerwResult` uses a fluent builder pattern to configure your search results.
 
-**manifest.json**
-```json
-{
-  "id": "com.nerw.todo",
-  "name": "ToDo Search",
-  "trigger": "todo",
-  "icon": "checkmark.circle"
+```swift
+NerwResult("Main Title")
+    .subtitle("Secondary Text")
+    .icon(.system("star.fill"))
+    // Action configurators (choose ONE):
+    // .instant(action: ...)
+    // .arg(...)
+    // .hybrid(...)
+    // .form(...)
+    // Optional extras:
+    // .peek(...)
+```
+
+### 1. Instant Action
+Executes immediately when the user presses Enter.
+```swift
+.instant(action: "https://google.com") // Opens URL
+// OR
+.instant(action: "handleAction")       // Calls your perform(action:) method
+```
+
+### 2. Argument Action
+Prompts the user to type additional query steps before executing.
+```swift
+.arg(names: ["Search Term"], action: "handleSearch")
+```
+
+### 3. Hybrid Action
+Provides two actions: `Enter` executes the primary action, `Tab` executes the quick action.
+```swift
+.hybrid(
+    action: "https://google.com",
+    quickAction: NerwResult("Quick Action")
+                    .subtitle("You pressed Tab!")
+                    .icon(.system("bolt.fill"))
+                    .instant(action: "handleQuickAction")
+)
+```
+
+### 4. Form Action
+Shows a multi-field input sheet.
+```swift
+.form(
+    fields: [
+        NerwField("username", title: "Username"),
+        NerwField("password", title: "Password", secure: true)
+    ],
+    submitLabel: "Log In",
+    action: "handleLogin"
+)
+```
+
+### 5. Peek (Expanded Preview)
+Adds an inline preview pane to the right of the result.
+```swift
+.peek(
+    title: "Detailed View", 
+    text: "Here is a much longer description...",
+    icon: .system("info.circle")
+)
+```
+
+---
+
+## Host Commands (`Nerw.` API)
+
+Inside your `perform(action:)` method, you can instruct the Nerw host application to do things on your behalf using the static `Nerw` API:
+
+```swift
+func perform(action: ActionInput) {
+    // 1. Open URLs or local file paths
+    Nerw.open("https://github.com")
+    Nerw.open("/System/Applications/Calculator.app")
+    
+    // 2. Copy text to the clipboard
+    Nerw.copy("Secret Token: 12345")
+    
+    // 3. Log debug messages (visible in the terminal if you run Nerw manually)
+    Nerw.log("User clicked the button!")
 }
 ```
 
-**index.js**
-```javascript
-function main(query) {
-    // Return a Promise for async results
-    return new Promise((resolve, reject) => {
-        nerw.fetch("https://jsonplaceholder.typicode.com/todos")
-            .then(jsonString => {
-                const todos = JSON.parse(jsonString);
+---
 
-                // Filter by query
-                const filtered = todos.filter(t => t.title.includes(query));
+## Action Input Data
 
-                // Map to Nerw results
-                const results = filtered.map(t => ({
-                    title: t.title,
-                    subtitle: t.completed ? "Completed" : "Pending",
-                    icon: t.completed ? "checkmark.circle.fill" : "circle",
-                    action: "https://jsonplaceholder.typicode.com/todos/" + t.id
-                }));
+When `perform(action:)` is called, the `ActionInput` struct provides the data you need:
 
-                resolve(results);
-            })
-            .catch(err => {
-                nerw.log("Error: " + err);
-                resolve([{ title: "Error fetching todos", subtitle: err.toString() }]);
-            });
-    });
+```swift
+func perform(action: ActionInput) {
+    // The function name you specified in the builder
+    print(action.function) 
+    
+    // For .arg() actions: The text the user typed
+    let searchTerm = action.args.first ?? "" 
+    
+    // For .form() actions: Dictionary mapping Field IDs to typed values
+    let user = action.formValues["username"] ?? ""
+    let pass = action.formValues["password"] ?? ""
 }
 ```
+
+---
+
+## Example: Complex Extension
+
+```swift
+import NerwExtensionKit
+
+struct ComplexDemo: NerwExtension {
+    func query(input: QueryInput) -> [NerwResult] {
+        return [
+            NerwResult("Hybrid Form Demo")
+                .subtitle("Enter for Form, Tab for Google")
+                .icon(.system("gear"))
+                .hybrid(
+                    action: "show_form", // Handled below? No, hybrid action must be URL if form is inside? 
+                    // Actually, you can't nest form inside hybrid easily like this, 
+                    // but you CAN put functions everywhere!
+                    quickAction: NerwResult("Quick Search")
+                        .instant(action: "https://google.com")
+                )
+        ]
+    }
+    
+    func perform(action: ActionInput) {
+        // ... handle actions ...
+    }
+}
+Nerw.run(ComplexDemo())
+```
+
+*(For working complete examples, check the `/examples` folder in the repository!)*

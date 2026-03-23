@@ -1,16 +1,36 @@
 import Cocoa
 import Foundation
-import JavaScriptCore
 
 struct LoadedExtension {
     let manifest: ExtensionManifest
     let path: URL
+    let binaryPath: URL?
+}
+
+/// Represents a message sent to the extension process via stdin.
+struct ExtensionInput: Codable {
+    let type: String  // "query" or "action"
+    let query: String?
+    let trigger: String?
+    let function: String?
+    let args: [String]?
+    let formValues: [String: String]?
+}
+
+/// Represents a command returned by the extension process via stdout for action execution.
+struct ExtensionCommand: Codable {
+    let type: String  // "open", "copy", "log"
+    let value: String?
+}
+
+/// Wrapper for command responses from action execution.
+struct ExtensionActionResponse: Codable {
+    let commands: [ExtensionCommand]?
 }
 
 public class ExtensionEngine {
     public static let shared = ExtensionEngine()
 
-    var contexts: [String: JSContext] = [:]
     var loadedExtensions: [LoadedExtension] = []
 
     // Public getter for UI
@@ -23,19 +43,11 @@ public class ExtensionEngine {
         for ext in loadedExtensions {
             let manifest = ext.manifest
             for trigger in manifest.allTriggers {
-                // Create an action for each trigger
-                // We use type .arg because extensions usually expect args, or if they are instant
-                // they will ignore the empty arg. However, strictly most extensions are "search scripts".
-                // We need to know if it's instant or not?
-                // The manifest doesn't strictly say. It assumes everything is a script runner "index.js".
-                // So treating it as .args with the Extension Name is safest.
-
-                // Or trigger? Spotlight usually matches trigger and shows App Name.
                 let action = NerwAction(
                     id: "nerw.ext.\(manifest.id).\(trigger)",
                     title: manifest.name,
                     subtitle: manifest.description,
-                    icon: .system("puzzlepiece.extension"),  // Todo: Use manifest icon if available
+                    icon: .system("puzzlepiece.extension"),
                     triggers: [trigger],
                     type: .args(
                         placeholder: "Query...",
@@ -63,37 +75,105 @@ public class ExtensionEngine {
         loadExtensions()
     }
 
-    private func setupContext(_ context: JSContext) {
-        context.exceptionHandler = { context, exception in
-            // Log error silently or to file if needed, but avoiding console spam
-            if let ex = exception {
-                print("JS Error: \(ex)")
+    // MARK: - Compilation
+
+    /// Compiles a Swift extension source file to a binary.
+    /// Returns the URL of the compiled binary, or nil on failure.
+    @discardableResult
+    public func compileExtension(at extensionDir: URL) -> URL? {
+        let mainSwift = extensionDir.appendingPathComponent("main.swift")
+
+        guard fileManager.fileExists(atPath: mainSwift.path) else {
+            print("[ExtensionEngine] No main.swift found at \(mainSwift.path)")
+            return nil
+        }
+
+        let buildDir = extensionDir.appendingPathComponent(".build")
+        try? fileManager.createDirectory(at: buildDir, withIntermediateDirectories: true)
+        let binaryPath = buildDir.appendingPathComponent("main")
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
+
+        // Build arguments — link against NerwExtensionKit if available
+        var args = [String]()
+        if let (modulesPath, libPath) = findExtensionKitPaths() {
+            args += ["-I", modulesPath, "-L", libPath, "-lNerwExtensionKit"]
+        }
+        args += [mainSwift.path, "-o", binaryPath.path]
+        process.arguments = args
+
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            if process.terminationStatus == 0 {
+                print("[ExtensionEngine] Compiled extension at \(extensionDir.lastPathComponent)")
+                return binaryPath
+            } else {
+                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let errorStr = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                print(
+                    "[ExtensionEngine] Compilation failed for \(extensionDir.lastPathComponent): \(errorStr)"
+                )
+                return nil
+            }
+        } catch {
+            print("[ExtensionEngine] Failed to run swiftc: \(error)")
+            return nil
+        }
+    }
+
+    /// Finds the NerwExtensionKit module and library paths.
+    private func findExtensionKitPaths() -> (String, String)? {
+        // 1. Check app bundle Resources
+        if let resourcePath = Bundle.main.resourcePath {
+            let modulesPath = resourcePath + "/Modules"
+            let libPath = resourcePath + "/lib"
+            let swiftmodule = modulesPath + "/NerwExtensionKit.swiftmodule"
+            if fileManager.fileExists(atPath: swiftmodule) {
+                return (modulesPath, libPath)
             }
         }
 
-        let bridge = NerwAPI(context: context)
-        context.setObject(bridge, forKeyedSubscript: "nerw" as NSString)
-
-        // Inject 'global' and 'window' pointing to the global object
-        context.setObject(context.globalObject, forKeyedSubscript: "global" as NSString)
-        context.setObject(context.globalObject, forKeyedSubscript: "window" as NSString)
-
-        let log: @convention(block) (String) -> Void = { message in
-            print("[JS Log]: \(message)")
+        // 2. Fallback: SPM .build directory (development)
+        if let projectRoot = findProjectRoot() {
+            let arch = "arm64-apple-macosx"
+            let modulesPath = projectRoot + "/.build/\(arch)/debug/Modules"
+            let libPath = projectRoot + "/.build/\(arch)/debug"
+            let swiftmodule = modulesPath + "/NerwExtensionKit.swiftmodule"
+            if fileManager.fileExists(atPath: swiftmodule) {
+                return (modulesPath, libPath)
+            }
         }
-        context.setObject(log, forKeyedSubscript: "syslog" as NSString)
+
+        return nil
     }
 
+    /// Attempts to find the project root by walking up from the executable path.
+    private func findProjectRoot() -> String? {
+        var path = URL(fileURLWithPath: Bundle.main.executablePath ?? "")
+        for _ in 0..<10 {
+            path = path.deletingLastPathComponent()
+            let packageSwift = path.appendingPathComponent("Package.swift")
+            if fileManager.fileExists(atPath: packageSwift.path) {
+                return path.path
+            }
+        }
+        return nil
+    }
+
+    // MARK: - Loading
+
     public func reload() {
-        contexts.removeAll()
         loadExtensions()
     }
 
     private func loadExtensions() {
         loadedExtensions.removeAll()
-        // Contexts will be lazily created or recreated on execution to ensure fresh start if needed,
-        // but for now we clear them on reload.
-        contexts.removeAll()
 
         // 1. User Extensions
         loadExtensions(from: userExtensionsPath)
@@ -116,7 +196,6 @@ public class ExtensionEngine {
 
     private func loadExtensions(from directory: URL) {
         print("[ExtensionEngine] Loading extensions from: \(directory.path)")
-        // Warning: if directory doesn't exist, this throws/returns nil
         guard
             let items = try? fileManager.contentsOfDirectory(
                 at: directory, includingPropertiesForKeys: nil)
@@ -128,21 +207,41 @@ public class ExtensionEngine {
         print("[ExtensionEngine] Found \(items.count) items in directory.")
 
         for item in items {
-            // Assume item is a directory "extension_id/"
             let manifestPath = item.appendingPathComponent("manifest.json")
-            print("[ExtensionEngine] Checking manifest at: \(manifestPath.path)")
 
             guard let data = try? Data(contentsOf: manifestPath) else {
-                print("[ExtensionEngine] Failed to read manifest data at: \(manifestPath.path)")
                 continue
             }
 
             do {
                 let manifest = try JSONDecoder().decode(ExtensionManifest.self, from: data)
-                let loaded = LoadedExtension(manifest: manifest, path: item)
+
+                // Determine binary path
+                let binaryPath: URL?
+                if manifest.extensionMode == .binary {
+                    // Pre-compiled binary
+                    let directBinary = item.appendingPathComponent("main")
+                    if fileManager.fileExists(atPath: directBinary.path) {
+                        binaryPath = directBinary
+                    } else {
+                        binaryPath = nil
+                    }
+                } else {
+                    // Script mode — look for pre-compiled binary in .build/
+                    let compiledBinary = item.appendingPathComponent(".build/main")
+                    if fileManager.fileExists(atPath: compiledBinary.path) {
+                        binaryPath = compiledBinary
+                    } else {
+                        // Not compiled yet, try to compile now
+                        binaryPath = compileExtension(at: item)
+                    }
+                }
+
+                let loaded = LoadedExtension(
+                    manifest: manifest, path: item, binaryPath: binaryPath)
                 loadedExtensions.append(loaded)
                 print(
-                    "[ExtensionEngine] Successfully loaded extension: \(manifest.id) (Triggers: \(manifest.allTriggers.joined(separator: ", ")))"
+                    "[ExtensionEngine] Loaded extension: \(manifest.id) (Triggers: \(manifest.allTriggers.joined(separator: ", "))) [binary: \(binaryPath != nil ? "yes" : "no")]"
                 )
             } catch {
                 print(
@@ -151,119 +250,172 @@ public class ExtensionEngine {
         }
     }
 
-    private func getOrCreateContext(for extensionId: String) -> JSContext? {
-        if let existing = contexts[extensionId] {
-            return existing
-        }
-
-        guard let ext = loadedExtensions.first(where: { $0.manifest.id == extensionId }) else {
-            return nil
-        }
-
-        let scriptPath = ext.path.appendingPathComponent("index.js")
-        guard let script = try? String(contentsOf: scriptPath, encoding: .utf8) else {
-            print("Could not load script at \(scriptPath)")
-            return nil
-        }
-
-        let context = JSContext()!
-        setupContext(context)
-
-        // Evaluate script once
-        context.evaluateScript(script)
-
-        contexts[extensionId] = context
-        return context
-    }
+    // MARK: - Execution
 
     public func runExtension(
         id: String, query: String, trigger: String? = nil,
         completion: @escaping ([NerwAction]) -> Void
     ) {
-        guard let context = getOrCreateContext(for: id) else {
+        guard let ext = loadedExtensions.first(where: { $0.manifest.id == id }),
+            let binaryPath = ext.binaryPath
+        else {
             completion([])
             return
         }
 
-        // Call main()
-        guard let mainFunc = context.objectForKeyedSubscript("main") else {
-            print("No 'main' function found in extension \(id)")
-            completion([])
-            return
-        }
+        let input = ExtensionInput(
+            type: "query",
+            query: query,
+            trigger: trigger,
+            function: nil,
+            args: nil,
+            formValues: nil
+        )
 
-        // main(query, trigger)
-        // JS function signature: function main(query, trigger) { ... }
-        // Existing extensions (main(query)) will ignore the 2nd arg.
-        let args: [Any] = [query, trigger as Any]
-        let result = mainFunc.call(withArguments: args)
+        executeProcess(binaryPath: binaryPath, input: input) { [weak self] outputData in
+            guard let self = self else {
+                completion([])
+                return
+            }
 
-        // Check Promise
-        if let isPromise = result?.isInstance(of: context.objectForKeyedSubscript("Promise")),
-            isPromise
-        {
-            let completionCallback: @convention(block) (JSValue) -> Void = { val in
-                let results = self.parseResults(val, extensionId: id)
+            guard let data = outputData else {
+                completion([])
+                return
+            }
+
+            let results = self.parseResults(data, extensionId: id)
+            DispatchQueue.main.async {
                 completion(results)
             }
-
-            let callback = JSValue(object: completionCallback, in: context)
-            result?.invokeMethod("then", withArguments: [callback as Any])
-        } else {
-            let finalResults = parseResults(result, extensionId: id)
-            completion(finalResults)
         }
     }
 
-    private func parseResults(_ value: JSValue?, extensionId: String) -> [NerwAction] {
-        guard let value = value, value.isArray else { return [] }
-
-        var results: [NerwAction] = []
-        let count = Int(value.forProperty("length").toInt32())
-
-        for i in 0..<count {
-            if let item = value.atIndex(i),
-                let dict = item.toDictionary() as? [String: Any],
-                let action = parseItem(dict, extensionId: extensionId)
-            {
-                results.append(action)
-            }
-        }
-        return results
-    }
-
-    private func executeJS(
-        functionName: String, extensionId: String, arguments: [Any]
+    private func executeProcess(
+        binaryPath: URL, input: ExtensionInput,
+        completion: @escaping (Data?) -> Void
     ) {
-        guard let context = contexts[extensionId] else { return }
-        guard let function = context.objectForKeyedSubscript(functionName), !function.isUndefined
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = binaryPath
+
+            let inputPipe = Pipe()
+            let outputPipe = Pipe()
+            let errorPipe = Pipe()
+            process.standardInput = inputPipe
+            process.standardOutput = outputPipe
+            process.standardError = errorPipe
+
+            do {
+                try process.run()
+            } catch {
+                print("[ExtensionEngine] Failed to launch process: \(error)")
+                completion(nil)
+                return
+            }
+
+            // Write input JSON to stdin
+            if let inputData = try? JSONEncoder().encode(input) {
+                inputPipe.fileHandleForWriting.write(inputData)
+                inputPipe.fileHandleForWriting.write("\n".data(using: .utf8)!)
+            }
+            inputPipe.fileHandleForWriting.closeFile()
+
+            // Timeout: kill after 5 seconds
+            let timeoutItem = DispatchWorkItem {
+                if process.isRunning {
+                    print("[ExtensionEngine] Killing process due to timeout")
+                    process.terminate()
+                }
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: timeoutItem)
+
+            process.waitUntilExit()
+            timeoutItem.cancel()
+
+            if process.terminationStatus != 0 {
+                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let errorStr = String(data: errorData, encoding: .utf8) ?? ""
+                if !errorStr.isEmpty {
+                    print("[ExtensionEngine] Process error: \(errorStr)")
+                }
+            }
+
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            completion(outputData.isEmpty ? nil : outputData)
+        }
+    }
+
+    // MARK: - Action Execution
+
+    private func executeAction(
+        functionName: String, extensionId: String, args: [String] = [],
+        formValues: [String: String]? = nil
+    ) {
+        guard let ext = loadedExtensions.first(where: { $0.manifest.id == extensionId }),
+            let binaryPath = ext.binaryPath
         else {
-            print("JS Function not found: \(functionName)")
             return
         }
-        function.call(withArguments: arguments)
+
+        let input = ExtensionInput(
+            type: "action",
+            query: nil,
+            trigger: nil,
+            function: functionName,
+            args: args.isEmpty ? nil : args,
+            formValues: formValues
+        )
+
+        executeProcess(binaryPath: binaryPath, input: input) { outputData in
+            guard let data = outputData else { return }
+
+            // Parse action response for host commands
+            if let response = try? JSONDecoder().decode(ExtensionActionResponse.self, from: data) {
+                DispatchQueue.main.async {
+                    self.executeCommands(response.commands ?? [])
+                }
+            }
+        }
+    }
+
+    private func executeCommands(_ commands: [ExtensionCommand]) {
+        for cmd in commands {
+            switch cmd.type {
+            case "open":
+                if let value = cmd.value, let url = URL(string: value) {
+                    NSWorkspace.shared.open(url)
+                }
+            case "copy":
+                if let value = cmd.value {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(value, forType: .string)
+                }
+            case "log":
+                if let value = cmd.value {
+                    print("[Extension Log] \(value)")
+                }
+            default:
+                print("[ExtensionEngine] Unknown command type: \(cmd.type)")
+            }
+        }
     }
 
     private func performAction(
-        _ actionValue: String?, extensionId: String, args: [Any] = []
+        _ actionValue: String?, extensionId: String, args: [String] = [],
+        formValues: [String: String]? = nil
     ) {
         guard let actionValue = actionValue else { return }
 
         // 1. Check if it's a URL
         if let url = URL(string: actionValue), url.scheme != nil {
-            // It's a URL, open it (performing generic substitution if needed)
-            // For simple URLs, we just open them.
-            // If args were passed, we might need substitution.
             if !args.isEmpty {
                 var filled = actionValue
-                // Simple substitution for string args
                 for arg in args {
-                    if let strArg = arg as? String {
-                        filled = filled.replacingOccurrences(
-                            of: "%s",
-                            with: strArg.addingPercentEncoding(
-                                withAllowedCharacters: .urlQueryAllowed) ?? "")
-                    }
+                    filled = filled.replacingOccurrences(
+                        of: "%s",
+                        with: arg.addingPercentEncoding(
+                            withAllowedCharacters: .urlQueryAllowed) ?? "")
                 }
                 if let finalUrl = URL(string: filled) {
                     NSWorkspace.shared.open(finalUrl)
@@ -272,9 +424,29 @@ public class ExtensionEngine {
                 NSWorkspace.shared.open(url)
             }
         } else {
-            // 2. Assume it's a JS function name
-            executeJS(functionName: actionValue, extensionId: extensionId, arguments: args)
+            // 2. It's a function name — call the extension process
+            executeAction(
+                functionName: actionValue, extensionId: extensionId, args: args,
+                formValues: formValues)
         }
+    }
+
+    // MARK: - Result Parsing
+
+    private func parseResults(_ data: Data, extensionId: String) -> [NerwAction] {
+        guard
+            let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            return []
+        }
+
+        var results: [NerwAction] = []
+        for dict in jsonArray {
+            if let action = parseItem(dict, extensionId: extensionId) {
+                results.append(action)
+            }
+        }
+        return results
     }
 
     private func parseItem(_ dict: [String: Any], extensionId: String) -> NerwAction? {
@@ -300,11 +472,24 @@ public class ExtensionEngine {
             icon = .system("puzzlepiece.extension")
         }
 
+        // Parse Peek data
+        var peek: NerwAction.PeekData? = nil
+        if let peekDict = dict["peek"] as? [String: Any] {
+            let peekTitle = peekDict["title"] as? String ?? ""
+            let peekText = peekDict["text"] as? String ?? ""
+            let peekIconName = peekDict["icon"] as? String
+            let peekIcon: NerwAction.IconType? = peekIconName.map { .system($0) }
+            peek = NerwAction.PeekData(
+                title: peekTitle, text: peekText, icon: peekIcon,
+                primaryActionName: peekDict["primaryActionName"] as? String,
+                secondaryActionName: peekDict["secondaryActionName"] as? String
+            )
+        }
+
         // Determine Action Type
         let type: NerwAction.ActionType
 
         if explicitType == "hybrid" {
-            // Hybrid Action
             guard let quickActionDict = dict["quickAction"] as? [String: Any],
                 let qa = parseItem(quickActionDict, extensionId: extensionId)
             else {
@@ -318,7 +503,6 @@ public class ExtensionEngine {
             )
 
         } else if explicitType == "arg" {
-            // Argument Action
             let placeholders = (dict["argNames"] as? [String]) ?? ["Query"]
             type = .arg(
                 placeholders: placeholders,
@@ -328,7 +512,6 @@ public class ExtensionEngine {
             )
 
         } else if explicitType == "form" {
-            // Form Action
             guard let formDict = dict["form"] as? [String: Any],
                 let fieldsArray = formDict["fields"] as? [[String: Any]]
             else {
@@ -337,11 +520,11 @@ public class ExtensionEngine {
 
             let fields: [NerwAction.Field] = fieldsArray.compactMap { fd in
                 guard let id = fd["id"] as? String,
-                    let title = fd["title"] as? String
+                    let fdTitle = fd["title"] as? String
                 else { return nil }
                 return NerwAction.Field(
                     id: id,
-                    title: title,
+                    title: fdTitle,
                     placeholder: fd["placeholder"] as? String,
                     isSecure: (fd["secure"] as? Bool) ?? false
                 )
@@ -352,8 +535,8 @@ public class ExtensionEngine {
                 fields: fields,
                 submitLabel: submitLabel,
                 perform: { [weak self] _, values in
-                    // Pass dictionary as JSON string or object? JSContext handles dicts.
-                    self?.performAction(actionValue, extensionId: extensionId, args: [values])
+                    self?.performAction(
+                        actionValue, extensionId: extensionId, formValues: values)
                 }
             )
 
@@ -368,7 +551,6 @@ public class ExtensionEngine {
             if let quickActionDict = dict["quickAction"] as? [String: Any],
                 let qa = parseItem(quickActionDict, extensionId: extensionId)
             {
-                // Inferred Hybrid
                 type = .hybrid(
                     perform: { [weak self] _ in
                         self?.performAction(actionValue, extensionId: extensionId)
@@ -378,14 +560,13 @@ public class ExtensionEngine {
             } else if let formDict = dict["form"] as? [String: Any],
                 let fieldsArray = formDict["fields"] as? [[String: Any]]
             {
-                // Inferred Form
                 let fields: [NerwAction.Field] = fieldsArray.compactMap { fd in
                     guard let id = fd["id"] as? String,
-                        let title = fd["title"] as? String
+                        let fdTitle = fd["title"] as? String
                     else { return nil }
                     return NerwAction.Field(
                         id: id,
-                        title: title,
+                        title: fdTitle,
                         placeholder: fd["placeholder"] as? String,
                         isSecure: (fd["secure"] as? Bool) ?? false
                     )
@@ -395,16 +576,11 @@ public class ExtensionEngine {
                     fields: fields,
                     submitLabel: submitLabel,
                     perform: { [weak self] _, values in
-                        // For legacy inference, we do the manual URL replacement here
-                        // OR we reuse the performAction which supports it if it matches URL
-                        // But legacy form support strictly did URL replacement.
-                        // Let's use performAction it handles both URL replacement and JS function
-                        self?.performAction(actionValue, extensionId: extensionId, args: [values])
+                        self?.performAction(
+                            actionValue, extensionId: extensionId, formValues: values)
                     }
                 )
-
             } else if let act = actionValue, act.contains("%s") {
-                // Inferred Arg
                 type = .arg(
                     placeholders: ["Query"],
                     perform: { [weak self] _, args in
@@ -412,7 +588,6 @@ public class ExtensionEngine {
                     }
                 )
             } else {
-                // Inferred Instant
                 type = .instant(
                     perform: { [weak self] _ in
                         self?.performAction(actionValue, extensionId: extensionId)
@@ -426,6 +601,7 @@ public class ExtensionEngine {
             title: title,
             subtitle: subtitle,
             icon: icon,
+            peek: peek,
             triggers: [],
             type: type
         )

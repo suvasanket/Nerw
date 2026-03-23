@@ -9,14 +9,19 @@ let package = Package(
         .macOS(.v12)
     ],
     products: [
-        .executable(name: "Nerw", targets: ["Nerw"])
+        .executable(name: "Nerw", targets: ["Nerw"]),
+        .library(name: "NerwExtensionKit", type: .static, targets: ["NerwExtensionKit"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
     ],
     targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        // Extension Kit — standalone library for extension developers
+        .target(
+            name: "NerwExtensionKit",
+            dependencies: [],
+            path: "Sources/NerwExtensionKit"
+        ),
         .target(
             name: "NerwCore",
             dependencies: ["NerwSearchBackend"],
@@ -45,7 +50,9 @@ let package = Package(
         ),
         .executableTarget(
             name: "Nerw",
-            dependencies: ["NerwCore", "NerwUI", "NerwBuiltin", "NerwUtils"],
+            dependencies: [
+                "NerwCore", "NerwUI", "NerwBuiltin", "NerwUtils", "NerwExtensionKit",
+            ],
             path: "Sources/Nerw"
         ),
     ]

@@ -32,8 +32,12 @@ debug: bundle
 bundle: main
 	@mkdir -p $(MACOS_DIR)
 	@mkdir -p $(RESOURCES_DIR)
+	@mkdir -p $(RESOURCES_DIR)/Modules
+	@mkdir -p $(RESOURCES_DIR)/lib
 	@cp Info.plist $(BUNDLE_NAME)/Contents/
 	@cp $(BUILD_DIR)/$(APP) $(MACOS_DIR)/
+	@cp -R $(BUILD_DIR)/Modules/NerwExtensionKit.* $(RESOURCES_DIR)/Modules/ 2>/dev/null || :
+	@cp $(BUILD_DIR)/libNerwExtensionKit.a $(RESOURCES_DIR)/lib/ 2>/dev/null || :
 	@mkdir -p $(ICON_SET)
 	@sips -z 16 16     $(ICON_SOURCE) --out $(ICON_SET)/icon_16x16.png > /dev/null 2>&1
 	@sips -z 32 32     $(ICON_SOURCE) --out $(ICON_SET)/icon_16x16@2x.png > /dev/null 2>&1

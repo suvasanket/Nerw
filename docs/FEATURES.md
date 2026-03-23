@@ -50,21 +50,11 @@ Nerw intelligently routes your query to the best provider via the `SearchService
 - **No Suffix**: Typing triggers at the end (e.g. `report.pdf find`) is treated as literal text to prevent accidental activation.
 
 ### 🔌 Extensions System
-Extend Nerw with any executable (Script, Binary) that outputs JSON.
+Extend Nerw with **Swift** extensions — compiled executables that communicate via JSON stdin/stdout.
 - **Location**: `~/.nerw/extensions/`
-- **Output Format**:
-  ```json
-  {
-    "items": [
-      {
-        "title": "Title",
-        "subtitle": "Subtitle",
-        "arg": "argument_to_pass",
-        "icon": "icon_name"
-      }
-    ]
-  }
-  ```
+- **Format**: Each extension is a folder with `manifest.json` + `main.swift`.
+- **Compilation**: Extensions are compiled during installation. No app restart required.
+- **Capabilities**: Full access to macOS frameworks (EventKit, Contacts, URLSession, AppleScript, etc.).
 - **See**: [Extension API Documentation](EXTENSION_API.md) for full details.
 
 ### 🧠 Frecency Algorithm

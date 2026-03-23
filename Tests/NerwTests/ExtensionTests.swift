@@ -4,12 +4,17 @@ import XCTest
 
 final class NerwTests: XCTestCase {
 
-    // Helper to create a dummy extension structure
-    func createTestExtension(id: String, script: String) -> URL? {
-        let fileManager = FileManager.default
-        let extDir = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(".nerw/extensions")
-            .appendingPathComponent(id)
+    private let fileManager = FileManager.default
+
+    private var extensionsDir: URL {
+        fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".nerw/extensions")
+    }
+
+    /// Helper to create a Swift extension for testing
+    func createTestExtension(
+        id: String, trigger: String = "test", script: String
+    ) -> URL? {
+        let extDir = extensionsDir.appendingPathComponent(id)
 
         do {
             if fileManager.fileExists(atPath: extDir.path) {
@@ -21,7 +26,7 @@ final class NerwTests: XCTestCase {
                 {
                     "id": "\(id)",
                     "name": "Test \(id)",
-                    "trigger": "test",
+                    "trigger": "\(trigger)",
                     "description": "Test extension"
                 }
                 """
@@ -30,7 +35,11 @@ final class NerwTests: XCTestCase {
                 to: extDir.appendingPathComponent("manifest.json"), atomically: true,
                 encoding: .utf8)
             try script.write(
-                to: extDir.appendingPathComponent("index.js"), atomically: true, encoding: .utf8)
+                to: extDir.appendingPathComponent("main.swift"), atomically: true, encoding: .utf8)
+
+            // Compile via the engine
+            let result = ExtensionEngine.shared.compileExtension(at: extDir)
+            XCTAssertNotNil(result, "Compilation should succeed for \(id)")
 
             return extDir
         } catch {
@@ -39,70 +48,100 @@ final class NerwTests: XCTestCase {
         }
     }
 
+    /// Cleanup helper
+    func removeTestExtension(id: String) {
+        let extDir = extensionsDir.appendingPathComponent(id)
+        try? fileManager.removeItem(at: extDir)
+    }
+
+    func testSwiftExtensionCompilation() {
+        let script = """
+            import Foundation
+            let input = readLine() ?? "{}"
+            let results = [["title": "Hello", "subtitle": "World"]]
+            let data = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: data, encoding: .utf8)!)
+            """
+
+        let extDir = createTestExtension(id: "com.test.compile", script: script)
+        XCTAssertNotNil(extDir)
+
+        // Check binary exists
+        let binaryPath = extDir!.appendingPathComponent(".build/main")
+        XCTAssertTrue(fileManager.fileExists(atPath: binaryPath.path), "Binary should exist")
+
+        removeTestExtension(id: "com.test.compile")
+    }
+
+    func testQueryResultsParsing() {
+        let script = """
+            import Foundation
+            let input = readLine() ?? "{}"
+            let data = input.data(using: .utf8)!
+            let json = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+            let query = json["query"] as? String ?? ""
+            let results: [[String: Any]] = [
+                ["title": "Hello \\(query)", "subtitle": "Swift result", "type": "instant"]
+            ]
+            let output = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: output, encoding: .utf8)!)
+            """
+
+        _ = createTestExtension(id: "com.test.query", script: script)
+
+        let engine = ExtensionEngine.shared
+        engine.reload()
+
+        let expectation = expectation(description: "Extension query")
+        engine.runExtension(id: "com.test.query", query: "World") { results in
+            XCTAssertEqual(results.count, 1)
+            XCTAssertEqual(results.first?.title, "Hello World")
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 10.0)
+
+        removeTestExtension(id: "com.test.query")
+    }
+
     func testExtensionIsolation() {
-        // Setup Extension A: sets a global var
+        // Extension A sets a "global" — but since each is a separate process, B cannot see it
         let scriptA = """
-            global.testVar = "Extension A";
-            function main(query) { return [{title: global.testVar}]; }
+            import Foundation
+            let input = readLine() ?? "{}"
+            let results: [[String: String]] = [["title": "Extension A"]]
+            let data = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: data, encoding: .utf8)!)
             """
-        _ = createTestExtension(id: "com.test.a", script: scriptA)
 
-        // Setup Extension B: checks the global var
         let scriptB = """
-            function main(query) {
-                return [{title: global.testVar || "Undefined"}];
-            }
+            import Foundation
+            let input = readLine() ?? "{}"
+            let results: [[String: String]] = [["title": "Extension B"]]
+            let data = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: data, encoding: .utf8)!)
             """
-        _ = createTestExtension(id: "com.test.b", script: scriptB)
+
+        _ = createTestExtension(id: "com.test.iso.a", trigger: "isoa", script: scriptA)
+        _ = createTestExtension(id: "com.test.iso.b", trigger: "isob", script: scriptB)
 
         let engine = ExtensionEngine.shared
         engine.reload()
 
-        // Run A
-        let expectationA = expectation(description: "Extension A finished")
-        engine.runExtension(id: "com.test.a", query: "") { results in
+        let expA = expectation(description: "Extension A")
+        engine.runExtension(id: "com.test.iso.a", query: "") { results in
             XCTAssertEqual(results.first?.title, "Extension A")
-            expectationA.fulfill()
+            expA.fulfill()
         }
-        wait(for: [expectationA], timeout: 2.0)
 
-        // Run B
-        let expectationB = expectation(description: "Extension B finished")
-        engine.runExtension(id: "com.test.b", query: "") { results in
-            // Should be "Undefined" if isolated, "Extension A" if polluted
-            XCTAssertEqual(results.first?.title, "Undefined", "Global namespace is polluted!")
-            expectationB.fulfill()
+        let expB = expectation(description: "Extension B")
+        engine.runExtension(id: "com.test.iso.b", query: "") { results in
+            XCTAssertEqual(results.first?.title, "Extension B")
+            expB.fulfill()
         }
-        wait(for: [expectationB], timeout: 2.0)
+
+        wait(for: [expA, expB], timeout: 10.0)
+
+        removeTestExtension(id: "com.test.iso.a")
+        removeTestExtension(id: "com.test.iso.b")
     }
-
-    func testConstRedeclarationFix() {
-        // Setup Extension C: uses const
-        let scriptC = """
-            const MY_CONST = "Constant";
-            function main(query) { return [{title: MY_CONST}]; }
-            """
-        _ = createTestExtension(id: "com.test.c", script: scriptC)
-
-        let engine = ExtensionEngine.shared
-        engine.reload()
-
-        // Run C First Time
-        let exp1 = expectation(description: "Run 1")
-        engine.runExtension(id: "com.test.c", query: "") { results in
-            XCTAssertEqual(results.first?.title, "Constant")
-            exp1.fulfill()
-        }
-        wait(for: [exp1], timeout: 2.0)
-
-        // Run C Second Time (Should crash if context is reused w/ re-evaluation, or fail if new context w/o re-eval)
-        // With our fix (Reuse context + Eval ONCE), it should succeed.
-        let exp2 = expectation(description: "Run 2")
-        engine.runExtension(id: "com.test.c", query: "") { results in
-            XCTAssertEqual(results.first?.title, "Constant")
-            exp2.fulfill()
-        }
-        wait(for: [exp2], timeout: 2.0)
-    }
-
 }

@@ -5,6 +5,7 @@ public enum ExtensionInstallError: Error {
     case manifestMissing
     case unzipFailed
     case installationFailed
+    case compilationFailed
 }
 
 public class ExtensionInstaller {
@@ -73,7 +74,48 @@ public class ExtensionInstaller {
             throw ExtensionInstallError.unzipFailed
         }
 
-        // 4. Reload Engine
+        // 4. Compile Swift extension if it's a script-mode extension
+        if manifest.extensionMode == .script {
+            let result = ExtensionEngine.shared.compileExtension(at: installPath)
+            if result == nil {
+                throw ExtensionInstallError.compilationFailed
+            }
+        }
+
+        // 5. Reload Engine (no app restart needed)
+        ExtensionEngine.shared.reload()
+        NotificationCenter.default.post(
+            name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
+    }
+
+    /// Install from a directory (for development/manual installs)
+    public func installFromDirectory(at sourceDir: URL) throws {
+        let manifestPath = sourceDir.appendingPathComponent("manifest.json")
+        guard let data = try? Data(contentsOf: manifestPath),
+            let manifest = try? JSONDecoder().decode(ExtensionManifest.self, from: data)
+        else {
+            throw ExtensionInstallError.invalidPackage
+        }
+
+        let installPath = extensionsDir.appendingPathComponent(manifest.id)
+
+        // Remove existing
+        if fileManager.fileExists(atPath: installPath.path) {
+            try? fileManager.removeItem(at: installPath)
+        }
+
+        // Copy directory
+        try fileManager.copyItem(at: sourceDir, to: installPath)
+
+        // Compile if script mode
+        if manifest.extensionMode == .script {
+            let result = ExtensionEngine.shared.compileExtension(at: installPath)
+            if result == nil {
+                throw ExtensionInstallError.compilationFailed
+            }
+        }
+
+        // Reload Engine (no app restart needed)
         ExtensionEngine.shared.reload()
         NotificationCenter.default.post(
             name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
