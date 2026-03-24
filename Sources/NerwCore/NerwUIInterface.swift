@@ -1,10 +1,20 @@
 import Cocoa
+import Foundation
+
+public enum NerwNotificationLevel {
+    case info
+    case warn
+    case error
+}
 
 // Protocol defining interactions with the UI
 public protocol NerwUIApplication {
     func hideWindow()
     func showWindow()
     func setQuery(_ query: String)
+    @discardableResult
+    func showNotification(content: String, level: NerwNotificationLevel, progressive: Bool) -> UUID
+    func dismissNotification(id: UUID)
 }
 
 // Singleton accessor for UI

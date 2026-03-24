@@ -38,6 +38,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show popup on launch for demo
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.popupController.toggle()
+
+            // Notification Module Demo
+            NerwNotificationManager.shared.show(content: "Welcome to Nerw", level: .info)
+            NerwNotificationManager.shared.show(content: "Engine update available", level: .warn)
+
+            let id = NerwNotificationManager.shared.show(
+                content: "Indexing files...", level: .info, progressive: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                NerwNotificationManager.shared.dismiss(id: id)
+                NerwNotificationManager.shared.show(
+                    content: "Indexed 1000 files successfully", level: .info)
+            }
         }
     }
 
