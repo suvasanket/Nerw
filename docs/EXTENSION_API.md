@@ -39,7 +39,7 @@ import Foundation
 import NerwExtensionKit
 
 struct MyExtension: NerwExtension {
-    
+
     // 1. Return search results based on the query
     func query(input: QueryInput) -> [NerwResult] {
         return [
@@ -124,7 +124,7 @@ Shows a multi-field input sheet.
 Adds an inline preview pane to the right of the result.
 ```swift
 .peek(
-    title: "Detailed View", 
+    title: "Detailed View",
     text: "Here is a much longer description...",
     icon: .system("info.circle")
 )
@@ -141,13 +141,13 @@ func perform(action: ActionInput) {
     // 1. Open URLs or local file paths
     Nerw.open("https://github.com")
     Nerw.open("/System/Applications/Calculator.app")
-    
+
     // 2. Copy text to the clipboard
     Nerw.copy("Secret Token: 12345")
-    
+
     // 3. Log debug messages (visible in the terminal if you run Nerw manually)
     Nerw.log("User clicked the button!")
-    
+
     // 4. Trigger system notifications
     Nerw.notify("Action completed successfully", level: "info")  // Supported levels: "info", "warn", "error"
 
@@ -168,11 +168,11 @@ When `perform(action:)` is called, the `ActionInput` struct provides the data yo
 ```swift
 func perform(action: ActionInput) {
     // The function name you specified in the builder
-    print(action.function) 
-    
+    print(action.function)
+
     // For .arg() actions: The text the user typed
-    let searchTerm = action.args.first ?? "" 
-    
+    let searchTerm = action.args.first ?? ""
+
     // For .form() actions: Dictionary mapping Field IDs to typed values
     let user = action.formValues["username"] ?? ""
     let pass = action.formValues["password"] ?? ""
@@ -193,15 +193,15 @@ struct ComplexDemo: NerwExtension {
                 .subtitle("Enter for Form, Tab for Google")
                 .icon(.system("gear"))
                 .hybrid(
-                    action: "show_form", // Handled below? No, hybrid action must be URL if form is inside? 
-                    // Actually, you can't nest form inside hybrid easily like this, 
+                    action: "show_form", // Handled below? No, hybrid action must be URL if form is inside?
+                    // Actually, you can't nest form inside hybrid easily like this,
                     // but you CAN put functions everywhere!
                     quickAction: NerwResult("Quick Search")
                         .instant(action: "https://google.com")
                 )
         ]
     }
-    
+
     func perform(action: ActionInput) {
         // ... handle actions ...
     }
