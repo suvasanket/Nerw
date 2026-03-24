@@ -147,6 +147,15 @@ func perform(action: ActionInput) {
     
     // 3. Log debug messages (visible in the terminal if you run Nerw manually)
     Nerw.log("User clicked the button!")
+    
+    // 4. Trigger system notifications
+    Nerw.notify("Action completed successfully", level: "info")  // Supported levels: "info", "warn", "error"
+
+    // 5. Trigger progressive loading notifications (spinners)
+    let loaderId = "my_custom_loader_id"
+    Nerw.notify("Downloading file...", level: "warn", progressive: true, id: loaderId)
+    // Later, presumably when another action is performed by the extension
+    Nerw.dismissNotify(id: loaderId)
 }
 ```
 

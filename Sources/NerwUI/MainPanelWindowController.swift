@@ -1,5 +1,6 @@
 // MainPanelWindowController.swift
 import Cocoa
+import NerwCore
 
 public class MainPanelWindowController: NSObject {
     private var panel: MainPanel!
@@ -10,6 +11,7 @@ public class MainPanelWindowController: NSObject {
     public override init() {
         super.init()
         setupPanel()
+        NerwSystem.shared.ui = self
     }
 
     private func setupPanel() {
@@ -153,5 +155,31 @@ extension MainPanelWindowController: MainPanelContentDelegate {
 
     func requestsResize(to height: CGFloat) {
         updateHeight(height)
+    }
+}
+
+extension MainPanelWindowController: NerwUIApplication {
+    public func hideWindow() {
+        hide()
+    }
+
+    public func showWindow() {
+        show()
+    }
+
+    public func setQuery(_ query: String) {
+        contentViewController.inputField.stringValue = query
+    }
+
+    @discardableResult
+    public func showNotification(
+        content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?
+    ) -> UUID {
+        return NerwNotificationManager.shared.show(
+            content: content, level: level, progressive: progressive, id: id)
+    }
+
+    public func dismissNotification(id: UUID) {
+        NerwNotificationManager.shared.dismiss(id: id)
     }
 }

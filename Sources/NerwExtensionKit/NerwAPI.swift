@@ -5,7 +5,7 @@ import Foundation
 /// inside their `perform(action:)` method, then call `Nerw.run()` to start.
 public enum Nerw {
     // MARK: - Command Accumulator (internal)
-    static var pendingCommands: [[String: String]] = []
+    static var pendingCommands: [[String: Any]] = []
 
     // MARK: - Host Commands
 
@@ -23,6 +23,33 @@ public enum Nerw {
     public static func log(_ message: String) {
         FileHandle.standardError.write(
             "[Extension] \(message)\n".data(using: .utf8) ?? Data())
+    }
+
+    /// Trigger a system notification panel explicitly from the extension.
+    /// - Parameters:
+    ///   - content: The message content to notify the user.
+    ///   - level: The severity tier (e.g. "info", "warn", "error"). Default is "info".
+    ///   - progressive: If true, shows a continuous spinner and prevents auto-dismiss.
+    ///   - id: An optional known UUID string to identify this notification, facilitating dismissal.
+    public static func notify(
+        _ content: String, level: String = "info", progressive: Bool = false, id: String? = nil
+    ) {
+        var cmd: [String: Any] = [
+            "type": "notify",
+            "value": content,
+            "level": level,
+            "progressive": progressive,
+        ]
+        if let id = id { cmd["id"] = id }
+        pendingCommands.append(cmd)
+    }
+
+    /// Dismisses a previously sent progressive notification using its assigned string ID.
+    public static func dismissNotify(id: String) {
+        pendingCommands.append([
+            "type": "dismiss_notify",
+            "id": id,
+        ])
     }
 
     // MARK: - Bootstrap

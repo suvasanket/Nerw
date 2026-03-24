@@ -44,6 +44,11 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - `bluetooth` - Toggle Bluetooth or connect to devices.
 7.  **Peek (Inline Previews)**: Provides rich, dynamic, multi-line expanded previews for selected results without leaving the search bar. Supported actions (like Dictionary definitions and Wikipedia summaries) can show extended titles, long typography-aware text blocks, custom icons, and interactive buttons right inside the list window that seamlessly scales vertically to fit exactly what you need.
 8.  **Calculator**: (Planned/Upcoming) Basic math operations.
+9.  **Notification System**:
+    - **Glassmorphic Alerts**: Native pill-shaped frosted-glass notifications stack at the top center of the screen.
+    - **Dynamic Elements**: Supports various tint types (`warn`, `error`, `info`) and optional unbounded progressive spinners.
+    - **3D Stacking**: When multiple notifications overlap elegantly natively mirroring macOS "deck of cards" behaviors.
+    - **Extensions Integration**: Can be triggered seamlessly via custom Extensions using the `Nerw.notify` hook.
 
 ### Trigger Rules
 - **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).

@@ -8,9 +8,11 @@ public class NotificationItemView: NSView {
     private var tintView: NSView!
     private var textField: NSTextField!
 
+    // The container that clips to bounds
+    private var containerView: NSView!
+
     public init(id: UUID, content: String, level: NerwNotificationLevel, progressive: Bool) {
         self.id = id
-        // Initial frame; Auto Layout will resize it based on intrinsic content.
         super.init(frame: NSRect(x: 0, y: 0, width: 320, height: 50))
         setupView(content: content, level: level, progressive: progressive)
     }
@@ -21,17 +23,22 @@ public class NotificationItemView: NSView {
 
     private func setupView(content: String, level: NerwNotificationLevel, progressive: Bool) {
         self.wantsLayer = true
-        self.layer?.cornerRadius = 12
-        self.layer?.cornerCurve = .continuous
-        self.layer?.masksToBounds = true
-        self.layer?.borderWidth = 1
-        self.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-
-        // Add subtle shadow for the "liquid glass" floating feel
+        // Shadow on the root view
+        self.layer?.masksToBounds = false
         self.shadow = NSShadow()
         self.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.2)
         self.shadow?.shadowOffset = NSSize(width: 0, height: -4)
         self.shadow?.shadowBlurRadius = 8
+
+        // Container View handles the perfect pill masking
+        containerView = NSView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.wantsLayer = true
+        containerView.layer?.masksToBounds = true
+        containerView.layer?.cornerCurve = .continuous
+        containerView.layer?.borderWidth = 1
+        containerView.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        self.addSubview(containerView)
 
         // 1. Frosted Glass Background
         effectView = NSVisualEffectView()
@@ -39,7 +46,7 @@ public class NotificationItemView: NSView {
         effectView.material = .popover
         effectView.blendingMode = .behindWindow
         effectView.state = .active
-        self.addSubview(effectView)
+        containerView.addSubview(effectView)
 
         // 2. Tint View based on level
         tintView = NSView()
@@ -48,9 +55,9 @@ public class NotificationItemView: NSView {
 
         switch level {
         case .warn:
-            tintView.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.2).cgColor
+            tintView.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.15).cgColor
         case .error:
-            tintView.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.2).cgColor
+            tintView.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.15).cgColor
         case .info:
             tintView.layer?.backgroundColor = NSColor.clear.cgColor
         }
@@ -62,14 +69,19 @@ public class NotificationItemView: NSView {
         stackView.orientation = .horizontal
         stackView.alignment = .centerY
         stackView.spacing = 10
-        stackView.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        stackView.edgeInsets = NSEdgeInsets(top: 12, left: 18, bottom: 12, right: 18)
         effectView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            effectView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-            effectView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            effectView.topAnchor.constraint(equalTo: self.topAnchor),
-            effectView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+            containerView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: self.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+
+            effectView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            effectView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            effectView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
 
             tintView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
             tintView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
@@ -103,9 +115,15 @@ public class NotificationItemView: NSView {
 
     public override func layout() {
         super.layout()
+        // Perfect pill shape calculation
         let radius = self.bounds.height / 2
-        self.layer?.cornerRadius = radius
+
+        // Only containerView clips the content
+        containerView.layer?.cornerRadius = radius
         effectView.layer?.cornerRadius = radius
         tintView.layer?.cornerRadius = radius
+
+        // Removed self.shadow?.shadowPath = path.cgPath completely,
+        // relying on Mac OS default NSShadow rendering over subviews
     }
 }

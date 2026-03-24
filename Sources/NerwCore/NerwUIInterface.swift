@@ -13,7 +13,9 @@ public protocol NerwUIApplication {
     func showWindow()
     func setQuery(_ query: String)
     @discardableResult
-    func showNotification(content: String, level: NerwNotificationLevel, progressive: Bool) -> UUID
+    func showNotification(
+        content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?
+    ) -> UUID
     func dismissNotification(id: UUID)
 }
 

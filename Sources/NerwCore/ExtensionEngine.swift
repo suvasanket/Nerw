@@ -19,8 +19,11 @@ struct ExtensionInput: Codable {
 
 /// Represents a command returned by the extension process via stdout for action execution.
 struct ExtensionCommand: Codable {
-    let type: String  // "open", "copy", "log"
+    let type: String  // "open", "copy", "log", "notify", "dismiss_notify"
     let value: String?
+    let level: String?
+    let progressive: Bool?
+    let id: String?
 }
 
 /// Wrapper for command responses from action execution.
@@ -394,6 +397,24 @@ public class ExtensionEngine {
             case "log":
                 if let value = cmd.value {
                     print("[Extension Log] \(value)")
+                }
+            case "notify":
+                if let value = cmd.value {
+                    let levelStr = cmd.level ?? "info"
+                    let notifLevel: NerwNotificationLevel
+                    switch levelStr {
+                    case "warn": notifLevel = .warn
+                    case "error": notifLevel = .error
+                    default: notifLevel = .info
+                    }
+                    let isProgressive = cmd.progressive ?? false
+                    let uuid = cmd.id.flatMap(UUID.init(uuidString:))
+                    NerwSystem.shared.ui?.showNotification(
+                        content: value, level: notifLevel, progressive: isProgressive, id: uuid)
+                }
+            case "dismiss_notify":
+                if let idStr = cmd.id, let uuid = UUID(uuidString: idStr) {
+                    NerwSystem.shared.ui?.dismissNotification(id: uuid)
                 }
             default:
                 print("[ExtensionEngine] Unknown command type: \(cmd.type)")

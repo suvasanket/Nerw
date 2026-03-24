@@ -44,12 +44,13 @@ public class NerwNotificationManager {
                     }
 
                     let size = view.fittingSize
-                    let yOffset: CGFloat = CGFloat(index) * 12.0
 
-                    // Front view is full width, back views are progressively narrower
-                    let narrowedWidth = size.width - (CGFloat(index) * 20.0)
+                    // Genuine macOS stack look: cards peek out from below, slightly narrower, solid opacity
+                    let yOffset: CGFloat = CGFloat(index) * 8.0  // Shift down 8 points per index
+                    let narrowedWidth = size.width - (CGFloat(index) * 16.0)  // 8 points narrower per side
+
                     let viewX = (panelWidth - narrowedWidth) / 2
-                    // macOS dictates y=0 is bottom. So subtract yOffset to push items visually down
+                    // Since macOS origin is bottom-left, decreasing Y means lower on screen.
                     let viewY = panelHeight - size.height - yOffset
 
                     let finalFrame = NSRect(
@@ -57,11 +58,10 @@ public class NerwNotificationManager {
 
                     view.animator().frame = finalFrame
 
-                    // Front view is fully opaque, background views get more transparent
-                    view.animator().alphaValue =
-                        index == 0 ? 1.0 : max(0.4, 1.0 - (0.3 * CGFloat(index)))
+                    // Opacity is solid to emulate layered physical cards casting shadows on each other
+                    view.animator().alphaValue = 1.0
 
-                    // Ensure front view is above back views
+                    // Ensure front view is appropriately highest in z space
                     view.layer?.zPosition = CGFloat(maxVisible - index)
                 }
             }, completionHandler: nil)
@@ -69,16 +69,17 @@ public class NerwNotificationManager {
 
     @discardableResult
     public func show(
-        content: String, level: NerwNotificationLevel = .info, progressive: Bool = false
+        content: String, level: NerwNotificationLevel = .info, progressive: Bool = false,
+        id: UUID? = nil
     ) -> UUID {
-        let id = UUID()
+        let finalId = id ?? UUID()
         let view = NotificationItemView(
-            id: id, content: content, level: level, progressive: progressive)
+            id: finalId, content: content, level: level, progressive: progressive)
 
         DispatchQueue.main.async {
             self.addNotification(view: view, progressive: progressive)
         }
-        return id
+        return finalId
     }
 
     public func dismiss(id: UUID) {
