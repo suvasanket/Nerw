@@ -112,6 +112,7 @@ extension MainPanelWindowController: MainPanelContentDelegate {
         hide()
     }
 
+    // NOTE: Not working
     func didSubmit(text: String) {
         if text == "/debug" {
             contentViewController.toggleDebugMode()
