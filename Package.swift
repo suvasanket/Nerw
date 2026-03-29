@@ -10,12 +10,21 @@ let package = Package(
     ],
     products: [
         .executable(name: "Nerw", targets: ["Nerw"]),
+        .executable(name: "nerw-cli", targets: ["NerwCLI"]),
         .library(name: "NerwExtensionKit", type: .static, targets: ["NerwExtensionKit"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
     ],
     targets: [
+        // CLI Tool
+        .executableTarget(
+            name: "NerwCLI",
+            dependencies: [
+                "NerwSearchBackend"
+            ],
+            path: "Sources/NerwCLI"
+        ),
         // Extension Kit — standalone library for extension developers
         .target(
             name: "NerwExtensionKit",

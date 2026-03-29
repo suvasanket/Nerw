@@ -3,6 +3,7 @@ import Cocoa
 import NerwCore
 import NerwSearchBackend
 import NerwUI
+import NerwUtils
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupController: MainPanelWindowController!
@@ -62,7 +63,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "command", accessibilityDescription: nil)
+            button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)
             button.action = #selector(statusBarIconClicked(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -76,8 +77,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSMenuItem(
                 title: "Toggle Search", action: #selector(togglePopup), keyEquivalent: "Space"))
         menu.addItem(NSMenuItem.separator())
+
+        let cliTitle = CLIUtils.shared.isInstalled() ? "Disable CLI" : "Enable CLI"
         menu.addItem(
-            NSMenuItem(title: "Preferences...", action: #selector(openSettings), keyEquivalent: ",")
+            NSMenuItem(title: cliTitle, action: #selector(enableCLI), keyEquivalent: "")
+        )
+
+        menu.addItem(
+            NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
         )
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
@@ -85,14 +92,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)  // Trigger menu immediately
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)  // Trigger menu immediately
-        // Clear it so standard click works next time if needed, or just keep it.
         statusItem?.menu = nil
-        // Better pattern for status item with primary action AND menu:
-        // Actually, for .accessory app, usually left click toggles main window, right click shows menu.
-        // OR just show menu always.
-        // I will implement standard behavior: Click shows menu to allow access to Preferences.
+    }
+
+    @objc private func enableCLI() {
+        if CLIUtils.shared.isInstalled() {
+            CLIUtils.shared.uninstallCLI { success, error in
+                if success {
+                    NerwNotificationManager.shared.show(
+                        content: "Nerw CLI has been successfully disabled.")
+                } else if let error = error {
+                    let alert = NSAlert()
+                    alert.messageText = "CLI Disable Failed"
+                    alert.informativeText = error
+                    alert.runModal()
+                }
+            }
+        } else {
+            CLIUtils.shared.setupCLI { success, error in
+                if success {
+                    NerwNotificationManager.shared.show(
+                        content: "Nerw CLI enabled. Restart terminal to apply PATH changes.")
+                } else if let error = error {
+                    let alert = NSAlert()
+                    alert.messageText = "CLI Setup Failed"
+                    alert.informativeText = error
+                    alert.runModal()
+                }
+            }
+        }
     }
 
     @objc private func togglePopup() {

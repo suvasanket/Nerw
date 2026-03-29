@@ -62,6 +62,15 @@ Extend Nerw with **Swift** extensions — compiled executables that communicate 
 - **Capabilities**: Full access to macOS frameworks (EventKit, Contacts, URLSession, AppleScript, etc.).
 - **See**: [Extension API Documentation](EXTENSION_API.md) for full details.
 
+### 🖥 Nerw CLI
+Nerw includes a powerful command-line interface for advanced users.
+- **Location**: `Nerw.app/Contents/cli_bin/nerw`.
+- **Activation**: Toggle via the **bolt icon** in the macOS menu bar.
+- **Setup**: Enabling the CLI creates a symlink at `~/.nerw/bin/nerw` and automatically adds it to your `$PATH` (supporting `zsh` and `bash`).
+- **Commands**:
+    - `help`: Show usage instructions.
+    - `extension`: Manage Nerw extensions from the terminal.
+
 ### 🧠 Frecency Algorithm
 Nerw learns from you. It uses a **Frecency** (Frequency + Recency) algorithm to rank results.
 - **Bonus**: Items used recently and frequently float to the top.

@@ -3,6 +3,7 @@ BUILD_DIR=.build/debug
 
 BUNDLE_NAME=$(APP).app
 MACOS_DIR=$(BUNDLE_NAME)/Contents/MacOS
+CLI_BIN_DIR=$(BUNDLE_NAME)/Contents/cli_bin
 RESOURCES_DIR=$(BUNDLE_NAME)/Contents/Resources
 ICON_SOURCE=Assets/icon.png
 ICON_SET=AppIcon.iconset
@@ -31,11 +32,13 @@ debug: bundle
 
 bundle: main
 	@mkdir -p $(MACOS_DIR)
+	@mkdir -p $(CLI_BIN_DIR)
 	@mkdir -p $(RESOURCES_DIR)
 	@mkdir -p $(RESOURCES_DIR)/Modules
 	@mkdir -p $(RESOURCES_DIR)/lib
 	@cp Info.plist $(BUNDLE_NAME)/Contents/
 	@cp $(BUILD_DIR)/$(APP) $(MACOS_DIR)/
+	@cp $(BUILD_DIR)/nerw-cli $(CLI_BIN_DIR)/nerw
 	@cp -R $(BUILD_DIR)/Modules/NerwExtensionKit.* $(RESOURCES_DIR)/Modules/ 2>/dev/null || :
 	@cp $(BUILD_DIR)/libNerwExtensionKit.a $(RESOURCES_DIR)/lib/ 2>/dev/null || :
 	@mkdir -p $(ICON_SET)
