@@ -201,7 +201,7 @@ public class ExtensionEngine {
         print("[ExtensionEngine] Loading extensions from: \(directory.path)")
         guard
             let items = try? fileManager.contentsOfDirectory(
-                at: directory, includingPropertiesForKeys: nil)
+                at: directory, includingPropertiesForKeys: [.isSymbolicLinkKey])
         else {
             print("[ExtensionEngine] Directory not found or empty: \(directory.path)")
             return
@@ -217,7 +217,14 @@ public class ExtensionEngine {
             }
 
             do {
-                let manifest = try JSONDecoder().decode(ExtensionManifest.self, from: data)
+                var manifest = try JSONDecoder().decode(ExtensionManifest.self, from: data)
+
+                // Check if it's a symbolic link (for Smoke Test)
+                if let resourceValues = try? item.resourceValues(forKeys: [.isSymbolicLinkKey]),
+                    resourceValues.isSymbolicLink == true
+                {
+                    manifest.isSmokeTest = true
+                }
 
                 // Determine binary path
                 let binaryPath: URL?

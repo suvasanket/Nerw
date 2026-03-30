@@ -804,6 +804,32 @@ struct MyExtension: NerwExtension {
 Nerw.run(MyExtension())
 ```
 
+## Development Tools
+
+The `nerw` CLI provides tools to streamline extension development.
+
+### Initializing a New Extension
+
+To create a new extension template:
+```bash
+nerw extension init
+```
+This will prompt you for the extension name, ID, and trigger, then create a directory with `manifest.json` and a boilerplate `main.swift`.
+
+### Testing Extensions (Smoke Test)
+
+You can test your extension without installing it into the main app:
+```bash
+cd your-extension-dir
+nerw extension smoke-test "your test query"
+```
+The `smoke-test` command:
+1.  Compiles your `main.swift` into a temporary binary.
+2.  Runs the binary with a mock `query` input.
+3.  Prints the JSON output (results) to the terminal.
+
+This is the fastest way to debug your extension's logic and ensure it returns the expected results.
+
 ---
 
 ## Example Extensions

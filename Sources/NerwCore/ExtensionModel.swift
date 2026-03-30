@@ -14,6 +14,9 @@ public struct ExtensionManifest: Codable {
     public let icon: String?
     public let mode: String?
 
+    // Set by the engine if the extension is symlinked for testing
+    public var isSmokeTest: Bool = false
+
     public var extensionMode: ExtensionMode {
         if let mode = mode, let parsed = ExtensionMode(rawValue: mode) {
             return parsed
@@ -27,6 +30,10 @@ public struct ExtensionManifest: Codable {
             all.append(contentsOf: extras)
         }
         return all
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, trigger, triggers, description, icon, mode
     }
 }
 

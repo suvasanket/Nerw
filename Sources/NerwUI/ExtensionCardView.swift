@@ -1,6 +1,43 @@
 import Cocoa
 import NerwCore
 
+class HazardTapeView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = 16
+        layer?.masksToBounds = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        let stripeWidth: CGFloat = 20
+        let yellow = NSColor.systemYellow.withAlphaComponent(0.2).cgColor
+        let black = NSColor.black.withAlphaComponent(0.3).cgColor
+
+        context.setFillColor(yellow)
+        context.fill(bounds)
+
+        context.setFillColor(black)
+        let diagonal = bounds.width + bounds.height
+        for x in stride(from: -bounds.height, to: diagonal, by: stripeWidth * 2) {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: x, y: 0))
+            path.addLine(to: CGPoint(x: x + stripeWidth, y: 0))
+            path.addLine(to: CGPoint(x: x + stripeWidth + bounds.height, y: bounds.height))
+            path.addLine(to: CGPoint(x: x + bounds.height, y: bounds.height))
+            path.closeSubpath()
+            context.addPath(path)
+            context.fillPath()
+        }
+    }
+}
+
 class ExtensionCardView: NSView {
 
     var onUninstall: (() -> Void)?
@@ -12,6 +49,8 @@ class ExtensionCardView: NSView {
         view.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
         return view
     }()
+
+    private var hazardBackground: HazardTapeView?
 
     private let iconImageView: NSImageView = {
         let iv = NSImageView()
@@ -63,6 +102,12 @@ class ExtensionCardView: NSView {
         addSubview(containerView)
         containerView.translatesAutoresizingMaskIntoConstraints = false
 
+        let hazard = HazardTapeView()
+        hazard.isHidden = true
+        containerView.addSubview(hazard)
+        hazard.translatesAutoresizingMaskIntoConstraints = false
+        self.hazardBackground = hazard
+
         containerView.addSubview(iconImageView)
         containerView.addSubview(nameLabel)
         containerView.addSubview(descLabel)
@@ -79,6 +124,12 @@ class ExtensionCardView: NSView {
             containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // Hazard background fills the container
+            hazard.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hazard.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hazard.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            hazard.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
 
             // Icon: 40x40, left padded
             iconImageView.leadingAnchor.constraint(
@@ -110,6 +161,14 @@ class ExtensionCardView: NSView {
     private func configure(with manifest: ExtensionManifest) {
         nameLabel.stringValue = manifest.name
         descLabel.stringValue = manifest.description
+
+        if manifest.isSmokeTest {
+            hazardBackground?.isHidden = false
+            containerView.layer?.backgroundColor = NSColor.clear.cgColor
+        } else {
+            hazardBackground?.isHidden = true
+            containerView.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
+        }
 
         if let iconName = manifest.icon {
             iconImageView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
