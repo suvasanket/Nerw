@@ -84,8 +84,6 @@ public class ExtensionInstaller {
 
         // 5. Reload Engine (no app restart needed)
         ExtensionEngine.shared.reload()
-        NotificationCenter.default.post(
-            name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
     }
 
     /// Install from a directory (for development/manual installs)
@@ -117,8 +115,6 @@ public class ExtensionInstaller {
 
         // Reload Engine (no app restart needed)
         ExtensionEngine.shared.reload()
-        NotificationCenter.default.post(
-            name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
     }
 
     public func uninstall(id: String) throws {
@@ -127,7 +123,5 @@ public class ExtensionInstaller {
             try fileManager.removeItem(at: installPath)
         }
         ExtensionEngine.shared.reload()
-        NotificationCenter.default.post(
-            name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
     }
 }

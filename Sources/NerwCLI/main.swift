@@ -11,7 +11,11 @@ struct NerwCLI {
 
         switch command {
         case "help":
-            printUsage()
+            if let target = arguments.dropFirst().first {
+                printCommandHelp(target)
+            } else {
+                printUsage()
+            }
         case "extension":
             handleExtension(Array(arguments.dropFirst()))
         default:
@@ -29,25 +33,47 @@ struct NerwCLI {
             Usage: nerw <command> [options]
 
             Commands:
-              help                   Show this help message
-              extension <subcommand> Manage Nerw extensions
+              help       Show help message
+              extension  Manage Nerw extensions
 
-            Extension Subcommands:
-              init                   Initialize a new extension template
-              smoke-test [query]     Test extension. Optional flags:
-                                     --install, -i  Symlink to Nerw extensions dir
-                                     --clean, -c    Remove symlink from Nerw extensions dir
+            Use 'nerw help <command>' for more information about a command.
             """)
+    }
+
+    static func printCommandHelp(_ command: String) {
+        switch command {
+        case "extension":
+            print(
+                """
+                Nerw CLI - Extension Management
+
+                Usage: nerw extension <subcommand>
+
+                Subcommands:
+                  init                   Initialize a new extension template
+                  smoke-test [query]     Test extension. Optional flags:
+                                         --install, -i  Symlink to Nerw extensions dir
+                                         --clean, -c    Remove symlink from Nerw extensions dir
+                """)
+        case "help":
+            print("Usage: nerw help [command]")
+        default:
+            print("Error: Unknown command '\(command)'")
+        }
+    }
+
+    static func triggerReload() {
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name("com.nerw.reloadExtensions"),
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
     }
 
     static func handleExtension(_ args: [String]) {
         guard let sub = args.first else {
-            print(
-                """
-                Extension management commands:
-                  init                   Initialize a new extension template
-                  smoke-test [query]     Test extension
-                """)
+            printCommandHelp("extension")
             return
         }
 
@@ -62,15 +88,17 @@ struct NerwCLI {
         }
     }
 
-    // ... (initExtension remains same)
+    // ... (rest of the methods)
 
     static func handleSmokeTest(args: [String]) {
         if args.contains("--install") || args.contains("-i") {
             installForSmokeTest()
+            triggerReload()
             return
         }
         if args.contains("--clean") || args.contains("-c") {
             cleanSmokeTest()
+            triggerReload()
             return
         }
 
@@ -109,7 +137,6 @@ struct NerwCLI {
         do {
             try fileManager.createSymbolicLink(at: symlinkURL, withDestinationURL: currentDir)
             print("Successfully symlinked extension for smoke testing: \(symlinkURL.path)")
-            print("Open Nerw Settings -> Extensions to see it with hazard background.")
         } catch {
             print("Error: Failed to create symlink: \(error)")
         }

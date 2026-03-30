@@ -76,6 +76,18 @@ public class ExtensionEngine {
 
     private init() {
         loadExtensions()
+        setupNotificationListener()
+    }
+
+    private func setupNotificationListener() {
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.nerw.reloadExtensions"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("[ExtensionEngine] Received reload notification")
+            self?.reload()
+        }
     }
 
     // MARK: - Compilation
@@ -173,6 +185,10 @@ public class ExtensionEngine {
 
     public func reload() {
         loadExtensions()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: Notification.Name("NerwExtensionsDidUpdate"), object: nil)
+        }
     }
 
     private func loadExtensions() {
