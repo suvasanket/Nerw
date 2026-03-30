@@ -64,5 +64,10 @@ let package = Package(
             ],
             path: "Sources/Nerw"
         ),
+        .testTarget(
+            name: "NerwTests",
+            dependencies: ["NerwCore", "NerwSearchBackend", "NerwUI"],
+            path: "Tests/NerwTests"
+        ),
     ]
 )

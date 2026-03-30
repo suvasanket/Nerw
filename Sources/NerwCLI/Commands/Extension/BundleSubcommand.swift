@@ -5,7 +5,10 @@ struct BundleSubcommand: Subcommand {
     let metadata = CommandMetadata(
         name: "bundle",
         description: "Bundle extension into a .nerw package",
-        usage: "nerw extension bundle [path]"
+        usage: "nerw extension bundle [path]",
+        flags: [
+            Flag("<path>", description: "Directory where extension files located")
+        ]
     )
 
     func execute(args: [String]) -> Never {

@@ -2,7 +2,7 @@ import XCTest
 
 @testable import NerwCore
 
-final class NerwTests: XCTestCase {
+final class ExtensionTests: XCTestCase {
 
     private let fileManager = FileManager.default
 
@@ -12,7 +12,7 @@ final class NerwTests: XCTestCase {
 
     /// Helper to create a Swift extension for testing
     func createTestExtension(
-        id: String, trigger: String = "test", script: String
+        id: String, trigger: String = "test", script: String, settings: String? = nil
     ) -> URL? {
         let extDir = extensionsDir.appendingPathComponent(id)
 
@@ -22,12 +22,13 @@ final class NerwTests: XCTestCase {
             }
             try fileManager.createDirectory(at: extDir, withIntermediateDirectories: true)
 
+            let settingsPart = settings != nil ? ",\"settings\": \(settings!)" : ""
             let manifest = """
                 {
                     "id": "\(id)",
                     "name": "Test \(id)",
                     "trigger": "\(trigger)",
-                    "description": "Test extension"
+                    "description": "Test extension"\(settingsPart)
                 }
                 """
 
@@ -48,10 +49,56 @@ final class NerwTests: XCTestCase {
         }
     }
 
-    /// Cleanup helper
-    func removeTestExtension(id: String) {
-        let extDir = extensionsDir.appendingPathComponent(id)
-        try? fileManager.removeItem(at: extDir)
+    func testExtensionSettingsPassing() {
+        let settingsJSON = """
+            [
+                {
+                    "id": "apiKey",
+                    "title": "API Key",
+                    "type": "string",
+                    "defaultValue": "initial-key"
+                },
+                {
+                    "id": "enabled",
+                    "title": "Enabled",
+                    "type": "boolean",
+                    "defaultValue": true
+                }
+            ]
+            """
+
+        let script = """
+            import Foundation
+            let inputLine = readLine() ?? "{}"
+            let inputData = inputLine.data(using: .utf8)!
+            let input = try! JSONSerialization.jsonObject(with: inputData) as! [String: Any]
+            let settings = input["settings"] as? [String: Any] ?? [:]
+
+            let apiKey = settings["apiKey"] as? String ?? "missing"
+            let enabled = settings["enabled"] as? Bool ?? false
+
+            let results: [[String: Any]] = [
+                ["title": "Key: \\(apiKey)", "subtitle": "Enabled: \\(enabled)"]
+            ]
+            let output = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: output, encoding: .utf8)!)
+            """
+
+        _ = createTestExtension(id: "com.test.settings", script: script, settings: settingsJSON)
+
+        let engine = ExtensionEngine.shared
+        engine.reload()
+
+        let expectation = expectation(description: "Extension settings query")
+        engine.runExtension(id: "com.test.settings", query: "") { results in
+            XCTAssertEqual(results.count, 1)
+            XCTAssertEqual(results.first?.title, "Key: initial-key")
+            XCTAssertEqual(results.first?.subtitle, "Enabled: true")
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 10.0)
+
+        removeTestExtension(id: "com.test.settings")
     }
 
     func testSwiftExtensionCompilation() {

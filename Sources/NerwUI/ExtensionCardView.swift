@@ -1,5 +1,6 @@
 import Cocoa
 import NerwCore
+import NerwSearchBackend
 
 class HazardTapeView: NSView {
     override init(frame frameRect: NSRect) {
@@ -41,6 +42,7 @@ class HazardTapeView: NSView {
 class ExtensionCardView: NSView {
 
     var onUninstall: (() -> Void)?
+    private var manifest: ExtensionManifest?
 
     private let containerView: NSView = {
         let view = NSView()
@@ -48,6 +50,31 @@ class ExtensionCardView: NSView {
         view.layer?.cornerRadius = 16
         view.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
         return view
+    }()
+
+    private let mainContentStack: NSStackView = {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        return stack
+    }()
+
+    private let headerStack: NSStackView = {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 16
+        return stack
+    }()
+
+    private let settingsStack: NSStackView = {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.isHidden = true
+        return stack
     }()
 
     private var hazardBackground: HazardTapeView?
@@ -88,8 +115,22 @@ class ExtensionCardView: NSView {
         return button
     }()
 
+    // Settings icon button
+    private lazy var settingsButton: NSButton = {
+        let button = NSButton()
+        button.bezelStyle = .inline
+        button.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
+        button.contentTintColor = .secondaryLabelColor
+        button.target = self
+        button.action = #selector(settingsClicked)
+        button.isBordered = false
+        button.toolTip = "Extension Settings"
+        return button
+    }()
+
     init(extensionManifest: ExtensionManifest) {
         super.init(frame: .zero)
+        self.manifest = extensionManifest
         setupUI()
         configure(with: extensionManifest)
     }
@@ -108,53 +149,56 @@ class ExtensionCardView: NSView {
         hazard.translatesAutoresizingMaskIntoConstraints = false
         self.hazardBackground = hazard
 
-        containerView.addSubview(iconImageView)
-        containerView.addSubview(nameLabel)
-        containerView.addSubview(descLabel)
-        containerView.addSubview(uninstallButton)
+        containerView.addSubview(mainContentStack)
+        mainContentStack.translatesAutoresizingMaskIntoConstraints = false
 
-        iconImageView.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        descLabel.translatesAutoresizingMaskIntoConstraints = false
-        uninstallButton.translatesAutoresizingMaskIntoConstraints = false
+        // Header
+        let labelStack = NSStackView()
+        labelStack.orientation = .vertical
+        labelStack.alignment = .leading
+        labelStack.spacing = 4
+        labelStack.addArrangedSubview(nameLabel)
+        labelStack.addArrangedSubview(descLabel)
+
+        headerStack.addArrangedSubview(iconImageView)
+        headerStack.addArrangedSubview(labelStack)
+        headerStack.addArrangedSubview(NSView())  // Spacer
+        headerStack.addArrangedSubview(settingsButton)
+        headerStack.addArrangedSubview(uninstallButton)
+
+        mainContentStack.addArrangedSubview(headerStack)
+        mainContentStack.addArrangedSubview(settingsStack)
 
         NSLayoutConstraint.activate([
-            // Container fills the view
             containerView.topAnchor.constraint(equalTo: topAnchor),
             containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // Hazard background fills the container
             hazard.topAnchor.constraint(equalTo: containerView.topAnchor),
             hazard.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             hazard.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             hazard.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
 
-            // Icon: 40x40, left padded
-            iconImageView.leadingAnchor.constraint(
+            mainContentStack.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
+            mainContentStack.leadingAnchor.constraint(
                 equalTo: containerView.leadingAnchor, constant: 16),
-            iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            mainContentStack.trailingAnchor.constraint(
+                equalTo: containerView.trailingAnchor, constant: -16),
+            mainContentStack.bottomAnchor.constraint(
+                equalTo: containerView.bottomAnchor, constant: -16),
+
             iconImageView.widthAnchor.constraint(equalToConstant: 40),
             iconImageView.heightAnchor.constraint(equalToConstant: 40),
 
-            // Uninstall Button: Far right, centered vertically
-            uninstallButton.trailingAnchor.constraint(
-                equalTo: containerView.trailingAnchor, constant: -16),
-            uninstallButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            uninstallButton.widthAnchor.constraint(equalToConstant: 32),
-            uninstallButton.heightAnchor.constraint(equalToConstant: 32),
+            settingsButton.widthAnchor.constraint(equalToConstant: 24),
+            settingsButton.heightAnchor.constraint(equalToConstant: 24),
 
-            // Labels: Between Icon and Button
-            nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(
-                equalTo: uninstallButton.leadingAnchor, constant: -16),
-            nameLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
+            uninstallButton.widthAnchor.constraint(equalToConstant: 24),
+            uninstallButton.heightAnchor.constraint(equalToConstant: 24),
 
-            descLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            descLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            descLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-            descLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
+            headerStack.widthAnchor.constraint(equalTo: mainContentStack.widthAnchor),
+            settingsStack.widthAnchor.constraint(equalTo: mainContentStack.widthAnchor),
         ])
     }
 
@@ -175,6 +219,137 @@ class ExtensionCardView: NSView {
         } else {
             iconImageView.image = NSImage(
                 systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
+        }
+
+        settingsButton.isHidden = (manifest.settings?.isEmpty ?? true)
+
+        if let settings = manifest.settings {
+            setupSettingsUI(settings: settings)
+        }
+    }
+
+    private func setupSettingsUI(settings: [ExtensionSetting]) {
+        for subview in settingsStack.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
+
+        let separator = NSView()
+        separator.wantsLayer = true
+        separator.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        settingsStack.addArrangedSubview(separator)
+        NSLayoutConstraint.activate([
+            separator.heightAnchor.constraint(equalToConstant: 1),
+            separator.widthAnchor.constraint(equalTo: settingsStack.widthAnchor),
+        ])
+
+        let cacheKey = "ext_settings_\(manifest?.id ?? "")"
+        let savedSettings = CacheManager.shared.get(forKey: cacheKey) as? [String: Any] ?? [:]
+
+        for setting in settings {
+            let settingView = createSettingView(
+                for: setting, currentValue: savedSettings[setting.id])
+            settingsStack.addArrangedSubview(settingView)
+        }
+    }
+
+    private func createSettingView(for setting: ExtensionSetting, currentValue: Any?) -> NSView {
+        let container = NSStackView()
+        container.orientation = .horizontal
+        container.alignment = .centerY
+        container.spacing = 12
+
+        let labelStack = NSStackView()
+        labelStack.orientation = .vertical
+        labelStack.alignment = .leading
+        labelStack.spacing = 2
+
+        let title = NSTextField(labelWithString: setting.title)
+        title.font = .systemFont(ofSize: 13, weight: .medium)
+        labelStack.addArrangedSubview(title)
+
+        if let desc = setting.description {
+            let subtitle = NSTextField(labelWithString: desc)
+            subtitle.font = .systemFont(ofSize: 11)
+            subtitle.textColor = .secondaryLabelColor
+            labelStack.addArrangedSubview(subtitle)
+        }
+
+        container.addArrangedSubview(labelStack)
+        container.addArrangedSubview(NSView())  // Spacer
+
+        switch setting.type {
+        case .string:
+            let textField = NSTextField()
+            textField.stringValue =
+                (currentValue as? String) ?? (setting.defaultValue.value as? String) ?? ""
+            textField.isBordered = true
+            textField.bezelStyle = .roundedBezel
+            textField.translatesAutoresizingMaskIntoConstraints = false
+            textField.widthAnchor.constraint(equalToConstant: 150).isActive = true
+            textField.target = self
+            textField.action = #selector(settingChanged(_:))
+            textField.identifier = NSUserInterfaceItemIdentifier(setting.id)
+            container.addArrangedSubview(textField)
+
+        case .boolean:
+            let toggle = NSButton(
+                checkboxWithTitle: "", target: self, action: #selector(settingChanged(_:)))
+            toggle.state =
+                ((currentValue as? Bool) ?? (setting.defaultValue.value as? Bool) ?? false)
+                ? .on : .off
+            toggle.identifier = NSUserInterfaceItemIdentifier(setting.id)
+            container.addArrangedSubview(toggle)
+
+        case .number:
+            let textField = NSTextField()
+            if let val = currentValue as? Double {
+                textField.doubleValue = val
+            } else if let val = currentValue as? Int {
+                textField.integerValue = val
+            } else {
+                textField.doubleValue = (setting.defaultValue.value as? Double) ?? 0.0
+            }
+            textField.isBordered = true
+            textField.bezelStyle = .roundedBezel
+            textField.translatesAutoresizingMaskIntoConstraints = false
+            textField.widthAnchor.constraint(equalToConstant: 80).isActive = true
+            textField.target = self
+            textField.action = #selector(settingChanged(_:))
+            textField.identifier = NSUserInterfaceItemIdentifier(setting.id)
+            container.addArrangedSubview(textField)
+        }
+
+        return container
+    }
+
+    @objc private func settingChanged(_ sender: NSView) {
+        guard let id = sender.identifier?.rawValue, let manifest = manifest else { return }
+        let cacheKey = "ext_settings_\(manifest.id)"
+        var savedSettings = CacheManager.shared.get(forKey: cacheKey) as? [String: Any] ?? [:]
+
+        if let textField = sender as? NSTextField {
+            // Check if it should be a number
+            if let setting = manifest.settings?.first(where: { $0.id == id }),
+                setting.type == .number
+            {
+                savedSettings[id] = textField.doubleValue
+            } else {
+                savedSettings[id] = textField.stringValue
+            }
+        } else if let toggle = sender as? NSButton {
+            savedSettings[id] = (toggle.state == .on)
+        }
+
+        CacheManager.shared.set(savedSettings, forKey: cacheKey)
+    }
+
+    @objc private func settingsClicked() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.allowsImplicitAnimation = true
+            settingsStack.isHidden.toggle()
+            self.window?.layoutIfNeeded()
         }
     }
 

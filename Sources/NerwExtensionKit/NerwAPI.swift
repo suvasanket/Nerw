@@ -76,12 +76,14 @@ public enum Nerw {
         }
 
         let type = input["type"] as? String ?? ""
+        let settings = input["settings"] as? [String: Any] ?? [:]
 
         switch type {
         case "query":
             let queryInput = QueryInput(
                 query: input["query"] as? String ?? "",
-                trigger: input["trigger"] as? String
+                trigger: input["trigger"] as? String,
+                settings: settings
             )
 
             let results = ext.query(input: queryInput)
@@ -99,7 +101,8 @@ public enum Nerw {
             let actionInput = ActionInput(
                 function: input["function"] as? String ?? "",
                 args: input["args"] as? [String] ?? [],
-                formValues: input["formValues"] as? [String: String] ?? [:]
+                formValues: input["formValues"] as? [String: String] ?? [:],
+                settings: settings
             )
 
             pendingCommands = []

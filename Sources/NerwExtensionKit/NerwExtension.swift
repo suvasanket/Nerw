@@ -22,10 +22,12 @@ extension NerwExtension {
 public struct QueryInput {
     public let query: String
     public let trigger: String?
+    public let settings: [String: Any]
 
-    public init(query: String, trigger: String? = nil) {
+    public init(query: String, trigger: String? = nil, settings: [String: Any] = [:]) {
         self.query = query
         self.trigger = trigger
+        self.settings = settings
     }
 }
 
@@ -34,12 +36,15 @@ public struct ActionInput {
     public let function: String
     public let args: [String]
     public let formValues: [String: String]
+    public let settings: [String: Any]
 
     public init(
-        function: String, args: [String] = [], formValues: [String: String] = [:]
+        function: String, args: [String] = [], formValues: [String: String] = [:],
+        settings: [String: Any] = [:]
     ) {
         self.function = function
         self.args = args
         self.formValues = formValues
+        self.settings = settings
     }
 }

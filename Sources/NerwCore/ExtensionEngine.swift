@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import NerwSearchBackend
 
 struct LoadedExtension {
     let manifest: ExtensionManifest
@@ -15,6 +16,7 @@ struct ExtensionInput: Codable {
     let function: String?
     let args: [String]?
     let formValues: [String: String]?
+    let settings: [String: AnyCodable]?
 }
 
 /// Represents a command returned by the extension process via stdout for action execution.
@@ -278,6 +280,30 @@ public class ExtensionEngine {
 
     // MARK: - Execution
 
+    private func getSettingsValues(for extensionId: String, manifest: ExtensionManifest) -> [String:
+        AnyCodable]
+    {
+        var values: [String: AnyCodable] = [:]
+
+        // 1. Fill with defaults from manifest
+        if let settings = manifest.settings {
+            for setting in settings {
+                values[setting.id] = setting.defaultValue
+            }
+        }
+
+        // 2. Override with saved values from CacheManager
+        let cacheKey = "ext_settings_\(extensionId)"
+        if let saved = NerwSearchBackend.CacheManager.shared.get(forKey: cacheKey) as? [String: Any]
+        {
+            for (id, value) in saved {
+                values[id] = AnyCodable(value)
+            }
+        }
+
+        return values
+    }
+
     public func runExtension(
         id: String, query: String, trigger: String? = nil,
         completion: @escaping ([NerwAction]) -> Void
@@ -295,10 +321,12 @@ public class ExtensionEngine {
             trigger: trigger,
             function: nil,
             args: nil,
-            formValues: nil
+            formValues: nil,
+            settings: getSettingsValues(for: id, manifest: ext.manifest)
         )
 
         executeProcess(binaryPath: binaryPath, input: input) { [weak self] outputData in
+
             guard let self = self else {
                 completion([])
                 return
@@ -389,7 +417,8 @@ public class ExtensionEngine {
             trigger: nil,
             function: functionName,
             args: args.isEmpty ? nil : args,
-            formValues: formValues
+            formValues: formValues,
+            settings: getSettingsValues(for: extensionId, manifest: ext.manifest)
         )
 
         executeProcess(binaryPath: binaryPath, input: input) { outputData in

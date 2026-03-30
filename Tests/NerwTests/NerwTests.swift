@@ -2,7 +2,7 @@ import XCTest
 
 @testable import NerwSearchBackend
 
-final class NerwTests: XCTestCase {
+final class BackendTests: XCTestCase {
 
     // MARK: - Cache Tests
 

@@ -7,8 +7,8 @@ struct SmokeTestSubcommand: Subcommand {
         description: "Test extension by compiling and running it",
         usage: "nerw extension smoke-test [query]",
         flags: [
-            Flag("--install", "-i", description: "Symlink to Nerw extensions dir"),
-            Flag("--clean", "-c", description: "Remove symlink from Nerw extensions dir"),
+            Flag("--install", "-i", description: "Install extension to test"),
+            Flag("--clean", "-c", description: "Remove test extension"),
         ]
     )
 

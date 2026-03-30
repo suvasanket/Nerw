@@ -17,7 +17,8 @@ You have full access to all macOS frameworks (EventKit, Contacts, URLSession, Ap
 7. [NerwField Struct](#nerwfield-struct)
 8. [NerwPeek Struct](#nerwpeek-struct)
 9. [Nerw API (Host Commands)](#nerw-api-host-commands)
-10. [Example Extensions](#example-extensions)
+10. [Extension Settings](#extension-settings)
+11. [Example Extensions](#example-extensions)
 
 ---
 
@@ -49,6 +50,65 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `trigger` | string | Yes | Primary keyword that activates this extension |
 | `triggers` | array | No | Additional trigger keywords |
 | `icon` | string | No | SF Symbol name (e.g., "star", "gear", "cloud") |
+| `settings` | array | No | List of configuration options for the extension |
+
+---
+
+## NerwExtension Protocol
+
+...
+
+## Extension Settings
+
+Extensions can define persistent configuration options that users can modify in the Nerw settings UI. These values are automatically passed to your extension during `query()` and `perform()`.
+
+### Defining Settings in `manifest.json`
+
+Add a `settings` array to your `manifest.json`. Each setting object supports the following properties:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | Yes | Unique key used to access the value in code |
+| `title` | string | Yes | Label shown in the settings UI |
+| `description` | string | No | Smaller subtitle text explaining the setting |
+| `type` | string | Yes | Input type: "string", "boolean", or "number" |
+| `defaultValue` | any | Yes | Initial value if the user hasn't changed it |
+
+**Example Manifest:**
+```json
+{
+  "id": "com.example.weather",
+  "name": "Weather",
+  "settings": [
+    {
+      "id": "apiKey",
+      "title": "API Key",
+      "description": "Enter your OpenWeatherMap key",
+      "type": "string",
+      "defaultValue": ""
+    },
+    {
+      "id": "isMetric",
+      "title": "Use Metric Units",
+      "type": "boolean",
+      "defaultValue": true
+    }
+  ]
+}
+```
+
+### Accessing Settings in Code
+
+Settings are provided in the `input.settings` dictionary of `QueryInput` and `ActionInput`.
+
+```swift
+func query(input: QueryInput) -> [NerwResult] {
+    let apiKey = input.settings["apiKey"] as? String ?? ""
+    let isMetric = input.settings["isMetric"] as? Bool ?? true
+    
+    // Use the settings to fetch data...
+}
+```
 
 ---
 
