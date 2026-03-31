@@ -158,9 +158,36 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
-    func configure(with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false) {
+    func configure(
+        with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false,
+        modifiers: NSEvent.ModifierFlags = []
+    ) {
         let config = ConfigManager.shared.config.uiConfig
         self.currentActionID = action.id
+
+        var displayTitle = action.title
+        var displaySubtitle = action.subtitle
+
+        // Check for modifiers and alternate text
+        if isSelected && !action.modifiers.isEmpty {
+            let key: NerwAction.ModifierKey?
+            if modifiers.contains(.command) {
+                key = .command
+            } else if modifiers.contains(.shift) {
+                key = .shift
+            } else if modifiers.contains(.control) {
+                key = .control
+            } else if modifiers.contains(.option) {
+                key = .option
+            } else {
+                key = nil
+            }
+
+            if let key = key, let modAction = action.modifiers[key] {
+                if let t = modAction.title { displayTitle = t }
+                if let s = modAction.subtitle { displaySubtitle = s }
+            }
+        }
 
         let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
@@ -228,10 +255,10 @@ class ResultCellView: NSTableCellView {
 
         iconView.contentTintColor = isSelected ? selectedTextColor : mainTextColor
 
-        titleLabel.stringValue = action.title
+        titleLabel.stringValue = displayTitle
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
 
-        subtitleLabel.stringValue = action.subtitle
+        subtitleLabel.stringValue = displaySubtitle
         subtitleLabel.textColor =
             isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
 

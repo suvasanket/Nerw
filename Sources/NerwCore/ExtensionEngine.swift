@@ -559,6 +559,27 @@ public class ExtensionEngine {
             )
         }
 
+        // Parse Modifiers
+        var modifiers: [NerwAction.ModifierKey: NerwAction.ModifierAction] = [:]
+        if let modsDict = dict["modifiers"] as? [String: [String: Any]] {
+            for (keyStr, modActionDict) in modsDict {
+                guard let key = NerwAction.ModifierKey(rawValue: keyStr),
+                    let actVal = modActionDict["action"] as? String
+                else { continue }
+
+                let modTitle = modActionDict["title"] as? String
+                let modSubtitle = modActionDict["subtitle"] as? String
+
+                modifiers[key] = NerwAction.ModifierAction(
+                    title: modTitle,
+                    subtitle: modSubtitle,
+                    perform: { [weak self] _ in
+                        self?.performAction(actVal, extensionId: extensionId)
+                    }
+                )
+            }
+        }
+
         // Determine Action Type
         let type: NerwAction.ActionType
 
@@ -676,6 +697,7 @@ public class ExtensionEngine {
             icon: icon,
             peek: peek,
             triggers: [],
+            modifiers: modifiers,
             type: type
         )
     }

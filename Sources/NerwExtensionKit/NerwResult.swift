@@ -28,6 +28,33 @@ public struct NerwResult {
     var formFieldsList: [NerwField]?
     var formSubmitLabelText: String?
 
+    // Modifiers
+    public enum ModifierKey: String {
+        case command = "cmd"
+        case shift = "shift"
+        case control = "ctrl"
+        case option = "opt"
+    }
+    public struct ModifierAction {
+        public let title: String?
+        public let subtitle: String?
+        public let action: String
+
+        public init(title: String? = nil, subtitle: String? = nil, action: String) {
+            self.title = title
+            self.subtitle = subtitle
+            self.action = action
+        }
+
+        func serialize() -> [String: Any] {
+            var dict: [String: Any] = ["action": action]
+            if let t = title { dict["title"] = t }
+            if let s = subtitle { dict["subtitle"] = s }
+            return dict
+        }
+    }
+    var modifiersList: [ModifierKey: ModifierAction] = [:]
+
     // Peek
     var peekData: NerwPeek?
 
@@ -40,6 +67,17 @@ public struct NerwResult {
     }
 
     // MARK: - Builder Methods
+
+    /// Add an alternate action for a modifier key.
+    /// `key`: cmd, shift, ctrl, or opt.
+    /// `action`: URL or function name.
+    public func modifier(
+        _ key: ModifierKey, action: String, title: String? = nil, subtitle: String? = nil
+    ) -> NerwResult {
+        var copy = self
+        copy.modifiersList[key] = ModifierAction(title: title, subtitle: subtitle, action: action)
+        return copy
+    }
 
     /// Set the subtitle text.
     public func subtitle(_ text: String) -> NerwResult {
@@ -150,6 +188,14 @@ public struct NerwResult {
         }
 
         if let peek = peekData { dict["peek"] = peek.serialize() }
+
+        if !modifiersList.isEmpty {
+            var mods: [String: Any] = [:]
+            for (key, val) in modifiersList {
+                mods[key.rawValue] = val.serialize()
+            }
+            dict["modifiers"] = mods
+        }
 
         return dict
     }

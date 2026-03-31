@@ -191,4 +191,57 @@ final class ExtensionTests: XCTestCase {
         removeTestExtension(id: "com.test.iso.a")
         removeTestExtension(id: "com.test.iso.b")
     }
+
+    func testModifiersParsing() {
+        let script = """
+            import Foundation
+            let input = readLine() ?? "{}"
+            let results: [[String: Any]] = [
+                [
+                    "title": "Main Action",
+                    "subtitle": "Press Enter",
+                    "type": "instant",
+                    "modifiers": [
+                        "cmd": [
+                            "title": "Cmd Override",
+                            "subtitle": "Cmd Pressed",
+                            "action": "handleCmd"
+                        ],
+                        "shift": [
+                            "action": "handleShift"
+                        ]
+                    ]
+                }
+            ]
+            let output = try! JSONSerialization.data(withJSONObject: results)
+            print(String(data: output, encoding: .utf8)!)
+            """
+
+        _ = createTestExtension(id: "com.test.modifiers", script: script)
+
+        let engine = ExtensionEngine.shared
+        engine.reload()
+
+        let expectation = expectation(description: "Extension modifiers query")
+        engine.runExtension(id: "com.test.modifiers", query: "") { results in
+            XCTAssertEqual(results.count, 1)
+            let action = results.first!
+            XCTAssertEqual(action.title, "Main Action")
+            XCTAssertEqual(action.modifiers.count, 2)
+
+            let cmdMod = action.modifiers[.command]
+            XCTAssertNotNil(cmdMod)
+            XCTAssertEqual(cmdMod?.title, "Cmd Override")
+            XCTAssertEqual(cmdMod?.subtitle, "Cmd Pressed")
+
+            let shiftMod = action.modifiers[.shift]
+            XCTAssertNotNil(shiftMod)
+            XCTAssertNil(shiftMod?.title)
+
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 10.0)
+
+        removeTestExtension(id: "com.test.modifiers")
+    }
 }

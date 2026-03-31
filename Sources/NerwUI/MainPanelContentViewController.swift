@@ -380,6 +380,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
             name: Notification.Name("NerwConfigDidUpdate"), object: nil)
+
+        // Monitor modifier flags to update UI (alternate titles/subtitles)
+        NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.resultsTableView.reloadData()
+            return event
+        }
     }
 
     @objc private func configDidUpdate() {
@@ -499,7 +505,32 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         delegate?.didPressEscape()
     }
 
-    private func executeResult(_ result: NerwAction, query: String) -> Bool {
+    private func executeResult(
+        _ result: NerwAction, query: String, modifiers: NSEvent.ModifierFlags = []
+    ) -> Bool {
+        // Check for modifiers first
+        if !result.modifiers.isEmpty {
+            let key: NerwAction.ModifierKey?
+            if modifiers.contains(.command) {
+                key = .command
+            } else if modifiers.contains(.shift) {
+                key = .shift
+            } else if modifiers.contains(.control) {
+                key = .control
+            } else if modifiers.contains(.option) {
+                key = .option
+            } else {
+                key = nil
+            }
+
+            if let key = key, let modAction = result.modifiers[key] {
+                modAction.perform(result)
+                FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
+                closeSession(restoreText: false)
+                return true
+            }
+        }
+
         switch result.type {
         case .instant(let perform):
             perform(result)
@@ -849,9 +880,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             return true
 
         case #selector(NSResponder.insertNewline(_:)):
+            let modifiers = NSApp.currentEvent?.modifierFlags ?? []
+
             // 1. Priority: Execute Selected Result (if actionable)
             if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
-                if executeResult(actions[selectedIndex], query: inputField.stringValue) {
+                if executeResult(
+                    actions[selectedIndex], query: inputField.stringValue, modifiers: modifiers)
+                {
                     return true
                 }
             }
@@ -935,7 +970,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     return true
                 }
 
-                if !executeResult(selectedAction, query: inputField.stringValue) {
+                if !executeResult(
+                    selectedAction, query: inputField.stringValue, modifiers: modifiers)
+                {
                     delegate?.didSubmit(text: selectedAction.title)
                 }
             } else {
@@ -1130,8 +1167,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         guard row < actions.count else { return nil }
         let action = actions[row]
         let cell = ResultCellView()
+        let modifiers = NSApp.currentEvent?.modifierFlags ?? []
         cell.configure(
-            with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated)
+            with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated,
+            modifiers: modifiers)
         return cell
     }
 

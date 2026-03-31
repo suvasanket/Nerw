@@ -90,6 +90,29 @@ public struct NerwAction {
         )
     }
 
+    public enum ModifierKey: String, Codable, CaseIterable {
+        case command = "cmd"
+        case shift = "shift"
+        case control = "ctrl"
+        case option = "opt"
+    }
+
+    public struct ModifierAction {
+        public let title: String?
+        public let subtitle: String?
+        public let perform: (NerwAction) -> Void
+
+        public init(
+            title: String? = nil, subtitle: String? = nil, perform: @escaping (NerwAction) -> Void
+        ) {
+            self.title = title
+            self.subtitle = subtitle
+            self.perform = perform
+        }
+    }
+
+    public let modifiers: [ModifierKey: ModifierAction]
+
     public let type: ActionType
 
     public init(
@@ -99,6 +122,7 @@ public struct NerwAction {
         icon: IconType? = nil,
         peek: PeekData? = nil,
         triggers: [String] = [],
+        modifiers: [ModifierKey: ModifierAction] = [:],
         type: ActionType
     ) {
         self.id = id
@@ -107,6 +131,7 @@ public struct NerwAction {
         self.icon = icon
         self.peek = peek
         self.triggers = triggers
+        self.modifiers = modifiers
         self.type = type
     }
 

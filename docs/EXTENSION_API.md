@@ -266,6 +266,7 @@ public struct NerwResult {
     public func arg(names: [String], action: String) -> NerwResult
     public func hybrid(action: String, quickAction: NerwResult) -> NerwResult
     public func form(fields: [NerwField], submitLabel: String?, action: String) -> NerwResult
+    public func modifier(_ key: ModifierKey, action: String, title: String?, subtitle: String?) -> NerwResult
     public func peek(_ peek: NerwPeek) -> NerwResult
     public func peek(title: String, text: String, icon: NerwIcon?, primaryAction: String?, secondaryAction: String?) -> NerwResult
 }
@@ -359,6 +360,32 @@ NerwResult("Open GitHub")
 // Function action - calls perform(action:)
 NerwResult("Custom Action")
     .instant(action: "handleCustom")
+```
+
+### `.modifier(_:action:title:subtitle:)`
+
+**What it does:** Adds an alternate action when a modifier key (Cmd, Shift, Ctrl, or Option) is held while pressing Enter.
+
+```swift
+public func modifier(_ key: ModifierKey, action: String, title: String? = nil, subtitle: String? = nil) -> NerwResult
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | ModifierKey | The key to trigger the action: `.command`, `.shift`, `.control`, or `.option` |
+| `action` | String | URL or function name to execute |
+| `title` | String? | Optional: Alternate title shown in UI when the key is held |
+| `subtitle` | String? | Optional: Alternate subtitle shown in UI when the key is held |
+
+**Example:**
+```swift
+NerwResult("Open File")
+    .subtitle("Open in default app")
+    .instant(action: "openFile")
+    .modifier(.command, action: "revealInFinder", title: "Reveal in Finder", subtitle: "Show file location")
+    .modifier(.shift, action: "copyPath", title: "Copy Path", subtitle: "Copy absolute file path")
 ```
 
 ### `.arg(names:action:)`
