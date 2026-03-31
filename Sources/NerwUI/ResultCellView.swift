@@ -167,6 +167,7 @@ class ResultCellView: NSTableCellView {
 
         var displayTitle = action.title
         var displaySubtitle = action.subtitle
+        var displayIcon = action.icon
 
         // Check for modifiers and alternate text
         if isSelected && !action.modifiers.isEmpty {
@@ -186,6 +187,7 @@ class ResultCellView: NSTableCellView {
             if let key = key, let modAction = action.modifiers[key] {
                 if let t = modAction.title { displayTitle = t }
                 if let s = modAction.subtitle { displaySubtitle = s }
+                if let i = modAction.icon { displayIcon = i }
             }
         }
 
@@ -225,10 +227,14 @@ class ResultCellView: NSTableCellView {
             subtitleLabel.font = defaultSubFont
         }
 
-        if let iconType = action.icon {
+        if let iconType = displayIcon {
             switch iconType {
             case .system(let name):
-                iconView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                if let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
+                    iconView.image = image
+                } else if let image = NSImage(named: NSImage.Name(name)) {
+                    iconView.image = image
+                }
             case .image(let img):
                 iconView.image = img
             case .file(let url):

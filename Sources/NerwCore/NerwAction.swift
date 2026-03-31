@@ -100,13 +100,16 @@ public struct NerwAction {
     public struct ModifierAction {
         public let title: String?
         public let subtitle: String?
+        public let icon: IconType?
         public let perform: (NerwAction) -> Void
 
         public init(
-            title: String? = nil, subtitle: String? = nil, perform: @escaping (NerwAction) -> Void
+            title: String? = nil, subtitle: String? = nil, icon: IconType? = nil,
+            perform: @escaping (NerwAction) -> Void
         ) {
             self.title = title
             self.subtitle = subtitle
+            self.icon = icon
             self.perform = perform
         }
     }

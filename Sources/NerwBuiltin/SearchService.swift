@@ -185,6 +185,15 @@ public class SearchService {
                 subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
                 icon: iconType ?? .system("globe"),
                 triggers: [],
+                modifiers: [
+                    .shift: NerwAction.ModifierAction(
+                        title: "Direct Search",
+                        subtitle: "Open the first result directly",
+                        icon: .system("se_direct"),
+                        perform: { [weak self] _ in
+                            self?.performDirectSearch(query: cleanedQuery)
+                        })
+                ],
                 type: .instant(perform: { _ in
                     let encodedQuery =
                         cleanedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
@@ -279,6 +288,15 @@ public class SearchService {
                         subtitle: "Search for '\(currentQuery)' on \(engine.name)",
                         icon: iconType ?? .system("globe"),
                         triggers: [],
+                        modifiers: [
+                            .shift: NerwAction.ModifierAction(
+                                title: "Direct Search",
+                                subtitle: "Open the first result directly",
+                                icon: .system("se_direct"),
+                                perform: { [weak self] _ in
+                                    self?.performDirectSearch(query: currentQuery)
+                                })
+                        ],
                         type: .instant(perform: { _ in
                             let encodedQuery =
                                 currentQuery.addingPercentEncoding(
@@ -514,6 +532,15 @@ public class SearchService {
             subtitle: "Search for '\(query)' on \(engine.name)",
             icon: iconType ?? .system("globe"),
             triggers: [],
+            modifiers: [
+                .shift: NerwAction.ModifierAction(
+                    title: "Direct Search",
+                    subtitle: "Open the first result directly",
+                    icon: .system("se_direct"),
+                    perform: { [weak self] _ in
+                        self?.performDirectSearch(query: query)
+                    })
+            ],
             type: .instant(perform: { _ in
                 let encodedQuery =
                     query.addingPercentEncoding(
@@ -548,5 +575,15 @@ public class SearchService {
 
         // 4. No icon — caller provides fallback
         return nil
+    }
+
+    private func performDirectSearch(query: String) {
+        let encodedQuery =
+            query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        // Google's I'm Feeling Lucky
+        let urlString = "https://www.google.com/search?q=\(encodedQuery)&btnI=1"
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
