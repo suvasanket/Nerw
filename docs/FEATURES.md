@@ -13,6 +13,12 @@ Nerw intelligently routes your query to the best provider via the `SearchService
 1.  **Applications**: Fuzzy search installed apps (e.g., "xcode" -> Xcode).
 2.  **Web Search (Bang Search)**:
     -   **Explicit Trigger**: Use "bangs" to search specific engines instantly (e.g., `!g swift` for Google, `!yt cat videos` for YouTube).
+    -   **Direct Search (Shift + Enter)**:
+        - **Behavior**: Press `Shift + Enter` on any web search result (including bangs) to perform an optimized "I'm Feeling Lucky" style search.
+        - **Speed**: Uses a dedicated, lightweight redirect-capture engine that bypasses standard search result pages to open the first result directly.
+        - **Visual Feedback**: Shows a progressive notification ("Getting direct result...") while fetching.
+        - **Caching**: Results are cached locally (query -> URL) with a hit-count-based eviction policy for near-instant repeat searches.
+        - **Configuration**: Choose between **Google** or **DuckDuckGo** as the direct search provider in Settings.
     -   **Supported Bangs**:
         -  `!g` or `!google` : Google
         -  `!ddg` or `!duckduckgo` : DuckDuckGo

@@ -577,13 +577,207 @@ public class SearchService {
         return nil
     }
 
+    private let directSearchSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        config.httpCookieStorage = nil
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        config.waitsForConnectivity = false
+        config.timeoutIntervalForRequest = 5.0
+        config.timeoutIntervalForResource = 5.0
+        config.httpMaximumConnectionsPerHost = 1
+        return URLSession(
+            configuration: config, delegate: NoRedirectDelegate(), delegateQueue: nil)
+    }()
+
     private func performDirectSearch(query: String) {
-        let encodedQuery =
-            query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        // Google's I'm Feeling Lucky
-        let urlString = "https://www.google.com/search?q=\(encodedQuery)&btnI=1"
-        if let url = URL(string: urlString) {
+        // 1. Check Cache
+        if let cachedURL = DirectSearchCache.shared.get(for: query),
+            let url = URL(string: cachedURL)
+        {
             NSWorkspace.shared.open(url)
+            return
         }
+
+        let engine = ConfigManager.shared.config.directSearchEngine
+        let engineName = engine == .google ? "Google" : "DuckDuckGo"
+        let notificationID = NerwSystem.shared.ui?.showNotification(
+            content: "Getting direct result from \(engineName)...",
+            level: .info,
+            progressive: true,
+            id: nil
+        )
+
+        Task {
+            let result: String?
+
+            switch engine {
+            case .google:
+                result = await searchGoogleFirstResult(query: query)
+            case .duckDuckGo:
+                result = await searchDuckDuckGoFirstResult(query: query)
+            }
+
+            DispatchQueue.main.async {
+                if let notifID = notificationID {
+                    NerwSystem.shared.ui?.dismissNotification(id: notifID)
+                }
+
+                if let result = result, let url = URL(string: result) {
+                    // Success: Cache and Open
+                    DirectSearchCache.shared.set(url: result, for: query)
+                    NSWorkspace.shared.open(url)
+                } else {
+                    // Fallback to normal search
+                    let encodedQuery =
+                        query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    let fallbackURL =
+                        engine == .google
+                        ? "https://www.google.com/search?q=\(encodedQuery)"
+                        : "https://duckduckgo.com/?q=\(encodedQuery)"
+                    if let url = URL(string: fallbackURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Direct Search Helpers (from websearch.swift)
+
+    private func searchGoogleFirstResult(query: String) async -> String? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            let url = URL(string: "https://www.google.com/search?q=\(encoded)&btnI=1")
+        else { return nil }
+
+        return await fetchRedirectLocation(
+            url: url, method: "GET", acceptGoogleStyleExtraction: true)
+    }
+
+    private func searchDuckDuckGoFirstResult(query: String) async -> String? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { return nil }
+
+        guard let url = URL(string: "https://duckduckgo.com/?q=\\\(encoded)") else {
+            return nil
+        }
+
+        if let result = await fetchRedirectLocation(
+            url: url, method: "HEAD", acceptGoogleStyleExtraction: false)
+        {
+            return result
+        }
+
+        if let result = await fetchRedirectLocation(
+            url: url, method: "GET", acceptGoogleStyleExtraction: false)
+        {
+            return result
+        }
+
+        return await searchDuckDuckGoLite(query: query)
+    }
+
+    private func searchDuckDuckGoLite(query: String) async -> String? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            let url = URL(string: "https://lite.duckduckgo.com/lite/?q=\(encoded)")
+        else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 5.0
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (data, _) = try await directSearchSession.data(for: request)
+            guard let html = String(data: data, encoding: .utf8) else { return nil }
+
+            if let range = html.range(of: "uddg=") {
+                let after = html[range.upperBound...]
+                if let end = after.range(of: "&amp;") ?? after.range(of: "&")
+                    ?? after.range(of: "\"")
+                {
+                    let encodedURL = String(after[..<end.lowerBound])
+                    if let decoded = encodedURL.removingPercentEncoding, decoded.hasPrefix("http") {
+                        return decoded
+                    }
+                }
+            }
+
+            // Additional fallback patterns
+            if let href = firstMatch(in: html, pattern: #"href="(https?://[^"]+)""#) {
+                return href
+            }
+
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    private func firstMatch(in text: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range),
+            match.numberOfRanges > 1,
+            let r = Range(match.range(at: 1), in: text)
+        else {
+            return nil
+        }
+        return String(text[r])
+    }
+
+    private func fetchRedirectLocation(
+        url: URL, method: String, acceptGoogleStyleExtraction: Bool
+    ) async -> String? {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 5.0
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (_, response) = try await directSearchSession.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return nil }
+
+            if let location = http.value(forHTTPHeaderField: "Location") {
+                if location.hasPrefix("http") {
+                    if acceptGoogleStyleExtraction && location.contains("google.") {
+                        if let u = extractURLParameter(from: location, param: "url") { return u }
+                        if let u = extractURLParameter(from: location, param: "q") { return u }
+                    }
+                    return location
+                }
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    private func extractURLParameter(from urlString: String, param: String) -> String? {
+        guard let components = URLComponents(string: urlString),
+            let value = components.queryItems?.first(where: { $0.name == param })?.value,
+            value.hasPrefix("http")
+        else {
+            return nil
+        }
+        return value
+    }
+}
+
+private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }

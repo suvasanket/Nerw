@@ -12,9 +12,15 @@ public struct UIConfig: Codable {
     public init() {}
 }
 
+public enum DirectSearchEngine: String, Codable, Sendable {
+    case google
+    case duckDuckGo
+}
+
 public struct Config: Codable {
     public var searchEngineSuggestThreshold: Int = 2
     public var defaultSearchEngine: [String] = ["google", "g"]
+    public var directSearchEngine: DirectSearchEngine = .google
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false

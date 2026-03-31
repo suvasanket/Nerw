@@ -10,6 +10,7 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     private var enginesListStack: NSStackView!
     private var enginesPopUp: NSPopUpButton!
+    private var directSearchPopUp: NSPopUpButton!
     private var thresholdStepper: NSStepper!
     private var thresholdValueLabel: NSTextField!
 
@@ -81,6 +82,26 @@ class SearchEnginesSettingsViewController: NSViewController {
         defaultEngineRow.addArrangedSubview(enginesPopUp)
         defaultEngineRow.addArrangedSubview(NSView())  // Spacer
 
+        // Direct Search Engine Row
+        let directSearchRow = NSStackView()
+        directSearchRow.orientation = .horizontal
+        directSearchRow.spacing = 10
+        directSearchRow.alignment = .centerY
+
+        let directSearchLabel = NSTextField(labelWithString: "Direct Search Engine:")
+        directSearchPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        directSearchPopUp.addItem(withTitle: "Google")
+        directSearchPopUp.addItem(withTitle: "DuckDuckGo")
+
+        let currentDirect = ConfigManager.shared.config.directSearchEngine
+        directSearchPopUp.selectItem(withTitle: currentDirect == .google ? "Google" : "DuckDuckGo")
+        directSearchPopUp.target = self
+        directSearchPopUp.action = #selector(directSearchEngineChanged(_:))
+
+        directSearchRow.addArrangedSubview(directSearchLabel)
+        directSearchRow.addArrangedSubview(directSearchPopUp)
+        directSearchRow.addArrangedSubview(NSView())  // Spacer
+
         // Suggestion Threshold Row
         let thresholdStack = NSStackView()
         thresholdStack.orientation = .horizontal
@@ -105,6 +126,7 @@ class SearchEnginesSettingsViewController: NSViewController {
         thresholdStack.addArrangedSubview(NSView())  // Spacer
 
         generalSectionStack.addArrangedSubview(defaultEngineRow)
+        generalSectionStack.addArrangedSubview(directSearchRow)
         generalSectionStack.addArrangedSubview(thresholdStack)
 
         let generalSection = SettingsSection(
@@ -186,6 +208,12 @@ class SearchEnginesSettingsViewController: NSViewController {
         let config = ConfigManager.shared.config
         thresholdStepper.intValue = Int32(config.searchEngineSuggestThreshold)
         thresholdValueLabel.stringValue = "\(config.searchEngineSuggestThreshold)"
+
+        if let popUp = directSearchPopUp {
+            popUp.selectItem(
+                withTitle: config.directSearchEngine == .google ? "Google" : "DuckDuckGo")
+        }
+
         refreshDefaultEnginePopUp()
         reloadData()
     }
@@ -385,6 +413,18 @@ class SearchEnginesSettingsViewController: NSViewController {
     }
 
     // MARK: - Actions
+
+    @objc private func directSearchEngineChanged(_ sender: NSPopUpButton) {
+        let selected = sender.titleOfSelectedItem
+        var config = ConfigManager.shared.config
+        if selected == "Google" {
+            config.directSearchEngine = .google
+        } else {
+            config.directSearchEngine = .duckDuckGo
+        }
+        ConfigManager.shared.config = config
+        ConfigManager.shared.save()
+    }
 
     @objc private func defaultEngineChanged(_ sender: NSPopUpButton) {
         let name = sender.titleOfSelectedItem
