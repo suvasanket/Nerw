@@ -14,12 +14,10 @@ public struct UIConfig: Codable {
 
 public struct Config: Codable {
     public var searchEngineSuggestThreshold: Int = 2
-    public var defaultSearchEngine: [String] = ["smart", "ss"]
+    public var defaultSearchEngine: [String] = ["google", "g"]
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false
-    public var directSearchProvider: String = "duckduckgo"
-    public var resultSearchProvider: String = "google"
     public var uiConfig: UIConfig?
 
     public init() {}

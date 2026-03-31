@@ -60,9 +60,6 @@ public class SearchEngine {
             Engine(
                 name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
                 urlTemplate: "https://duckduckgo.com/?q=%@", icon: "se_duckduckgo"),
-            Engine(
-                name: "Smart Search", triggers: ["smart", "ss"],
-                urlTemplate: "smart://%@", icon: "se_smart"),
         ]
     }
 
@@ -151,7 +148,7 @@ public class SearchEngine {
     }
 
     public func isBuiltIn(name: String) -> Bool {
-        let defaults = ["Google", "DuckDuckGo", "Smart Search"]
+        let defaults = ["Google", "DuckDuckGo"]
         return defaults.contains(name)
     }
 

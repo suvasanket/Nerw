@@ -190,13 +190,9 @@ public class SearchService {
                         cleanedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
                         ?? ""
 
-                    if engineName == "Smart Search" {
-                        SmartSearch.shared.performSearch(query: cleanedQuery)
-                    } else {
-                        let urlString = String(format: urlTemplate, encodedQuery)
-                        if let url = URL(string: urlString) {
-                            NSWorkspace.shared.open(url)
-                        }
+                    let urlString = String(format: urlTemplate, encodedQuery)
+                    if let url = URL(string: urlString) {
+                        NSWorkspace.shared.open(url)
                     }
                 })
             )
@@ -288,12 +284,8 @@ public class SearchService {
                                 currentQuery.addingPercentEncoding(
                                     withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-                            if engine.name == "Smart Search" {
-                                SmartSearch.shared.performSearch(query: currentQuery)
-                            } else {
-                                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                                if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
-                            }
+                            let urlString = String(format: engine.urlTemplate, encodedQuery)
+                            if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
                         })
                     )
                 }
@@ -527,13 +519,9 @@ public class SearchService {
                     query.addingPercentEncoding(
                         withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-                if engine.name == "Smart Search" {
-                    SmartSearch.shared.performSearch(query: query)
-                } else {
-                    let urlString = String(format: engine.urlTemplate, encodedQuery)
-                    if let url = URL(string: urlString) {
-                        NSWorkspace.shared.open(url)
-                    }
+                let urlString = String(format: engine.urlTemplate, encodedQuery)
+                if let url = URL(string: urlString) {
+                    NSWorkspace.shared.open(url)
                 }
             })
         )
