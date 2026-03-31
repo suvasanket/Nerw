@@ -383,7 +383,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Monitor modifier flags to update UI (alternate titles/subtitles)
         NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.resultsTableView.reloadData()
+            guard let self = self, !self.actions.isEmpty else { return event }
+            let row = self.selectedIndex
+            if row >= 0 && row < self.actions.count {
+                self.resultsTableView.reloadData(
+                    forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+            }
             return event
         }
     }
@@ -1160,9 +1165,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     {
         guard row < actions.count else { return nil }
         let action = actions[row]
-        let cell = ResultCellView()
+
+        let identifier = NSUserInterfaceItemIdentifier("ResultCell")
+        var cell = tableView.makeView(withIdentifier: identifier, owner: self) as? ResultCellView
+        if cell == nil {
+            cell = ResultCellView()
+            cell?.identifier = identifier
+        }
+
         let modifiers = NSApp.currentEvent?.modifierFlags ?? []
-        cell.configure(
+        cell?.configure(
             with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated,
             modifiers: modifiers)
         return cell

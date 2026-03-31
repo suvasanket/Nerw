@@ -158,6 +158,9 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
+    // Shared Cache for file icons to avoid flicker/re-gen during selection
+    private static let iconCache = NSCache<NSString, NSImage>()
+
     func configure(
         with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false,
         modifiers: NSEvent.ModifierFlags = []
@@ -238,19 +241,31 @@ class ResultCellView: NSTableCellView {
             case .image(let img):
                 iconView.image = img
             case .file(let url):
-                // Set default icon first to avoid flickering/empty state
-                iconView.image = NSWorkspace.shared.icon(for: .data)  // Generic placeholder
+                // 1. Check Cache
+                let cacheKey = url.path as NSString
+                if let cached = ResultCellView.iconCache.object(forKey: cacheKey) {
+                    iconView.image = cached
+                } else {
+                    // Set default icon first to avoid flickering/empty state
+                    iconView.image = NSWorkspace.shared.icon(for: .data)  // Generic placeholder
 
-                // Async load
-                let loadingActionID = action.id
-                NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64)) {
-                    [weak self] image in
-                    guard let self = self else { return }
+                    // Async load
+                    let loadingActionID = action.id
+                    NerwUtils.IconUtils.getIconAsync(for: url, size: CGSize(width: 64, height: 64))
+                    {
+                        [weak self] image in
+                        guard let self = self else { return }
 
-                    // Verify cell is still configured for this action
-                    if self.currentActionID == loadingActionID {
+                        // Cache it for next time
                         if let image = image {
-                            self.iconView.image = image
+                            ResultCellView.iconCache.setObject(image, forKey: cacheKey)
+                        }
+
+                        // Verify cell is still configured for this action
+                        if self.currentActionID == loadingActionID {
+                            if let image = image {
+                                self.iconView.image = image
+                            }
                         }
                     }
                 }
