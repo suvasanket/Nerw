@@ -82,7 +82,7 @@ public enum Nerw {
         case "query":
             let queryInput = QueryInput(
                 query: input["query"] as? String ?? "",
-                trigger: input["trigger"] as? String,
+                triggers: input["triggers"] as? [String] ?? [],
                 settings: settings
             )
 

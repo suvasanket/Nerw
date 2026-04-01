@@ -812,6 +812,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             if let result = Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared
                 .findByTrigger(possibleTrigger)
                 ?? System.shared.findByTrigger(possibleTrigger)
+                ?? ExtensionEngine.shared.findByTrigger(possibleTrigger)
 
             {
 

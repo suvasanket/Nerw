@@ -32,7 +32,8 @@ public class SearchService {
                     fields: [
                         NerwAction.Field(id: "name", title: "Name", placeholder: "e.g. GitHub"),
                         NerwAction.Field(
-                            id: "trigger", title: "Trigger", placeholder: "e.g. gh (without !)"),
+                            id: "triggers", title: "Triggers",
+                            placeholder: "e.g. gh g (space separated)"),
                         NerwAction.Field(
                             id: "url", title: "URL Template",
                             placeholder: "https://site.com?q=%s"),
@@ -43,15 +44,18 @@ public class SearchService {
                     submitLabel: "Add Bang",
                     perform: { _, values in
                         guard let name = values["name"],
-                            let trigger = values["trigger"],
+                            let triggersStr = values["triggers"],
                             let url = values["url"],
-                            !name.isEmpty, !trigger.isEmpty, !url.isEmpty
+                            !name.isEmpty, !triggersStr.isEmpty, !url.isEmpty
                         else { return }
 
+                        let triggers = triggersStr.components(separatedBy: .whitespaces).filter {
+                            !$0.isEmpty
+                        }
                         let icon = values["icon"]?.isEmpty == false ? values["icon"] : nil
 
                         SearchEngine.shared.addEngine(
-                            name: name, url: url, trigger: trigger, icon: icon)
+                            name: name, url: url, triggers: triggers, icon: icon)
                     }
                 )
             )

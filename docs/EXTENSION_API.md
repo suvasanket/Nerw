@@ -37,20 +37,42 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
   "id": "com.example.search",
   "name": "Example Search",
   "description": "Searches an example API",
-  "trigger": "example",
-  "icon": "magnifyingglass"
+  "icon": "magnifyingglass",
+  "actions": [
+    {
+      "name": "Action One",
+      "description": "First action",
+      "triggers": ["one", "first"],
+      "icon": "1.circle"
+    },
+    {
+      "name": "Action Two",
+      "description": "Second action",
+      "triggers": ["two", "second"]
+    }
+  ]
 }
 ```
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `id` | string | Yes | Unique identifier (reverse domain notation recommended) |
-| `name` | string | Yes | Display name shown in the UI |
+| `name` | string | Yes | Display name for the extension package |
 | `description` | string | No | Brief description of the extension |
-| `trigger` | string | Yes | Primary keyword that activates this extension |
-| `triggers` | array | No | Additional trigger keywords |
-| `icon` | string | No | SF Symbol name (e.g., "star", "gear", "cloud") |
+| `icon` | string | No | SF Symbol name for the extension package |
+| `actions` | array | Yes | List of actions provided by this extension |
 | `settings` | array | No | List of configuration options for the extension |
+
+#### Action Object
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Display name shown in the UI |
+| `description` | string | No | Brief description shown as subtitle |
+| `triggers` | array | Yes | Keyword triggers that activate this action |
+| `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
+
+> **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.
 
 ---
 
@@ -156,9 +178,9 @@ struct MyExtension: NerwExtension {
 ```swift
 public struct QueryInput {
     public let query: String
-    public let trigger: String?
+    public let triggers: [String]
 
-    public init(query: String, trigger: String? = nil)
+    public init(query: String, triggers: [String] = [])
 }
 ```
 
@@ -167,21 +189,21 @@ public struct QueryInput {
 | Property | Type | Description |
 |----------|------|-------------|
 | `query` | String | The full text the user typed after the trigger |
-| `trigger` | String? | The trigger keyword that activated this extension (useful when using multiple triggers) |
+| `triggers` | [String] | The trigger keyword(s) that activated this extension. Usually contains one element: the trigger actually typed. |
 
 **Implementation:**
 ```swift
-public init(query: String, trigger: String? = nil) {
+public init(query: String, triggers: [String] = []) {
     self.query = query
-    self.trigger = trigger
+    self.triggers = triggers
 }
 ```
 
 **Example:**
 ```swift
 func query(input: QueryInput) -> [NerwResult] {
-    // If user types "example hello world"
-    // input.trigger = "example"
+    // If user types "one hello world"
+    // input.triggers = ["one"]
     // input.query = "hello world"
     
     return searchDatabase(query: input.query)
@@ -955,24 +977,22 @@ import NerwExtensionKit
 
 struct DualExtension: NerwExtension {
     func query(input: QueryInput) -> [NerwResult] {
-        switch input.trigger {
-        case "gh":
+        if input.triggers.contains("gh") {
             return [
                 NerwResult("GitHub")
                     .subtitle("Open GitHub")
                     .icon(.system("chevron.left.forwardslash.chevron.right"))
                     .instant(action: "https://github.com")
             ]
-        case "gl":
+        } else if input.triggers.contains("gl") {
             return [
                 NerwResult("GitLab")
                     .subtitle("Open GitLab")
                     .icon(.system("t.square"))
                     .instant(action: "https://gitlab.com")
             ]
-        default:
-            return []
         }
+        return []
     }
 
     func perform(action: ActionInput) {}

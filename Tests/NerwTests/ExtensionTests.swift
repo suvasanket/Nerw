@@ -27,8 +27,14 @@ final class ExtensionTests: XCTestCase {
                 {
                     "id": "\(id)",
                     "name": "Test \(id)",
-                    "trigger": "\(trigger)",
-                    "description": "Test extension"\(settingsPart)
+                    "description": "Test extension",
+                    "actions": [
+                        {
+                            "name": "Test \(id)",
+                            "triggers": ["\(trigger)"],
+                            "description": "Test extension"
+                        }
+                    ]\(settingsPart)
                 }
                 """
 

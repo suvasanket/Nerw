@@ -51,9 +51,17 @@ struct InitSubcommand: Subcommand {
                 "id": id,
                 "name": name,
                 "description": "A new Nerw extension",
-                "trigger": trigger,
                 "icon": "puzzlepiece.extension",
+                "actions": [
+                    [
+                        "name": name,
+                        "description": "A new Nerw extension",
+                        "triggers": [trigger],
+                        "icon": "puzzlepiece.extension",
+                    ]
+                ],
             ]
+
             let manifestData = try JSONSerialization.data(
                 withJSONObject: manifest, options: .prettyPrinted)
             try manifestData.write(to: extDir.appendingPathComponent("manifest.json"))
@@ -65,15 +73,15 @@ struct InitSubcommand: Subcommand {
                 struct \(name.replacingOccurrences(of: " ", with: "")): NerwExtension {
                     func query(input: QueryInput) -> [NerwResult] {
                         let query = input.query
-                        
+
                         return [
                             NerwResult("Example: \\(query)")
-                                .subtitle("Custom result for trigger: \\(input.trigger ?? "none")")
+                                .subtitle("Custom result for trigger: \\(input.triggers.first ?? "none")")
                                 .icon(.system("star"))
                                 .instant(action: "https://google.com/search?q=\\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
                         ]
                     }
-                    
+
                     func perform(action: ActionInput) {
                         // Handle function-based actions here
                     }
@@ -81,6 +89,7 @@ struct InitSubcommand: Subcommand {
 
                 Nerw.run(\(name.replacingOccurrences(of: " ", with: ""))())
                 """
+
             try template.write(
                 to: extDir.appendingPathComponent("main.swift"), atomically: true, encoding: .utf8)
 

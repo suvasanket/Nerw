@@ -127,10 +127,10 @@ public class SearchEngine {
         ConfigManager.shared.save()
     }
 
-    public func addEngine(name: String, url: String, trigger: String, icon: String? = nil) {
+    public func addEngine(name: String, url: String, triggers: [String], icon: String? = nil) {
         // Convert %s to %@ for format string if needed
         let template = url.replacingOccurrences(of: "%s", with: "%@")
-        let newEngine = Engine(name: name, triggers: [trigger], urlTemplate: template, icon: icon)
+        let newEngine = Engine(name: name, triggers: triggers, urlTemplate: template, icon: icon)
         engines.append(newEngine)
         saveEngines()
     }
@@ -154,7 +154,7 @@ public class SearchEngine {
 
     /// Updates an existing engine by replacing it with new values.
     public func updateEngine(
-        originalName: String, name: String, url: String, trigger: String, icon: String? = nil
+        originalName: String, name: String, url: String, triggers: [String], icon: String? = nil
     ) {
         // Protect built-ins: don't rename or edit them via the normal UI
         if isBuiltIn(name: originalName) { return }
@@ -163,7 +163,7 @@ public class SearchEngine {
         guard let idx = engines.firstIndex(where: { $0.name == originalName }) else { return }
         engines[idx] = Engine(
             name: name,
-            triggers: [trigger],
+            triggers: triggers,
             urlTemplate: template,
             icon: icon ?? engines[idx].icon,
             isEnabled: engines[idx].isEnabled

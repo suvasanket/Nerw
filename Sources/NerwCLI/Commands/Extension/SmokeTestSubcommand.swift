@@ -147,7 +147,7 @@ struct SmokeTestSubcommand: Subcommand {
             let input: [String: Any] = [
                 "type": "query",
                 "query": query,
-                "trigger": "test",
+                "triggers": ["first"],
             ]
             let inputData = try JSONSerialization.data(withJSONObject: input)
             inputPipe.fileHandleForWriting.write(inputData)

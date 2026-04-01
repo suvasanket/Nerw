@@ -363,8 +363,8 @@ class SearchEnginesSettingsViewController: NSViewController {
         let nameField = NSTextField(string: engine?.name ?? "")
         nameField.placeholderString = "Name (e.g. Wikipedia)"
 
-        let triggerField = NSTextField(string: engine?.triggers.first ?? "")
-        triggerField.placeholderString = "Bang trigger (e.g. w)"
+        let triggerField = NSTextField(string: engine?.triggers.joined(separator: " ") ?? "")
+        triggerField.placeholderString = "Bang triggers (e.g. g google)"
 
         let urlField = NSTextField(string: engine?.urlTemplate ?? "")
         urlField.placeholderString = "URL (e.g. https://en.wikipedia.org/wiki/%@)"
@@ -391,9 +391,11 @@ class SearchEnginesSettingsViewController: NSViewController {
         alert.beginSheetModal(for: window) { response in
             guard response == .alertFirstButtonReturn else { return }
             let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
-            let trigger = triggerField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
+            let triggersStr = triggerField.stringValue.trimmingCharacters(in: .whitespaces)
+                .lowercased()
+            let triggers = triggersStr.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
             let url = urlField.stringValue.trimmingCharacters(in: .whitespaces)
-            guard !name.isEmpty, !trigger.isEmpty, !url.isEmpty else { return }
+            guard !name.isEmpty, !triggers.isEmpty, !url.isEmpty else { return }
 
             var iconKey: String? = existingIconKey
             if let img = userPickedImage {
@@ -403,10 +405,11 @@ class SearchEnginesSettingsViewController: NSViewController {
 
             if let original = engine {
                 SearchEngine.shared.updateEngine(
-                    originalName: original.name, name: name, url: url, trigger: trigger,
+                    originalName: original.name, name: name, url: url, triggers: triggers,
                     icon: iconKey)
             } else {
-                SearchEngine.shared.addEngine(name: name, url: url, trigger: trigger, icon: iconKey)
+                SearchEngine.shared.addEngine(
+                    name: name, url: url, triggers: triggers, icon: iconKey)
             }
             self.reloadData()
         }

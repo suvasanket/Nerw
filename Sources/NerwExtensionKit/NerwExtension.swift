@@ -21,12 +21,12 @@ extension NerwExtension {
 /// Input received during a query.
 public struct QueryInput {
     public let query: String
-    public let trigger: String?
+    public let triggers: [String]
     public let settings: [String: Any]
 
-    public init(query: String, trigger: String? = nil, settings: [String: Any] = [:]) {
+    public init(query: String, triggers: [String] = [], settings: [String: Any] = [:]) {
         self.query = query
-        self.trigger = trigger
+        self.triggers = triggers
         self.settings = settings
     }
 }

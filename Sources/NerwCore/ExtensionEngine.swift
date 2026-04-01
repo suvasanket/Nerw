@@ -12,7 +12,7 @@ struct LoadedExtension {
 struct ExtensionInput: Codable {
     let type: String  // "query" or "action"
     let query: String?
-    let trigger: String?
+    let triggers: [String]?
     let function: String?
     let args: [String]?
     let formValues: [String: String]?
@@ -47,27 +47,57 @@ public class ExtensionEngine {
         var actions: [NerwAction] = []
         for ext in loadedExtensions {
             let manifest = ext.manifest
-            for trigger in manifest.allTriggers {
-                let action = NerwAction(
-                    id: "nerw.ext.\(manifest.id).\(trigger)",
-                    title: manifest.name,
-                    subtitle: manifest.description,
-                    icon: .system("puzzlepiece.extension"),
-                    triggers: [trigger],
-                    type: .args(
-                        placeholder: "Query...",
-                        searcher: { _, query, completion in
-                            self.runExtension(
-                                id: manifest.id, query: query, trigger: trigger,
-                                completion: completion)
-                        },
-                        perform: nil
-                    )
-                )
+            for actionManifest in manifest.actions {
+                let action = createAction(manifest: manifest, actionManifest: actionManifest)
                 actions.append(action)
             }
         }
         return actions
+    }
+
+    private func createAction(
+        manifest: ExtensionManifest, actionManifest: ExtensionActionManifest,
+        overrideTrigger: String? = nil
+    ) -> NerwAction {
+        let triggers = actionManifest.triggers
+        let primaryTrigger = overrideTrigger ?? triggers.first ?? ""
+
+        return NerwAction(
+            id: "nerw.ext.\(manifest.id).\(actionManifest.name)",
+            title: actionManifest.name,
+            subtitle: actionManifest.description ?? "",
+            icon: actionManifest.icon.flatMap { name in
+                if name.hasPrefix("/") {
+                    return NSImage(contentsOfFile: name).map { .image($0) }
+                } else {
+                    return .system(name)
+                }
+            } ?? .system("puzzlepiece.extension"),
+            triggers: triggers,
+            type: .args(
+                placeholder: "Query...",
+                searcher: { _, query, completion in
+                    self.runExtension(
+                        id: manifest.id, query: query, trigger: primaryTrigger,
+                        completion: completion)
+                },
+                perform: nil
+            )
+        )
+    }
+
+    public func findByTrigger(_ trigger: String) -> NerwAction? {
+        let lowerTrigger = trigger.lowercased()
+        for ext in loadedExtensions {
+            for actionManifest in ext.manifest.actions {
+                if actionManifest.triggers.map({ $0.lowercased() }).contains(lowerTrigger) {
+                    return createAction(
+                        manifest: ext.manifest, actionManifest: actionManifest,
+                        overrideTrigger: lowerTrigger)
+                }
+            }
+        }
+        return nil
     }
 
     private let fileManager = FileManager.default
@@ -268,8 +298,9 @@ public class ExtensionEngine {
                 let loaded = LoadedExtension(
                     manifest: manifest, path: item, binaryPath: binaryPath)
                 loadedExtensions.append(loaded)
+                let allTriggers = manifest.actions.flatMap { $0.triggers }
                 print(
-                    "[ExtensionEngine] Loaded extension: \(manifest.id) (Triggers: \(manifest.allTriggers.joined(separator: ", "))) [binary: \(binaryPath != nil ? "yes" : "no")]"
+                    "[ExtensionEngine] Loaded extension: \(manifest.id) (Triggers: \(allTriggers.joined(separator: ", "))) [binary: \(binaryPath != nil ? "yes" : "no")]"
                 )
             } catch {
                 print(
@@ -318,7 +349,7 @@ public class ExtensionEngine {
         let input = ExtensionInput(
             type: "query",
             query: query,
-            trigger: trigger,
+            triggers: trigger.map { [$0] } ?? [],
             function: nil,
             args: nil,
             formValues: nil,
@@ -414,7 +445,7 @@ public class ExtensionEngine {
         let input = ExtensionInput(
             type: "action",
             query: nil,
-            trigger: nil,
+            triggers: nil,
             function: functionName,
             args: args.isEmpty ? nil : args,
             formValues: formValues,

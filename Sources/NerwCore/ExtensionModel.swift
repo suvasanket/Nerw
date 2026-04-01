@@ -29,13 +29,47 @@ public struct ExtensionSetting: Codable {
     }
 }
 
+public struct ExtensionActionManifest: Codable {
+    public let name: String
+    public let description: String?
+    public let icon: String?
+    public let triggers: [String]
+
+    public init(
+        name: String, description: String? = nil, icon: String? = nil, triggers: [String] = []
+    ) {
+        self.name = name
+        self.description = description
+        self.icon = icon
+        self.triggers = triggers
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, description, icon, triggers
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
+
+        // Support both "trigger" (singular) and "triggers" (plural) if needed,
+        // but prefer "triggers". Actually let's just use what's there.
+        if let plural = try container.decodeIfPresent([String].self, forKey: .triggers) {
+            triggers = plural
+        } else {
+            triggers = []
+        }
+    }
+}
+
 public struct ExtensionManifest: Codable {
     public let id: String
     public let name: String
-    public let trigger: String
-    public let triggers: [String]?
     public let description: String
     public let icon: String?
+    public let actions: [ExtensionActionManifest]
     public let mode: String?
     public let settings: [ExtensionSetting]?
 
@@ -49,16 +83,55 @@ public struct ExtensionManifest: Codable {
         return .script
     }
 
-    public var allTriggers: [String] {
-        var all = [trigger]
-        if let extras = triggers {
-            all.append(contentsOf: extras)
-        }
-        return all
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, icon, actions, mode, settings
+        // Legacy keys
+        case trigger, triggers
     }
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, trigger, triggers, description, icon, mode, settings
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Untitled"
+        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        mode = try container.decodeIfPresent(String.self, forKey: .mode)
+        settings = try container.decodeIfPresent([ExtensionSetting].self, forKey: .settings)
+
+        if let actionsArray = try container.decodeIfPresent(
+            [ExtensionActionManifest].self, forKey: .actions)
+        {
+            actions = actionsArray
+        } else {
+            // Legacy support: convert top-level fields to a single action
+            var allTriggers: [String] = []
+            if let trigger = try container.decodeIfPresent(String.self, forKey: .trigger) {
+                allTriggers.append(trigger)
+            }
+            if let triggers = try container.decodeIfPresent([String].self, forKey: .triggers) {
+                allTriggers.append(contentsOf: triggers)
+            }
+
+            actions = [
+                ExtensionActionManifest(
+                    name: name,
+                    description: description,
+                    icon: icon,
+                    triggers: allTriggers
+                )
+            ]
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(description, forKey: .description)
+        try container.encodeIfPresent(icon, forKey: .icon)
+        try container.encode(actions, forKey: .actions)
+        try container.encodeIfPresent(mode, forKey: .mode)
+        try container.encodeIfPresent(settings, forKey: .settings)
     }
 }
 
