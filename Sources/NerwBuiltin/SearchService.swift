@@ -18,6 +18,11 @@ public class SearchService {
             switch action.type {
             case .instant(let perform):
                 perform(action)
+            case .inlineArg(let perform):
+                // Inline args are usually handled by the dynamic action creation in search(),
+                // but if someone calls performAction directly on the base action,
+                // we might not have an argument. We'll just pass empty string or handle it.
+                perform(action, "")
             case .args, .arg, .form:
                 // For args/form, we probably want to open the UI and focus that action
                 DispatchQueue.main.async {
@@ -206,13 +211,53 @@ public class SearchService {
         }
 
         // 2. Bang Search Detection (Explicit)
-        // If user typed "!yt swift", we still probably want that to take precedence immediately
-        // BUT, if they type "yt", we want "YouTube" (Bang) or "YouTube" (App) to appear via Fuzzy.
-        // So we keep the helper resolveBang check for EXPLICIT bangs starting with "!"
+        // ... (preserving logic as above)
+
+        // 2.5 Inline Arg Detection
+        var inlineArgMatches: [NerwAction] = []
+        let allCandidates = self.getCandidates()
+
+        for action in allCandidates {
+            if case .inlineArg(let perform) = action.type {
+                for trigger in action.triggers {
+                    let triggerLower = trigger.lowercased()
+                    // Match "trigger" exactly or "trigger " prefix
+                    if lowerQuery == triggerLower || lowerQuery.starts(with: triggerLower + " ") {
+                        let arg =
+                            query.count > trigger.count
+                            ? String(query.dropFirst(trigger.count + 1)).trimmingCharacters(
+                                in: .whitespaces) : ""
+
+                        let inlineAction = NerwAction(
+                            id: action.id + ".inline." + arg,
+                            title: action.title,
+                            subtitle: arg.isEmpty
+                                ? action.subtitle.replacingOccurrences(of: "%s", with: "...")
+                                : (action.subtitle.contains("%s")
+                                    ? action.subtitle.replacingOccurrences(of: "%s", with: arg)
+                                    : "Argument: \(arg)"),
+                            icon: action.icon,
+                            category: action.category,
+                            triggers: [],
+                            type: .instant(perform: { _ in
+                                perform(action, arg)
+                            })
+                        )
+                        inlineArgMatches.append(inlineAction)
+                        break
+                    }
+                }
+            }
+        }
 
         if let (engineName, urlTemplate, cleanedQuery) = SearchEngine.shared.resolveBang(
             query: query)
         {
+            // ... (rest of bang logic)
+            // ...
+            // We'll keep the bang return early as it's a very specific "forced" override
+            // But for standard inlineArgs, we want them integrated.
+
             // ... Preserve existing logic ...
             let domain =
                 URL(string: urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
@@ -260,6 +305,7 @@ public class SearchService {
         // 3. UNIFIED SEARCH
         // We do everything else async
         let currentQuery = query
+        let currentInlineMatches = inlineArgMatches
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             if self.searchWorkItem?.isCancelled == true { return }
@@ -268,21 +314,7 @@ public class SearchService {
             let candidates = self.getCandidates()
 
             // B. Fuzzy Search
-            // We search against "title" mainly. Triggers should be searchable too?
-            // Fuse normally searches properties.
-            // Let's create a Searchable wrapper or just search titles/triggers.
-            // Since Fuse() API in use seems to be: fuse.searchSync(query, in: [String]) for simple use
-            // Or we check how Fuse handles objects.
-            // Since I don't see the Fuse library code fully, but I see `fuse.searchSync(currentQuery, in: appNames)` usage.
-            // Assuming we want to match Titles AND Triggers.
-            // Simplest way: Map candidates to a list of strings? No, that loses index mapping if multiple strings per item.
-            // Better: Fuse usually supports searching objects with keys.
-            // checking usage: `fuse.searchSync(currentQuery, in: appNames)` returns `(index, score, ranges)`.
-            // So we can pass `candidates.map { $0.searchableString }` where searchableString = "Title" (or "Title Trigger")
-
             let searchStrings = candidates.map { action in
-                // Combine Title and Triggers for broader matching
-                // e.g. "GitHub gh"
                 if action.triggers.isEmpty { return action.title }
                 return action.title + " " + action.triggers.joined(separator: " ")
             }
@@ -295,9 +327,6 @@ public class SearchService {
             let matchedActions = results.map { candidates[$0.index] }
 
             // C. Fallback (Web Search)
-            // Logic similar to before: if no good match, or if suggestion threshold met, add web search.
-            // We'll create the fallback action regardless and let rankResults sort it.
-
             var fallbackAction: NerwAction? = nil
             if let topMatch = FrecencyManager.shared.getMostRecentID(for: currentQuery),
                 topMatch.id.starts(with: "nerw.web.search.")
@@ -349,12 +378,26 @@ public class SearchService {
             let catResult = QueryCategorizer.shared.classifySync(currentQuery)
 
             // E. Combine & Rank
-            let finalResults = matchedActions + [fallbackAction!]
+            var finalResults = matchedActions + [fallbackAction!]
             let ranked = self.rankResults(
                 actions: finalResults, query: currentQuery, categoryResult: catResult)
 
+            // F. Prepend explicit inlineArg matches if not already at top
+            var resultsWithInline = ranked
+            for iam in currentInlineMatches.reversed() {
+                // Remove existing base action if it matches the inline trigger
+                // (iam.id starts with action.id + ".inline.")
+                if let dotRange = iam.id.range(of: ".inline.") {
+                    let baseID = String(iam.id[..<dotRange.lowerBound])
+                    resultsWithInline.removeAll(where: { $0.id == baseID })
+                }
+                // Also remove the iam if it's already there (though unlikely with id suffix)
+                resultsWithInline.removeAll(where: { $0.id == iam.id })
+                resultsWithInline.insert(iam, at: 0)
+            }
+
             DispatchQueue.main.async {
-                completion(ranked)
+                completion(resultsWithInline)
             }
         }
 

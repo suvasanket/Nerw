@@ -34,18 +34,21 @@ public struct ExtensionActionManifest: Codable {
     public let description: String?
     public let icon: String?
     public let triggers: [String]
+    public let type: String?
 
     public init(
-        name: String, description: String? = nil, icon: String? = nil, triggers: [String] = []
+        name: String, description: String? = nil, icon: String? = nil, triggers: [String] = [],
+        type: String? = nil
     ) {
         self.name = name
         self.description = description
         self.icon = icon
         self.triggers = triggers
+        self.type = type
     }
 
     enum CodingKeys: String, CodingKey {
-        case name, description, icon, triggers
+        case name, description, icon, triggers, type
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +56,7 @@ public struct ExtensionActionManifest: Codable {
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        type = try container.decodeIfPresent(String.self, forKey: .type)
 
         // Support both "trigger" (singular) and "triggers" (plural) if needed,
         // but prefer "triggers". Actually let's just use what's there.

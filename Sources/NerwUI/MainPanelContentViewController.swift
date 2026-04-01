@@ -502,11 +502,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .arg, .args:
             enterArgumentMode(action: action, step: 0, collectedArgs: [])
         case .instant(let perform), .hybrid(let perform, _):
-            // For instant/hybrid, we might just want to execute it directly,
-            // but usually hotkeys for these are handled by the caller.
-            // If we are here, it means we want to "open" it (show its UI if any).
-            // For now, let's just execute it as a fallback.
             perform(action)
+        case .inlineArg(let perform):
+            // Default behavior for opening an inlineArg action is to show its title in field?
+            // Actually, we can just execute it with empty arg or do nothing.
+            // Let's just execute with empty for now.
+            perform(action, "")
         }
     }
 
@@ -559,6 +560,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
             closeSession(restoreText: false)
+            return true
+
+        case .inlineArg:
+            // Append space and let the user continue typing the argument
+            if !inputField.stringValue.hasSuffix(" ") {
+                inputField.stringValue += " "
+                inputField.currentEditor()?.moveToEndOfLine(nil)
+            }
             return true
 
         case .hybrid(let perform, _):
@@ -628,6 +637,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
                 return true
 
+            case .inlineArg:
+                // If it's not already in the field as a trigger, it might be a fuzzy match.
+                // We want to "lock" it by appending space.
+                if !inputField.stringValue.hasSuffix(" ") {
+                    inputField.stringValue += " "
+                    inputField.currentEditor()?.moveToEndOfLine(nil)
+                }
+                return true
+
             case .hybrid(_, let box):
                 let quickAction = box.value
                 // Check if quick action needs arguments
@@ -637,6 +655,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     activateArgumentMode(for: quickAction, initialArg: "")
                 case .form:
                     enterFormMode(action: quickAction)
+                case .inlineArg:
+                    // Drill down into inline arg by setting it as active action and appending space
+                    activeAction = quickAction
+                    updateUIForCurrentState()
+                    if !inputField.stringValue.hasSuffix(" ") {
+                        inputField.stringValue += " "
+                        inputField.currentEditor()?.moveToEndOfLine(nil)
+                    }
+                    actions = []
+                    updateActions()
                 case .instant, .hybrid:
                     // Record Usage for Instant/Hybrid swap
                     FrecencyManager.shared.recordUsage(
@@ -674,6 +702,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
                     return true
 
+                case .inlineArg:
+                    if !inputField.stringValue.hasSuffix(" ") {
+                        inputField.stringValue += " "
+                        inputField.currentEditor()?.moveToEndOfLine(nil)
+                    }
+                    return true
+
                 case .hybrid(_, let box):
                     let quickAction = box.value
                     previousSearchText = inputField.stringValue
@@ -683,6 +718,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                         activateArgumentMode(for: quickAction, initialArg: "")
                     case .form:
                         enterFormMode(action: quickAction)
+                    case .inlineArg:
+                        activeAction = quickAction
+                        updateUIForCurrentState()
+                        if !inputField.stringValue.hasSuffix(" ") {
+                            inputField.stringValue += " "
+                            inputField.currentEditor()?.moveToEndOfLine(nil)
+                        }
+                        actions = []
+                        updateActions()
                     default:
                         // Instant/Hybrid swap
                         FrecencyManager.shared.recordUsage(
@@ -835,9 +879,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             {
 
                 if result.supportsArguments {
-                    previousSearchText = possibleTrigger
-                    activateArgumentMode(for: result, initialArg: arg)
-                    return
+                    // [New] Skip Smart Trigger for InlineArg type, as it stays in search mode
+                    if case .inlineArg = result.type {
+                        // Let it fall through to normal search. SearchService will handle
+                        // creating the dynamic inline result and pinning it to top.
+                    } else {
+                        previousSearchText = possibleTrigger
+                        activateArgumentMode(for: result, initialArg: arg)
+                        return
+                    }
                 }
             }
         }
@@ -952,6 +1002,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 switch action.type {
                 case .instant(let perform):
                     perform(action)
+                    resetToSearch()
+                case .inlineArg(let perform):
+                    perform(action, inputField.stringValue)
                     resetToSearch()
                 case .args(_, _, let perform):
                     perform?(action, inputField.stringValue)

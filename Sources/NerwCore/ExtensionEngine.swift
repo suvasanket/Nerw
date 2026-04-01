@@ -62,6 +62,23 @@ public class ExtensionEngine {
         let triggers = actionManifest.triggers
         let primaryTrigger = overrideTrigger ?? triggers.first ?? ""
 
+        let actionType: NerwAction.ActionType
+        if actionManifest.type == "inlineArg" {
+            actionType = .inlineArg(perform: { [weak self] _, arg in
+                self?.performAction(actionManifest.name, extensionId: manifest.id, args: [arg])
+            })
+        } else {
+            actionType = .args(
+                placeholder: "Query...",
+                searcher: { _, query, completion in
+                    self.runExtension(
+                        id: manifest.id, query: query, trigger: primaryTrigger,
+                        completion: completion)
+                },
+                perform: nil
+            )
+        }
+
         return NerwAction(
             id: "nerw.ext.\(manifest.id).\(actionManifest.name)",
             title: actionManifest.name,
@@ -74,15 +91,7 @@ public class ExtensionEngine {
                 }
             } ?? .system("puzzlepiece.extension"),
             triggers: triggers,
-            type: .args(
-                placeholder: "Query...",
-                searcher: { _, query, completion in
-                    self.runExtension(
-                        id: manifest.id, query: query, trigger: primaryTrigger,
-                        completion: completion)
-                },
-                perform: nil
-            )
+            type: actionType
         )
     }
 
@@ -625,6 +634,13 @@ public class ExtensionEngine {
                     self?.performAction(actionValue, extensionId: extensionId)
                 },
                 action: NerwActionBox(qa)
+            )
+
+        } else if explicitType == "inlineArg" {
+            type = .inlineArg(
+                perform: { [weak self] _, arg in
+                    self?.performAction(actionValue, extensionId: extensionId, args: [arg])
+                }
             )
 
         } else if explicitType == "arg" {

@@ -46,9 +46,14 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - `eject all` - Eject all external volumes
     - `wifi` - Toggle WiFi or connect to known networks.
     - `bluetooth` - Toggle Bluetooth or connect to devices.
-7.  **Peek (Inline Previews)**: Provides rich, dynamic, multi-line expanded previews for selected results without leaving the search bar. Supported actions (like Dictionary definitions and Wikipedia summaries) can show extended titles, long typography-aware text blocks, custom icons, and interactive buttons right inside the list window that seamlessly scales vertically to fit exactly what you need.
-8.  **Calculator**: (Planned/Upcoming) Basic math operations.
-9.  **Notification System**:
+7.  **Inline Arguments (Alfred-style)**:
+    - **Behavior**: Some actions allow you to type an argument directly in the main search field after the trigger word (e.g., `map London`).
+    - **Discovery**: When you type a trigger word exactly (like `map`), the corresponding action is pinned to the top of the results.
+    - **Execution**: Pressing Enter executes the pinned action with the currently typed argument.
+    - **Integrated**: Other search results (apps, files, web) continue to appear below the pinned inline action.
+8.  **Peek (Inline Previews)**: Provides rich, dynamic, multi-line expanded previews for selected results without leaving the search bar. Supported actions (like Dictionary definitions and Wikipedia summaries) can show extended titles, long typography-aware text blocks, custom icons, and interactive buttons right inside the list window that seamlessly scales vertically to fit exactly what you need.
+9.  **Calculator**: (Planned/Upcoming) Basic math operations.
+10. **Notification System**:
     - **Glassmorphic Alerts**: Native pill-shaped frosted-glass notifications stack at the top center of the screen.
     - **Dynamic Elements**: Supports various tint types (`warn`, `error`, `info`) and optional unbounded progressive spinners.
     - **3D Stacking**: When multiple notifications overlap elegantly natively mirroring macOS "deck of cards" behaviors.

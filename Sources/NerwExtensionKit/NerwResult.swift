@@ -113,6 +113,15 @@ public struct NerwResult {
         return copy
     }
 
+    /// Configure as inline argument action (Trigger + Space + Arg in search field).
+    /// `action` is the function name called with the argument.
+    public func inlineArg(action: String) -> NerwResult {
+        var copy = self
+        copy.actionType = "inlineArg"
+        copy.actionValue = action
+        return copy
+    }
+
     /// Configure as hybrid action (Enter = primary, Tab = quick action).
     /// `action` is the primary action (URL or function name).
     /// `quickAction` defines the secondary action shown on Tab.

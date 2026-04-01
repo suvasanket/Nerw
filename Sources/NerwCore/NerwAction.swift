@@ -78,6 +78,13 @@ public struct NerwAction {
             perform: ((NerwAction, String) -> Void)? = nil
         )
 
+        /// Inline Argument: Trigger + Space + Argument in the same field.
+        /// e.g., "map <query>"
+        /// - perform: Executed with the argument.
+        case inlineArg(
+            perform: (NerwAction, String) -> Void
+        )
+
         /// Form-based input with multiple named fields.
         case form(
             fields: [Field],
@@ -174,6 +181,8 @@ public struct NerwAction {
         switch type {
         case .instant:
             return .none
+        case .inlineArg:
+            return .none
         case .arg, .args:
             return .arguments
         case .form:
@@ -185,7 +194,9 @@ public struct NerwAction {
 
     public var modeIconName: String? {
         switch mode {
-        case .none: return nil
+        case .none:
+            if case .inlineArg = type { return "bolt.horizontal.fill" }
+            return nil
         case .arguments: return "arrow.right.to.line"
         case .form: return "pencil"
         case .quickAction: return "bolt.fill"
@@ -196,6 +207,8 @@ public struct NerwAction {
         switch type {
         case .instant:
             return nil
+        case .inlineArg:
+            return "Arg"
         case .arg(let placeholders, _):
             return placeholders.first
         case .args(let placeholder, _, _):
@@ -209,7 +222,7 @@ public struct NerwAction {
 
     public var supportsArguments: Bool {
         switch type {
-        case .arg, .args, .form: return true
+        case .arg, .args, .form, .inlineArg: return true
         default: return false
         }
     }

@@ -68,8 +68,9 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `name` | string | Yes | Display name shown in the UI |
-| `description` | string | No | Brief description shown as subtitle |
+| `description` | string | No | Brief description shown as subtitle (use `%s` for argument placeholder) |
 | `triggers` | array | Yes | Keyword triggers that activate this action |
+| `type` | string | No | Action type: "inlineArg" (Alfred-style) or "args" (default) |
 | `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
 
 > **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.
@@ -286,6 +287,7 @@ public struct NerwResult {
     public func icon(_ icon: NerwIcon) -> NerwResult
     public func instant(action: String) -> NerwResult
     public func arg(names: [String], action: String) -> NerwResult
+    public func inlineArg(action: String) -> NerwResult
     public func hybrid(action: String, quickAction: NerwResult) -> NerwResult
     public func form(fields: [NerwField], submitLabel: String?, action: String) -> NerwResult
     public func modifier(_ key: ModifierKey, action: String, title: String?, subtitle: String?) -> NerwResult
@@ -445,6 +447,28 @@ NerwResult("Search")
 // Multiple arguments
 NerwResult("Calculate")
     .arg(names: ["Number 1", "Operator", "Number 2"], action: "calculate")
+```
+
+### `.inlineArg(action:)`
+
+**What it does:** Configures an "Alfred-style" inline argument action. The action remains in the main search field, and the user's typed query (after the trigger and a space) is passed as the argument to your `perform(action:)` method.
+
+```swift
+public func inlineArg(action: String) -> NerwResult
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `action` | String | Function name called with the argument |
+
+**Example:**
+```swift
+NerwResult("Map")
+    .subtitle("Search for '%s' on Apple Maps")
+    .icon(.system("map.fill"))
+    .inlineArg(action: "openMap")
 ```
 
 ### `.hybrid(action:quickAction:)`
