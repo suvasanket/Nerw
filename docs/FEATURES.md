@@ -26,7 +26,7 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     -   **Smart History**: Nerw remembers your preference. If you type `!yt swift`, the next time you type `swift`, Nerw will suggest **YouTube** automatically.
     -   **Strict Recency**: The suggestion always tracks your *last used* engine for a query, allowing you to switch preferences instantly.
     -   **Default Fallback**: If no bang is used and no history exists, a **Google Search** fallback is added to the bottom of the results.
-    -   **Smart Boosting**: If your query is long (typically > 3 words) and doesn't exactly match an app, the Web Search result (History or Fallback) automatically jumps to the top.
+    -   **Smart Categorizer**: Nerw uses Apple's NaturalLanguage framework to classify your query in real-time. If the query looks like a web search (e.g., "how to install docker", "best restaurants near me") or a URL (e.g., "github.com"), the web search result is automatically boosted to the top. If the query matches an app name or trigger, the real match always stays on top (trigger-match guard).
 3.  **Native File Search**:
     - **Trigger**: `find [query]`, `file [query]`.
     - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
@@ -145,4 +145,5 @@ Designed for mouse-free usage:
 - **Native Swift**: Built with AppKit/Core Graphics for maximum performance.
 - **Low Footprint**: Minimal resource usage (`.accessory` activation policy).
 - **Fast Fuzzy Search**: Uses the integrated `NerwSearchBackend` search library (Fuse implementation).
+- **NLP Query Categorizer**: Uses Apple's NaturalLanguage framework with pre-compiled regex and reusable NLTagger for microsecond-speed query classification.
 - **Async Icons**: Icons are loaded asynchronously to prevent UI stalling. Cached at `~/Library/Application Support/Nerw/Icons`.

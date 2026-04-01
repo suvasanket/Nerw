@@ -33,6 +33,10 @@ public struct NerwAction {
     }
     public let peek: PeekData?
 
+    /// Optional category tag for smart ranking.
+    /// Actions with a category get boosted when the query categorizer detects matching intent.
+    public let category: QueryCategory?
+
     public let triggers: [String]
 
     public struct Field {
@@ -125,6 +129,7 @@ public struct NerwAction {
         subtitle: String,
         icon: IconType? = nil,
         peek: PeekData? = nil,
+        category: QueryCategory? = nil,
         triggers: [String] = [],
         modifiers: [ModifierKey: ModifierAction] = [:],
         type: ActionType
@@ -134,6 +139,7 @@ public struct NerwAction {
         self.subtitle = subtitle
         self.icon = icon
         self.peek = peek
+        self.category = category
 
         // Merge custom aliases from config
         var allTriggers = triggers

@@ -231,6 +231,7 @@ public class SearchService {
                 title: "Search \(engineName)",
                 subtitle: "Search for '\(cleanedQuery)' on \(engineName)",
                 icon: iconType ?? .system("globe"),
+                category: .webSearch,
                 triggers: [],
                 modifiers: [
                     .shift: NerwAction.ModifierAction(
@@ -315,6 +316,7 @@ public class SearchService {
                         title: "Search \(engine.name)",
                         subtitle: "Search for '\(currentQuery)' on \(engine.name)",
                         icon: iconType ?? .system("globe"),
+                        category: .webSearch,
                         triggers: [],
                         modifiers: [
                             .shift: NerwAction.ModifierAction(
@@ -343,9 +345,13 @@ public class SearchService {
                     query: currentQuery, engine: defaultEngine)
             }
 
-            // D. Combine & Rank
+            // D. Classify query with NLP categorizer
+            let catResult = QueryCategorizer.shared.classifySync(currentQuery)
+
+            // E. Combine & Rank
             let finalResults = matchedActions + [fallbackAction!]
-            let ranked = self.rankResults(actions: finalResults, query: currentQuery)
+            let ranked = self.rankResults(
+                actions: finalResults, query: currentQuery, categoryResult: catResult)
 
             DispatchQueue.main.async {
                 completion(ranked)
@@ -486,7 +492,10 @@ public class SearchService {
         }
     }
 
-    private func rankResults(actions: [NerwAction], query: String) -> [NerwAction] {
+    private func rankResults(
+        actions: [NerwAction], query: String,
+        categoryResult: QueryCategorizerResult
+    ) -> [NerwAction] {
         let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespaces)
         var exactMatches: [(action: NerwAction, score: Double)] = []
         var frecencyBoosted: [(action: NerwAction, score: Double)] = []
@@ -520,25 +529,57 @@ public class SearchService {
         var sortedActions =
             exactMatches.map({ $0.action }) + frecencyBoosted.map({ $0.action }) + otherActions
 
-        // Fallback Boosting Logic
-        // If word count is high enough and we don't have an exact match at the top,
-        // assume the user might want to search the web (fallback).
-        let config = ConfigManager.shared.config
-        let wordCount = normalizedQuery.split(separator: " ").count
+        // ── Smart Category Boost with Trigger Guard ──────────────────
+        // If the categorizer detected a category with sufficient confidence,
+        // boost actions tagged with that category — BUT only if the query
+        // isn't already matching a trigger word (real matches take priority).
 
-        if wordCount >= config.searchEngineSuggestThreshold {
-            // Check if top result is an exact match
-            let topIsExact = sortedActions.first?.title.lowercased() == normalizedQuery
+        if let detectedCategory = categoryResult.category, categoryResult.confidence >= 0.6 {
 
-            if !topIsExact {
-                // Find the fallback action
-                // Check prefix since IDs are now nerw.web.search.<engine>
-                if let fallbackIndex = sortedActions.firstIndex(where: {
-                    $0.id.hasPrefix("nerw.web.search.")
-                }) {
-                    let fallbackAction = sortedActions.remove(at: fallbackIndex)
-                    // Move to top
-                    sortedActions.insert(fallbackAction, at: 0)
+            // Determine which categories to boost.
+            // .url detection also boosts .webSearch actions (URL is a web intent).
+            let categoriesToBoost: Set<QueryCategory>
+            switch detectedCategory {
+            case .url:
+                categoriesToBoost = [.url, .webSearch]
+            default:
+                categoriesToBoost = [detectedCategory]
+            }
+
+            // TRIGGER GUARD: Check if the query is contained in any non-categorized
+            // action's triggers. If so, those actions are "real matches" and the
+            // category boost must not override them.
+            var bestTriggerMatchIndex: Int? = nil
+            for (idx, action) in sortedActions.enumerated() {
+                // Skip actions that themselves have a matching category
+                if let ac = action.category, categoriesToBoost.contains(ac) { continue }
+
+                let titleMatch = action.title.lowercased().contains(normalizedQuery)
+                let triggerMatch = action.triggers.contains { trigger in
+                    trigger.lowercased().contains(normalizedQuery)
+                }
+
+                if titleMatch || triggerMatch {
+                    bestTriggerMatchIndex = idx
+                    break  // First match in sorted order is the best one
+                }
+            }
+
+            // Find the categorized action(s) to boost
+            if let boostIndex = sortedActions.firstIndex(where: { action in
+                guard let ac = action.category else { return false }
+                return categoriesToBoost.contains(ac)
+            }) {
+                let boostedAction = sortedActions.remove(at: boostIndex)
+
+                if let triggerIdx = bestTriggerMatchIndex {
+                    // Trigger match exists: insert the boosted action RIGHT AFTER
+                    // the best trigger match, never above it.
+                    let insertAt = min(triggerIdx + 1, sortedActions.count)
+                    sortedActions.insert(boostedAction, at: insertAt)
+                } else {
+                    // No trigger match: full boost — move to top
+                    sortedActions.insert(boostedAction, at: 0)
                 }
             }
         }
@@ -559,6 +600,7 @@ public class SearchService {
             title: "Search \(engine.name)",
             subtitle: "Search for '\(query)' on \(engine.name)",
             icon: iconType ?? .system("globe"),
+            category: .webSearch,
             triggers: [],
             modifiers: [
                 .shift: NerwAction.ModifierAction(

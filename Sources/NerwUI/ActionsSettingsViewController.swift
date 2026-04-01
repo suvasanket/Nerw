@@ -56,15 +56,17 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             subview.removeFromSuperview()
         }
 
-        // 1. Apps Section
+        // 1. Apps Section — load on background then update UI
         let apps = AppSearch.shared.getAllApps().sorted { $0.name < $1.name }
+        // Pre-build rows without icons first (icons loaded async)
         let appRows = apps.map { app in
-            let id = "nerw.app." + app.path  // Fixed ID to match SearchService
+            let id = "nerw.app." + app.path
             return createActionRow(
                 title: app.name,
                 triggers: [app.name],
                 id: id,
-                icon: .file(URL(fileURLWithPath: app.path))
+                icon: nil,  // No icon yet — will be loaded async
+                iconURL: URL(fileURLWithPath: app.path)
             )
         }
         addSection(title: "Applications", rows: appRows)
@@ -159,7 +161,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
     }
 
     private func createActionRow(
-        title: String, triggers: [String], id: String, icon: NerwAction.IconType?
+        title: String, triggers: [String], id: String, icon: NerwAction.IconType?,
+        iconURL: URL? = nil
     ) -> NSView {
         let row = NSStackView()
         row.orientation = .horizontal
@@ -181,7 +184,23 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             case .image(let image):
                 iconView.image = image
             case .file(let url):
-                iconView.image = NSWorkspace.shared.icon(forFile: url.path)
+                // Load icon asynchronously to avoid UI freeze
+                let capturedView = iconView
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let loadedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                    DispatchQueue.main.async {
+                        capturedView.image = loadedIcon
+                    }
+                }
+            }
+        } else if let url = iconURL {
+            // Async icon loading for apps (no icon type provided)
+            let capturedView = iconView
+            DispatchQueue.global(qos: .userInitiated).async {
+                let loadedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                DispatchQueue.main.async {
+                    capturedView.image = loadedIcon
+                }
             }
         }
         row.addArrangedSubview(iconView)

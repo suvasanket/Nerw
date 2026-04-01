@@ -11,8 +11,6 @@ class SearchEnginesSettingsViewController: NSViewController {
     private var enginesListStack: NSStackView!
     private var enginesPopUp: NSPopUpButton!
     private var directSearchPopUp: NSPopUpButton!
-    private var thresholdStepper: NSStepper!
-    private var thresholdValueLabel: NSTextField!
 
     override func loadView() {
         self.view = NSView()
@@ -102,32 +100,8 @@ class SearchEnginesSettingsViewController: NSViewController {
         directSearchRow.addArrangedSubview(directSearchPopUp)
         directSearchRow.addArrangedSubview(NSView())  // Spacer
 
-        // Suggestion Threshold Row
-        let thresholdStack = NSStackView()
-        thresholdStack.orientation = .horizontal
-        thresholdStack.spacing = 10
-        thresholdStack.alignment = .centerY
-
-        let thresholdLabel = NSTextField(labelWithString: "Suggestion Threshold:")
-        thresholdStepper = NSStepper()
-        thresholdStepper.minValue = 1
-        thresholdStepper.maxValue = 10
-        thresholdStepper.intValue = Int32(ConfigManager.shared.config.searchEngineSuggestThreshold)
-        thresholdStepper.target = self
-        thresholdStepper.action = #selector(thresholdChanged(_:))
-
-        thresholdValueLabel = NSTextField(
-            labelWithString: "\(ConfigManager.shared.config.searchEngineSuggestThreshold)")
-        thresholdValueLabel.tag = 101
-
-        thresholdStack.addArrangedSubview(thresholdLabel)
-        thresholdStack.addArrangedSubview(thresholdValueLabel)
-        thresholdStack.addArrangedSubview(thresholdStepper)
-        thresholdStack.addArrangedSubview(NSView())  // Spacer
-
         generalSectionStack.addArrangedSubview(defaultEngineRow)
         generalSectionStack.addArrangedSubview(directSearchRow)
-        generalSectionStack.addArrangedSubview(thresholdStack)
 
         let generalSection = SettingsSection(
             title: "General",
@@ -206,8 +180,6 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config
-        thresholdStepper.intValue = Int32(config.searchEngineSuggestThreshold)
-        thresholdValueLabel.stringValue = "\(config.searchEngineSuggestThreshold)"
 
         if let popUp = directSearchPopUp {
             popUp.selectItem(
@@ -433,16 +405,6 @@ class SearchEnginesSettingsViewController: NSViewController {
         let name = sender.titleOfSelectedItem
         if let engine = SearchEngine.shared.engines.first(where: { $0.name == name }) {
             SearchEngine.shared.setDefaultEngine(engine)
-        }
-    }
-
-    @objc private func thresholdChanged(_ sender: NSStepper) {
-        let value = Int(sender.intValue)
-        ConfigManager.shared.config.searchEngineSuggestThreshold = value
-        ConfigManager.shared.save()
-
-        if let label = view.viewWithTag(101) as? NSTextField {
-            label.stringValue = "\(value)"
         }
     }
 
