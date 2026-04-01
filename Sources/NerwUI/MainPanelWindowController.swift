@@ -172,6 +172,11 @@ extension MainPanelWindowController: NerwUIApplication {
         contentViewController.inputField.stringValue = query
     }
 
+    public func openAction(_ action: NerwAction) {
+        show()
+        contentViewController.openAction(action)
+    }
+
     @discardableResult
     public func showNotification(
         content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?

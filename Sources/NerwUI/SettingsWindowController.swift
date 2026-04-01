@@ -101,6 +101,16 @@ class SettingsTabViewController: NSTabViewController {
             systemSymbolName: "magnifyingglass", accessibilityDescription: "Search Settings")
         self.addTabViewItem(searchItem)
 
+        // 3.5 Actions Tab
+        let actionsVC = ActionsSettingsViewController()
+        actionsVC.title = "Actions"
+        actionsVC.preferredContentSize = Self.windowSize
+        let actionsItem = NSTabViewItem(viewController: actionsVC)
+        actionsItem.label = "Actions"
+        actionsItem.image = NSImage(
+            systemSymbolName: "command", accessibilityDescription: "Action Triggers")
+        self.addTabViewItem(actionsItem)
+
         // 4. Extensions Tab
         let extensionsVC = ExtensionSettingsViewController()
         extensionsVC.title = "Extensions"

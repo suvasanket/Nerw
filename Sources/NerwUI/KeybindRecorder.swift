@@ -48,22 +48,39 @@ class KeybindRecorder: NSView {
     }()
 
     private let placeholderLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "Click to set")
+        let label = NSTextField(labelWithString: "Hotkey")
         label.textColor = .tertiaryLabelColor
         label.font = .systemFont(ofSize: 12)
+        label.alignment = .center
         return label
+    }()
+
+    private let clearButton: NSButton = {
+        let button = NSButton()
+        button.bezelStyle = .shadowlessSquare
+        button.isBordered = false
+        button.title = ""
+        button.image = NSImage(
+            systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Clear")
+        button.contentTintColor = .tertiaryLabelColor
+        button.imageScaling = .scaleProportionallyUpOrDown
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        button.isHidden = true
+        return button
     }()
 
     init(keybind: String) {
         self.currentKeybind = keybind
-        super.init(frame: NSRect(x: 0, y: 0, width: 200, height: 28))
+        super.init(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
 
         wantsLayer = true
-        layer?.cornerRadius = 14  // Rounded ends (28/2 = 14)
+        layer?.cornerRadius = 12
         layer?.masksToBounds = true
         layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor
-        layer?.backgroundColor = nil  // No background as requested
+        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
 
         setupUI()
         updateDisplay()
@@ -75,12 +92,38 @@ class KeybindRecorder: NSView {
 
     private func setupUI() {
         addSubview(stackView)
+        addSubview(clearButton)
+
         stackView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stackView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 8),
+            stackView.trailingAnchor.constraint(
+                lessThanOrEqualTo: clearButton.leadingAnchor, constant: -4),
+
+            clearButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            clearButton.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+
+        clearButton.target = self
+        clearButton.action = #selector(clearClicked)
+    }
+
+    @objc private func clearClicked() {
+        self.currentKeybind = ""
+        self.delegate?.keybindRecorder(self, didChangeKeybind: "")
+        updateDisplay()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if !currentKeybind.isEmpty {
+            clearButton.isHidden = false
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        clearButton.isHidden = true
     }
 
     override func updateTrackingAreas() {

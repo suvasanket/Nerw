@@ -12,6 +12,7 @@ public protocol NerwUIApplication {
     func hideWindow()
     func showWindow()
     func setQuery(_ query: String)
+    func openAction(_ action: NerwAction)
     @discardableResult
     func showNotification(
         content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?

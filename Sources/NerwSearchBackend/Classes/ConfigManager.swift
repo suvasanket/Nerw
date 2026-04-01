@@ -25,6 +25,8 @@ public struct Config: Codable {
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false
     public var uiConfig: UIConfig?
+    public var actionAliases: [String: [String]] = [:]
+    public var actionHotkeys: [String: String] = [:]
 
     public init() {}
 }

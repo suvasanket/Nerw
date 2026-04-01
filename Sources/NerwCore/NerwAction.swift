@@ -1,4 +1,5 @@
 import Cocoa
+import NerwSearchBackend
 
 public struct NerwAction {
     public let id: String
@@ -133,7 +134,23 @@ public struct NerwAction {
         self.subtitle = subtitle
         self.icon = icon
         self.peek = peek
-        self.triggers = triggers
+
+        // Merge custom aliases from config
+        var allTriggers = triggers
+        if let custom = ConfigManager.shared.config.actionAliases[id] {
+            allTriggers.append(contentsOf: custom)
+        }
+        // Deduplicate and filter empty, preserving order if possible but Set is easier
+        // Actually, let's keep it simple
+        var uniqueTriggers: [String] = []
+        for t in allTriggers {
+            let trimmed = t.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty && !uniqueTriggers.contains(trimmed) {
+                uniqueTriggers.append(trimmed)
+            }
+        }
+        self.triggers = uniqueTriggers
+
         self.modifiers = modifiers
         self.type = type
     }

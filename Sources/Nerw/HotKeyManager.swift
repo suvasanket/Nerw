@@ -4,18 +4,22 @@ import Cocoa
 class HotKeyManager {
     static let shared = HotKeyManager()
 
-    private var hotKeyRef: EventHotKeyRef?
+    private var hotKeyRefs: [String: EventHotKeyRef] = [:]
+    private var handlers: [UInt32: () -> Void] = [:]
     private var eventHandler: EventHandlerRef?
-    private var handler: (() -> Void)?
-    private var eventID: UInt32 = 1
+    private var nextEventID: UInt32 = 1
 
     private init() {}
 
-    func register(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, handler: @escaping () -> Void)
-    {
-        unregister()
+    func register(
+        identifier: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags,
+        handler: @escaping () -> Void
+    ) {
+        unregister(identifier: identifier)
 
-        self.handler = handler
+        let eventID = nextEventID
+        nextEventID += 1
+        handlers[eventID] = handler
 
         var carbonModifiers: UInt32 = 0
         if modifiers.contains(.command) { carbonModifiers |= UInt32(cmdKey) }
@@ -34,19 +38,30 @@ class HotKeyManager {
             0,
             &hotKeyRef)
 
-        if error == noErr {
-            self.hotKeyRef = hotKeyRef
+        if error == noErr, let ref = hotKeyRef {
+            self.hotKeyRefs[identifier] = ref
             installEventHandler()
         } else {
-            print("Nerw: Failed to register hotkey with error \(error)")
+            print("Nerw: Failed to register hotkey '\(identifier)' with error \(error)")
         }
     }
 
-    func unregister() {
-        if let hotKeyRef = hotKeyRef {
+    func unregister(identifier: String) {
+        if let hotKeyRef = hotKeyRefs[identifier] {
             UnregisterEventHotKey(hotKeyRef)
-            self.hotKeyRef = nil
+            hotKeyRefs.removeValue(forKey: identifier)
+            // We don't easily know the eventID here without storing it back-mapping
+            // But handlers are small, so it's okay for now or we can store ID in hotKeyRefs
         }
+    }
+
+    func unregisterAll() {
+        for ref in hotKeyRefs.values {
+            UnregisterEventHotKey(ref)
+        }
+        hotKeyRefs.removeAll()
+        handlers.removeAll()
+        nextEventID = 1
     }
 
     private func installEventHandler() {
@@ -55,8 +70,20 @@ class HotKeyManager {
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
 
-        let handler: EventHandlerUPP = { _, _, _ -> OSStatus in
-            HotKeyManager.shared.handler?()
+        let handler: EventHandlerUPP = { _, event, _ -> OSStatus in
+            var hotKeyID = EventHotKeyID()
+            let error = GetEventParameter(
+                event,
+                EventParamName(kEventParamDirectObject),
+                EventParamType(typeEventHotKeyID),
+                nil,
+                MemoryLayout<EventHotKeyID>.size,
+                nil,
+                &hotKeyID)
+
+            if error == noErr {
+                HotKeyManager.shared.handlers[hotKeyID.id]?()
+            }
             return noErr
         }
 

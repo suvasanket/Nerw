@@ -1,5 +1,6 @@
 import Carbon.HIToolbox
 import Cocoa
+import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
 import NerwUI
@@ -141,14 +142,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func registerGlobalHotkey() {
-        let configString = ConfigManager.shared.config.globalKeybind
+        // Unregister all existing hotkeys first to avoid duplicates
+        HotKeyManager.shared.unregisterAll()
+
+        // 1. Register Main Global Toggle
+        let config = ConfigManager.shared.config
+        let configString = config.globalKeybind
         let (modifiers, keyCode) =
             HotkeyParser.parse(configString) ?? (.command.union(.shift), 49)
         // Default: Cmd+Shift+Space
 
-        HotKeyManager.shared.register(keyCode: keyCode, modifiers: modifiers) { [weak self] in
+        HotKeyManager.shared.register(
+            identifier: "nerw.global.toggle", keyCode: keyCode, modifiers: modifiers
+        ) { [weak self] in
             DispatchQueue.main.async {
                 self?.popupController.toggle()
+            }
+        }
+
+        // 2. Register Action-Specific Hotkeys
+        for (actionID, hotkey) in config.actionHotkeys {
+            guard let (mods, code) = HotkeyParser.parse(hotkey) else { continue }
+
+            HotKeyManager.shared.register(
+                identifier: "nerw.action.\(actionID)", keyCode: code, modifiers: mods
+            ) {
+                DispatchQueue.main.async {
+                    SearchService.shared.performAction(id: actionID)
+                }
             }
         }
     }

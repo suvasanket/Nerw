@@ -10,6 +10,49 @@ public class SearchService {
 
     private init() {}
 
+    public func performAction(id: String) {
+        // Find the action from all candidates
+        let candidates = getCandidates()
+        if let action = candidates.first(where: { $0.id == id }) {
+            // Check if it's an instant action or needs more
+            switch action.type {
+            case .instant(let perform):
+                perform(action)
+            case .args, .arg, .form:
+                // For args/form, we probably want to open the UI and focus that action
+                DispatchQueue.main.async {
+                    if let ui = NerwSystem.shared.ui {
+                        ui.openAction(action)
+                    }
+                }
+            case .hybrid(let perform, _):
+                perform(action)
+            }
+        }
+    }
+
+    public func getCandidates() -> [NerwAction] {
+        var candidates: [NerwAction] = []
+
+        // Builtin
+        candidates.append(contentsOf: Nerw.shared.getAllActions())
+        candidates.append(contentsOf: System.shared.getAllActions())
+        candidates.append(FindFile.shared.getTriggerAction())
+
+        // Shortcuts
+        candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
+
+        // Extensions
+        candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
+
+        // Apps
+        let allApps = AppSearch.shared.getAllApps()
+        let appActions = allApps.map { self.createAction(for: $0) }
+        candidates.append(contentsOf: appActions)
+
+        return candidates
+    }
+
     public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
 
         // 0. Cancel previous pending search
@@ -221,26 +264,7 @@ public class SearchService {
             if self.searchWorkItem?.isCancelled == true { return }
 
             // A. Aggregate Candidates
-            var candidates: [NerwAction] = []
-
-            // Builtin
-            candidates.append(contentsOf: Nerw.shared.getAllActions())
-            candidates.append(contentsOf: System.shared.getAllActions())
-            candidates.append(FindFile.shared.getTriggerAction())
-
-            // Shortcuts
-            if ConfigManager.shared.config.showShortcutsInMain {
-                candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
-            }
-
-            // Extensions
-            candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
-
-            // Apps
-            let allApps = AppSearch.shared.getAllApps()
-            // Map Apps to Actions
-            let appActions = allApps.map { self.createAction(for: $0) }
-            candidates.append(contentsOf: appActions)
+            let candidates = self.getCandidates()
 
             // B. Fuzzy Search
             // We search against "title" mainly. Triggers should be searchable too?

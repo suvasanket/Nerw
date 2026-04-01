@@ -492,6 +492,24 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         search(query: "")
     }
 
+    func openAction(_ action: NerwAction) {
+        // Reset state first to ensure clean transition
+        reset()
+
+        switch action.type {
+        case .form:
+            enterFormMode(action: action)
+        case .arg, .args:
+            enterArgumentMode(action: action, step: 0, collectedArgs: [])
+        case .instant(let perform), .hybrid(let perform, _):
+            // For instant/hybrid, we might just want to execute it directly,
+            // but usually hotkeys for these are handled by the caller.
+            // If we are here, it means we want to "open" it (show its UI if any).
+            // For now, let's just execute it as a fallback.
+            perform(action)
+        }
+    }
+
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true) {
         activeAction = nil
