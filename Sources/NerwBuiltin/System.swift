@@ -38,7 +38,52 @@ public class System {
 
     public func getAllActions() -> [NerwAction] {
         return [
-            // (Removed Define action, handled dynamically in SearchService)
+            // Dictionary Define
+            NerwAction(
+                id: "nerw.system.define",
+                title: "Define",
+                subtitle: "Look up a word in the dictionary",
+                icon: .image(
+                    NSWorkspace.shared.icon(forFile: "/System/Applications/Dictionary.app")),
+                triggers: ["define", "def"],
+                type: .inlineArg(
+                    perform: { _, arg in
+                        if let encodedQuery = arg.addingPercentEncoding(
+                            withAllowedCharacters: .urlHostAllowed),
+                            let url = URL(string: "dict://\(encodedQuery)")
+                        {
+                            NSWorkspace.shared.open(url)
+                        }
+                    },
+                    searcher: { _, arg, completion in
+                        self.searchDictionary(query: arg, completion: completion)
+                    }
+                )
+            ),
+
+            // Wikipedia
+            NerwAction(
+                id: "nerw.system.wiki",
+                title: "Wikipedia",
+                subtitle: "Search In Wikipedia",
+                icon: .image(
+                    NSImage(named: "wikipedia")
+                        ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")),
+                triggers: ["wiki"],
+                type: .inlineArg(
+                    perform: { _, arg in
+                        let encodedQuery =
+                            arg.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? arg
+                        let pageUrlString = "https://en.wikipedia.org/wiki/\(encodedQuery)"
+                        if let url = URL(string: pageUrlString) {
+                            NSWorkspace.shared.open(url)
+                        }
+                    },
+                    searcher: { _, arg, completion in
+                        self.searchWikipedia(query: arg, completion: completion)
+                    }
+                )
+            ),
 
             // Empty Downloads
             NerwAction(
@@ -100,7 +145,52 @@ public class System {
         let lowerTrigger = trigger.lowercased()
 
         switch lowerTrigger {
-        // (Removed explicit define trigger, handled in SearchService)
+        case "define", "def":
+            return NerwAction(
+                id: "nerw.system.define",
+                title: "Define",
+                subtitle: "Look up a word in the dictionary",
+                icon: .image(
+                    NSWorkspace.shared.icon(forFile: "/System/Applications/Dictionary.app")),
+                triggers: ["define", "def"],
+                type: .inlineArg(
+                    perform: { _, arg in
+                        if let encodedQuery = arg.addingPercentEncoding(
+                            withAllowedCharacters: .urlHostAllowed),
+                            let url = URL(string: "dict://\(encodedQuery)")
+                        {
+                            NSWorkspace.shared.open(url)
+                        }
+                    },
+                    searcher: { _, arg, completion in
+                        self.searchDictionary(query: arg, completion: completion)
+                    }
+                )
+            )
+
+        case "wiki":
+            return NerwAction(
+                id: "nerw.system.wiki",
+                title: "Wikipedia",
+                subtitle: "Search Wikipedia for '%s'",
+                icon: .image(
+                    NSImage(named: "wikipedia")
+                        ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")),
+                triggers: ["wiki"],
+                type: .inlineArg(
+                    perform: { _, arg in
+                        let encodedQuery =
+                            arg.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? arg
+                        let pageUrlString = "https://en.wikipedia.org/wiki/\(encodedQuery)"
+                        if let url = URL(string: pageUrlString) {
+                            NSWorkspace.shared.open(url)
+                        }
+                    },
+                    searcher: { _, arg, completion in
+                        self.searchWikipedia(query: arg, completion: completion)
+                    }
+                )
+            )
 
         case "empty downloads":
             return NerwAction(
@@ -598,7 +688,7 @@ public class System {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let nsString = query as NSString
-            let range = DCSGetTermRangeInString(nil, nsString, 0)
+            _ = DCSGetTermRangeInString(nil, nsString, 0)
 
             // Note: DCSGetTermRangeInString returns kCFNotFound if it doesn't recognize the word,
             // but DCSCopyTextDefinition sometimes still returns a definition. We will just try to fetch it.
