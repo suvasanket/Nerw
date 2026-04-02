@@ -638,9 +638,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 return true
 
             case .inlineArg:
-                // If it's not already in the field as a trigger, it might be a fuzzy match.
-                // We want to "lock" it by appending space.
-                if !inputField.stringValue.hasSuffix(" ") {
+                // Universal completion for inline actions: replace field with "trigger "
+                if let trigger = selectedAction.triggers.first {
+                    inputField.stringValue = trigger + " "
+                    inputField.currentEditor()?.moveToEndOfLine(nil)
+                } else if !inputField.stringValue.hasSuffix(" ") {
+                    // Fallback
                     inputField.stringValue += " "
                     inputField.currentEditor()?.moveToEndOfLine(nil)
                 }
@@ -656,15 +659,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 case .form:
                     enterFormMode(action: quickAction)
                 case .inlineArg:
-                    // Drill down into inline arg by setting it as active action and appending space
-                    activeAction = quickAction
-                    updateUIForCurrentState()
-                    if !inputField.stringValue.hasSuffix(" ") {
+                    // Just autocomplete to the trigger word and let search() handle it
+                    if let trigger = quickAction.triggers.first {
+                        inputField.stringValue = trigger + " "
+                    } else if !inputField.stringValue.hasSuffix(" ") {
                         inputField.stringValue += " "
-                        inputField.currentEditor()?.moveToEndOfLine(nil)
                     }
-                    actions = []
-                    updateActions()
+                    inputField.currentEditor()?.moveToEndOfLine(nil)
+                    return true
                 case .instant, .hybrid:
                     // Record Usage for Instant/Hybrid swap
                     FrecencyManager.shared.recordUsage(
@@ -703,10 +705,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     return true
 
                 case .inlineArg:
-                    if !inputField.stringValue.hasSuffix(" ") {
+                    if let trigger = selectedAction.triggers.first {
+                        inputField.stringValue = trigger + " "
+                    } else if !inputField.stringValue.hasSuffix(" ") {
                         inputField.stringValue += " "
-                        inputField.currentEditor()?.moveToEndOfLine(nil)
                     }
+                    inputField.currentEditor()?.moveToEndOfLine(nil)
                     return true
 
                 case .hybrid(_, let box):
@@ -719,14 +723,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     case .form:
                         enterFormMode(action: quickAction)
                     case .inlineArg:
-                        activeAction = quickAction
-                        updateUIForCurrentState()
-                        if !inputField.stringValue.hasSuffix(" ") {
+                        if let trigger = quickAction.triggers.first {
+                            inputField.stringValue = trigger + " "
+                        } else if !inputField.stringValue.hasSuffix(" ") {
                             inputField.stringValue += " "
-                            inputField.currentEditor()?.moveToEndOfLine(nil)
                         }
-                        actions = []
-                        updateActions()
+                        inputField.currentEditor()?.moveToEndOfLine(nil)
+                        return true
                     default:
                         // Instant/Hybrid swap
                         FrecencyManager.shared.recordUsage(
@@ -863,26 +866,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             query = "find "
         }
 
-        // Smart Trigger Logic
+        // Unified Smart Trigger Logic (e.g., "eject <arg>", "find <arg>")
         let components = query.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
 
         if components.count >= 2 {
-            let possibleTrigger = String(components[0])
+            let possibleTrigger = String(components[0]).lowercased()
             let arg = String(components[1])
 
-            // Unified check for built-in providers
-            if let result = Nerw.shared.findByTrigger(possibleTrigger) ?? FindFile.shared
-                .findByTrigger(possibleTrigger)
-                ?? System.shared.findByTrigger(possibleTrigger)
-                ?? ExtensionEngine.shared.findByTrigger(possibleTrigger)
-
-            {
-
+            // Search for an action that matches the trigger
+            let candidates = SearchService.shared.getCandidates()
+            if let result = candidates.first(where: {
+                $0.triggers.contains(where: { $0.lowercased() == possibleTrigger })
+            }) {
+                // If the action supports arguments but IS NOT an inline action, enter argument mode.
+                // Inline actions (like wiki, define) stay in search mode to show live results.
                 if result.supportsArguments {
-                    // [New] Skip Smart Trigger for InlineArg type, as it stays in search mode
                     if case .inlineArg = result.type {
-                        // Let it fall through to normal search. SearchService will handle
-                        // creating the dynamic inline result and pinning it to top.
+                        // Let it fall through to normal search.
                     } else {
                         previousSearchText = possibleTrigger
                         activateArgumentMode(for: result, initialArg: arg)

@@ -45,7 +45,7 @@ public class System {
                 subtitle: "Look up a word in the dictionary",
                 icon: .image(
                     NSWorkspace.shared.icon(forFile: "/System/Applications/Dictionary.app")),
-                triggers: ["define", "def"],
+                triggers: ["define"],
                 type: .inlineArg(
                     perform: { _, arg in
                         if let encodedQuery = arg.addingPercentEncoding(
@@ -139,128 +139,6 @@ public class System {
                 )
             ),
         ]
-    }
-
-    public func findByTrigger(_ trigger: String) -> NerwAction? {
-        let lowerTrigger = trigger.lowercased()
-
-        switch lowerTrigger {
-        case "define", "def":
-            return NerwAction(
-                id: "nerw.system.define",
-                title: "Define",
-                subtitle: "Look up a word in the dictionary",
-                icon: .image(
-                    NSWorkspace.shared.icon(forFile: "/System/Applications/Dictionary.app")),
-                triggers: ["define", "def"],
-                type: .inlineArg(
-                    perform: { _, arg in
-                        if let encodedQuery = arg.addingPercentEncoding(
-                            withAllowedCharacters: .urlHostAllowed),
-                            let url = URL(string: "dict://\(encodedQuery)")
-                        {
-                            NSWorkspace.shared.open(url)
-                        }
-                    },
-                    searcher: { _, arg, completion in
-                        self.searchDictionary(query: arg, completion: completion)
-                    }
-                )
-            )
-
-        case "wiki":
-            return NerwAction(
-                id: "nerw.system.wiki",
-                title: "Wikipedia",
-                subtitle: "Search Wikipedia for '%s'",
-                icon: .image(
-                    NSImage(named: "wikipedia")
-                        ?? NSWorkspace.shared.icon(forFile: "/Applications/Safari.app")),
-                triggers: ["wiki"],
-                type: .inlineArg(
-                    perform: { _, arg in
-                        let encodedQuery =
-                            arg.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? arg
-                        let pageUrlString = "https://en.wikipedia.org/wiki/\(encodedQuery)"
-                        if let url = URL(string: pageUrlString) {
-                            NSWorkspace.shared.open(url)
-                        }
-                    },
-                    searcher: { _, arg, completion in
-                        self.searchWikipedia(query: arg, completion: completion)
-                    }
-                )
-            )
-
-        case "empty downloads":
-            return NerwAction(
-                id: "nerw.system.emptydownloads",
-                title: "Empty Downloads",
-                subtitle: "Move all Downloads folder contents to Trash",
-                icon: .image(
-                    NSImage(named: "download") ?? NSImage(
-                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
-                triggers: ["empty downloads"],
-                type: .instant(perform: { _ in self.emptyDownloads() })
-            )
-
-        case "sleep":
-            return NerwAction(
-                id: "nerw.system.sleep",
-                title: "Sleep",
-                subtitle: "Put your Mac to sleep",
-                icon: .system("moon.zzz.fill"),
-                triggers: ["sleep"],
-                type: .instant(perform: { _ in self.sleep() })
-            )
-
-        case "eject all":
-            return NerwAction(
-                id: "nerw.system.ejectall",
-                title: "Eject All",
-                subtitle: "Eject all external volumes",
-                icon: .system("eject.fill"),
-                triggers: ["eject all"],
-                type: .instant(perform: { _ in self.ejectAll() })
-            )
-
-        case "eject":
-            return NerwAction(
-                id: "nerw.system.eject",
-                title: "Eject",
-                subtitle: "Eject a specific volume",
-                icon: .image(
-                    NSImage(named: "eject") ?? NSImage(
-                        systemSymbolName: "eject", accessibilityDescription: nil)!),
-                triggers: ["eject"],
-                type: .args(
-                    placeholder: "Volume Name",
-                    searcher: { _, query, completion in
-                        self.searchVolumes(query: query, completion: completion)
-                    },
-                    perform: { _, volumeName in
-                        if !volumeName.isEmpty {
-                            self.eject(volumeName: volumeName)
-                        }
-                    }
-                )
-            )
-
-        // Quit Process - Removed
-
-        //        case "menu search":
-        //            return BuiltinResult(
-        //                title: "Menu Bar Search",
-        //                subtitle: "Search menu items of the active application",
-        //                icon: NSImage(systemSymbolName: "menubar.rectangle", accessibilityDescription: nil),
-        //                supportsArguments: true,
-        //                handler: { _ in },
-        //                searcher: { query, completion in self.searchMenuItems(query: query, completion: completion) }
-        //            )
-
-        default:
-            return nil
-        }
     }
 
     // MARK: - Actions

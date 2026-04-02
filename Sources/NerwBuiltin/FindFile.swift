@@ -56,14 +56,6 @@ public class FindFile {
         return createBaseResult()
     }
 
-    public func findByTrigger(_ trigger: String) -> NerwAction? {
-        let triggers = ["find", "file"]
-        let lowerTrigger = trigger.lowercased()
-
-        guard triggers.contains(lowerTrigger) else { return nil }
-        return createBaseResult()
-    }
-
     private func createBaseResult() -> NerwAction {
         let finderIcon = NSWorkspace.shared.icon(forFile: "/System/Library/CoreServices/Finder.app")
         return NerwAction(

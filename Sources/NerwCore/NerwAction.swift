@@ -210,7 +210,7 @@ public struct NerwAction {
         case .instant:
             return nil
         case .inlineArg:
-            return "Arg"
+            return triggers.first ?? "Arg"
         case .arg(let placeholders, _):
             return placeholders.first
         case .args(let placeholder, _, _):

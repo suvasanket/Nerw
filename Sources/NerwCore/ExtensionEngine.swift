@@ -102,20 +102,6 @@ public class ExtensionEngine {
         )
     }
 
-    public func findByTrigger(_ trigger: String) -> NerwAction? {
-        let lowerTrigger = trigger.lowercased()
-        for ext in loadedExtensions {
-            for actionManifest in ext.manifest.actions {
-                if actionManifest.triggers.map({ $0.lowercased() }).contains(lowerTrigger) {
-                    return createAction(
-                        manifest: ext.manifest, actionManifest: actionManifest,
-                        overrideTrigger: lowerTrigger)
-                }
-            }
-        }
-        return nil
-    }
-
     private let fileManager = FileManager.default
 
     private var userExtensionsPath: URL {
