@@ -70,7 +70,7 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `name` | string | Yes | Display name shown in the UI |
 | `description` | string | No | Brief description shown as subtitle (use `%s` for argument placeholder) |
 | `triggers` | array | Yes | Keyword triggers that activate this action |
-| `type` | string | No | Action type: "inlineArg" (Alfred-style) or "args" (default) |
+| `type` | string | No | Action type: "inlineArg" or "args" (default) |
 | `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
 
 > **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.
@@ -451,7 +451,7 @@ NerwResult("Calculate")
 
 ### `.inlineArg(action:)`
 
-**What it does:** Configures an "Alfred-style" inline argument action. The action remains in the main search field, and the user's typed query (after the trigger and a space) is passed as the argument to your `perform(action:)` method.
+**What it does:** Configures inline argument action. The action remains in the main search field, and the user's typed query (after the trigger and a space) is passed as the argument to your `perform(action:)` method.
 
 ```swift
 public func inlineArg(action: String) -> NerwResult

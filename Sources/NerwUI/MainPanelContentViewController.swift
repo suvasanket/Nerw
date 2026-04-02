@@ -503,7 +503,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             enterArgumentMode(action: action, step: 0, collectedArgs: [])
         case .instant(let perform), .hybrid(let perform, _):
             perform(action)
-        case .inlineArg(let perform):
+        case .inlineArg(let perform, _):
             // Default behavior for opening an inlineArg action is to show its title in field?
             // Actually, we can just execute it with empty arg or do nothing.
             // Let's just execute with empty for now.
@@ -1003,7 +1003,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 case .instant(let perform):
                     perform(action)
                     resetToSearch()
-                case .inlineArg(let perform):
+                case .inlineArg(let perform, _):
                     perform(action, inputField.stringValue)
                     resetToSearch()
                 case .args(_, _, let perform):

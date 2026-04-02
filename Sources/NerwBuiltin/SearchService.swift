@@ -18,7 +18,7 @@ public class SearchService {
             switch action.type {
             case .instant(let perform):
                 perform(action)
-            case .inlineArg(let perform):
+            case .inlineArg(let perform, _):
                 // Inline args are usually handled by the dynamic action creation in search(),
                 // but if someone calls performAction directly on the base action,
                 // we might not have an argument. We'll just pass empty string or handle it.
@@ -218,7 +218,7 @@ public class SearchService {
         let allCandidates = self.getCandidates()
 
         for action in allCandidates {
-            if case .inlineArg(let perform) = action.type {
+            if case .inlineArg(let perform, let searcher) = action.type {
                 for trigger in action.triggers {
                     let triggerLower = trigger.lowercased()
                     // Match "trigger" exactly or "trigger " prefix
@@ -228,6 +228,31 @@ public class SearchService {
                             ? String(query.dropFirst(trigger.count + 1)).trimmingCharacters(
                                 in: .whitespaces) : ""
 
+                        // ── DYNAMIC SEARCH (If searcher exists) ──────────────────
+                        if let searcher = searcher {
+                            searcher(action, arg) { [weak self] dynamicResults in
+                                guard let self = self else { return }
+                                var results = dynamicResults
+
+                                // Append default Web Search engine so user has standard fallback
+                                let defaultEngine = SearchEngine.shared.getDefaultEngine()
+                                let webSearchAction = self.createWebSearchAction(
+                                    query: query, engine: defaultEngine)
+
+                                // Deduplicate by checking if the dynamicResults already has a web search fallback
+                                // (Extensions might provide their own)
+                                if !results.contains(where: {
+                                    $0.category == .webSearch && $0.title.contains("Search ")
+                                }) {
+                                    results.append(webSearchAction)
+                                }
+
+                                completion(results)
+                            }
+                            return
+                        }
+
+                        // ── STATIC FALLBACK ───────────────────────────────────
                         let inlineAction = NerwAction(
                             id: action.id + ".inline." + arg,
                             title: action.title,

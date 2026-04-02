@@ -81,8 +81,10 @@ public struct NerwAction {
         /// Inline Argument: Trigger + Space + Argument in the same field.
         /// e.g., "map <query>"
         /// - perform: Executed with the argument.
+        /// - searcher: Optional. Provides dynamic results based on the argument.
         case inlineArg(
-            perform: (NerwAction, String) -> Void
+            perform: (NerwAction, String) -> Void,
+            searcher: ((NerwAction, String, @escaping ([NerwAction]) -> Void) -> Void)? = nil
         )
 
         /// Form-based input with multiple named fields.

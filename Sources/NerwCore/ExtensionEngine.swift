@@ -64,9 +64,16 @@ public class ExtensionEngine {
 
         let actionType: NerwAction.ActionType
         if actionManifest.type == "inlineArg" {
-            actionType = .inlineArg(perform: { [weak self] _, arg in
-                self?.performAction(actionManifest.name, extensionId: manifest.id, args: [arg])
-            })
+            actionType = .inlineArg(
+                perform: { [weak self] _, arg in
+                    self?.performAction(actionManifest.name, extensionId: manifest.id, args: [arg])
+                },
+                searcher: { [weak self] _, arg, completion in
+                    self?.runExtension(
+                        id: manifest.id, query: arg, trigger: primaryTrigger,
+                        completion: completion)
+                }
+            )
         } else {
             actionType = .args(
                 placeholder: "Query...",
@@ -640,6 +647,11 @@ public class ExtensionEngine {
             type = .inlineArg(
                 perform: { [weak self] _, arg in
                     self?.performAction(actionValue, extensionId: extensionId, args: [arg])
+                },
+                searcher: { [weak self] _, arg, completion in
+                    self?.runExtension(
+                        id: extensionId, query: arg, trigger: nil,
+                        completion: completion)
                 }
             )
 
