@@ -115,17 +115,27 @@ public class SearchEngine {
 
     public func getDefaultEngine() -> Engine {
         let configTriggers = ConfigManager.shared.config.defaultSearchEngine
-        // Find engine that matches AT LEAST ONE of the config triggers
         if let engine = engines.first(where: { engine in
             engine.isEnabled && !Set(engine.triggers).isDisjoint(with: configTriggers)
         }) {
             return engine
         }
 
-        // Fallback to first enabled if Google missing (unlikely)
-        return engines.first(where: { $0.name == "Google" && $0.isEnabled })
-            ?? engines.first(where: { $0.isEnabled })
-            ?? engines.first!
+        if let engine = engines.first(where: { $0.name == "Google" && $0.isEnabled }) {
+            return engine
+        }
+
+        if let engine = engines.first(where: { $0.isEnabled }) {
+            return engine
+        }
+
+        if let firstEngine = engines.first {
+            return firstEngine
+        }
+
+        return Engine(
+            name: "Google", triggers: ["g"], urlTemplate: "https://www.google.com/search?q=%@",
+            icon: "se_google")
     }
 
     public func setDefaultEngine(_ engine: Engine) {

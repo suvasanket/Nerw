@@ -151,7 +151,13 @@ extension Fuse {
 
             // Initialize the bit array
             var bitArr = [Int](repeating: 0, count: finish + 2)
-            bitArr[finish + 1] = (1 << i) - 1
+
+            // Safety: prevent shift overflow
+            if i < 31 {
+                bitArr[finish + 1] = (1 << i) - 1
+            } else {
+                bitArr[finish + 1] = Int.max
+            }
 
             if start > finish {
                 continue

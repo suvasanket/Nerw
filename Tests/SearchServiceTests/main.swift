@@ -9,7 +9,9 @@ func runTests() {
     testRegularAppHasNoQuickAction()
     testInlineArgFallbackExtraction()
 
-    print("[Testing] All tests PASSED.")
+    print("[Testing] All SearchService tests PASSED.")
+
+    runBackendTests()
 }
 
 func testAppQuickActionsCreation() {

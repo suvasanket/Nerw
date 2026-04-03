@@ -140,18 +140,21 @@ public func bestMatch(
         }
         let scoreMatch =
             h(i - 1, j - 1) + similarity(find(a, at: i), find(b, at: j)) + bonuses[i][j]
-        let scoreGap = (1...j).map { l in
-            h(i, j - l) - gapPenalty(l)
-        }.max()!
-        let score = [scoreMatch, scoreGap, Score(integerLiteral: 0)].max()!
+        let scoreGap =
+            (1...j).map { l in
+                h(i, j - l) - gapPenalty(l)
+            }.max() ?? Score(integerLiteral: 0)
+        let score =
+            [scoreMatch, scoreGap, Score(integerLiteral: 0)].max() ?? Score(integerLiteral: 0)
         hs[Pair(i, j)] = score
         return score
     }
 
     func localMax(_ m: Int, _ n: Int) -> Int {
+        if n < 1 { return 0 }
         return (1...n).max { b, d in
             totalScore(m, b) < totalScore(m, d)
-        }!
+        } ?? 1
     }
 
     func totalScore(_ i: Int, _ j: Int) -> Score {

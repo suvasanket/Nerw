@@ -92,7 +92,11 @@ public class System {
                 subtitle: "Move all Downloads folder contents to Trash",
                 icon: .image(
                     NSImage(named: "download") ?? NSImage(
-                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)!),
+                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)
+                        ?? NSImage(
+                            systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil
+                        )
+                        ?? NSImage()),
                 triggers: ["empty downloads"],
                 type: .instant(perform: { _ in self.emptyDownloads() })
             ),
@@ -124,7 +128,9 @@ public class System {
                 subtitle: "Eject a specific volume",
                 icon: .image(
                     NSImage(named: "eject") ?? NSImage(
-                        systemSymbolName: "eject", accessibilityDescription: nil)!),
+                        systemSymbolName: "eject", accessibilityDescription: nil)
+                        ?? NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil)
+                        ?? NSImage()),
                 triggers: ["eject"],
                 type: .args(
                     placeholder: "Volume Name",

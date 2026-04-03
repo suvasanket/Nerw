@@ -53,7 +53,13 @@ extension Fuse {
     public struct Pattern {
         let text: String
         var len: Int { text.count }
-        var mask: Int { 1 << (text.count - 1) }
+        var mask: Int {
+            guard text.count > 0 else { return 0 }
+            let shift = text.count - 1
+            // Prevent shift overflow on 32-bit systems
+            guard shift < 31 else { return Int(Int32.min) }
+            return 1 << shift
+        }
         let alphabet: [Character: Int]
 
         public init(text: String) {

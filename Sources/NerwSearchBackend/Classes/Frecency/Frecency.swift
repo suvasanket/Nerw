@@ -205,19 +205,13 @@ public class FrecencyManager {
             var bestID: String? = nil
             var bestScore: Double = -1.0
 
-            // We need to iterate over queryScores to find keys starting with "query:"
-            // Iterating dictionary can be slow if large, but queryScores usually key= "query:id".
-            // We can construct the prefix if we knew the ID.
-            // But here we know the query, we want the ID.
-            // Scan keys.
-            // "normalizedQuery:ID"
             let prefix = "\(normalizedQuery):"
 
             for (key, data) in queryScores {
                 if key.hasPrefix(prefix) {
-                    // Extract ID
-                    // key is "query:id"
                     let id = String(key.dropFirst(prefix.count))
+                    // Safety: skip empty IDs
+                    guard !id.isEmpty else { continue }
                     let score = calculateScore(count: data.count, lastUsed: data.lastUsed)
                     if score > bestScore {
                         bestScore = score
@@ -348,20 +342,27 @@ public class FrecencyManager {
     // MARK: - Persistence
 
     private func loadScores() {
-        guard let url = storeFileURL,
-            let data = try? Data(contentsOf: url),
-            let json = try? JSONDecoder().decode([String: FrecencyData].self, from: data)
-        else {
+        guard let url = storeFileURL else { return }
+        guard let data = try? Data(contentsOf: url) else {
+            print("[FrecencyManager] Failed to read frecency file")
+            return
+        }
+        guard let json = try? JSONDecoder().decode([String: FrecencyData].self, from: data) else {
+            print("[FrecencyManager] Failed to decode frecency data - file may be corrupted")
             return
         }
         scores = json
     }
 
     private func loadQueryScores() {
-        guard let url = queryStoreFileURL,
-            let data = try? Data(contentsOf: url),
-            let json = try? JSONDecoder().decode([String: QueryFrecencyData].self, from: data)
+        guard let url = queryStoreFileURL else { return }
+        guard let data = try? Data(contentsOf: url) else {
+            print("[FrecencyManager] Failed to read query frecency file")
+            return
+        }
+        guard let json = try? JSONDecoder().decode([String: QueryFrecencyData].self, from: data)
         else {
+            print("[FrecencyManager] Failed to decode query frecency data - file may be corrupted")
             return
         }
         queryScores = json

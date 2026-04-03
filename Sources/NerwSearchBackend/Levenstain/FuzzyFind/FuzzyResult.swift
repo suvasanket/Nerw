@@ -58,8 +58,9 @@ public struct FuzzyResult {
     func merge(_ other: FuzzyResult) -> FuzzyResult {
         if self.isEmpty { return other }
         if other.isEmpty { return self }
-        let xs = self.segments[0]
-        let ys = other.segments[0]
+        guard let xs = self.segments.first, let ys = other.segments.first else {
+            return self.isEmpty ? other : self
+        }
         switch (xs, ys) {
         case (.gap(let g1), .gap(let g2)):
             if g1.count <= g2.count {

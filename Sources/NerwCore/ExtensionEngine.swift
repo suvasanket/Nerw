@@ -327,10 +327,11 @@ public class ExtensionEngine {
 
         // 2. Override with saved values from CacheManager
         let cacheKey = "ext_settings_\(extensionId)"
-        if let saved = NerwSearchBackend.CacheManager.shared.get(forKey: cacheKey) as? [String: Any]
+        if let saved = NerwSearchBackend.CacheManager.shared.get(
+            forKey: cacheKey, as: [String: AnyCodable].self)
         {
             for (id, value) in saved {
-                values[id] = AnyCodable(value)
+                values[id] = value
             }
         }
 

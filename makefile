@@ -26,6 +26,9 @@ open:
 	@pkill -x $(APP) || true; sleep 1; open $(BUNDLE_NAME)
 
 run: bundle open
+	@echo ""
+	@echo "Log file: ~/.nerw/logs/nerw-$$(date +%Y-%m-%d).log"
+	@echo "View logs with: tail -f ~/.nerw/logs/nerw-$$(date +%Y-%m-%d).log"
 
 debug: bundle
 	@pkill -x Nerw || true

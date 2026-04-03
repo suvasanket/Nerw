@@ -13,34 +13,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Run as accessory (no dock icon)
+        Logger.shared.info("AppDelegate: applicationDidFinishLaunching")
+
         NSApp.setActivationPolicy(.accessory)
 
-        // Initialize popup
         popupController = MainPanelWindowController()
 
-        // Setup menu bar icon (optional)
         setupStatusItem()
 
-        // Register global hotkey
         registerGlobalHotkey()
 
-        // Listen for config changes to update hotkey
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
             name: Notification.Name("NerwConfigDidUpdate"),
             object: nil)
 
-        // Listen for Settings Shortcut
         NotificationCenter.default.addObserver(
             self, selector: #selector(openSettings),
             name: Notification.Name("NerwOpenSettings"),
             object: nil)
 
-        // NOTE: Do things just after the startup
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.popupController.toggle()
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        Logger.shared.info("AppDelegate: applicationWillTerminate")
+        Logger.shared.flush()
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {

@@ -1,6 +1,7 @@
 import Cocoa
 import NerwCore
 import NerwSearchBackend
+import NerwUtils
 
 public class SearchService {
     public static let shared = SearchService()
@@ -142,10 +143,17 @@ public class SearchService {
             }
 
             let fuse = Fuse()
-            let results = fuse.searchSync(query, in: searchStrings)
+
+            // Safety check: ensure query is not too long
+            let safeQuery = String(query.prefix(100))
+
+            let results = fuse.searchSync(safeQuery, in: searchStrings)
+
             if self.searchWorkItem?.isCancelled == true { return }
 
-            let matchedActions = results.map { allCandidates[$0.index] }
+            // Safety check: filter out-of-bounds indices
+            let validResults = results.filter { $0.index < allCandidates.count }
+            let matchedActions = validResults.map { allCandidates[$0.index] }
 
             // Web Fallback
             var fallbackAction: NerwAction? = nil
@@ -166,8 +174,12 @@ public class SearchService {
 
             // NLP Rank
             let catResult = QueryCategorizer.shared.classifySync(query)
+            var allActions = matchedActions
+            if let fallback = fallbackAction {
+                allActions.append(fallback)
+            }
             let ranked = self.rankResults(
-                actions: matchedActions + [fallbackAction!], query: query,
+                actions: allActions, query: query,
                 categoryResult: catResult.category)
 
             DispatchQueue.main.async {
@@ -374,15 +386,20 @@ public class SearchService {
             }
         }
 
-        if domain.contains("google.com") { return .image(NSImage(named: "se_google")!) }
+        if domain.contains("google.com") {
+            if let icon = NSImage(named: "se_google") {
+                return .image(icon)
+            }
+        }
         if domain.contains("duckduckgo.com") {
-            return .image(NSImage(named: "se_duckduckgo")!)
+            if let icon = NSImage(named: "se_duckduckgo") {
+                return .image(icon)
+            }
         }
         if domain.contains("duck.ai") {
             if let icon = NSImage(named: "se_duckduckgo") {
                 return .image(icon)
             }
-            return .image(NSImage(named: "se_duckduckgo")!)
         }
 
         if let icon = IconManager.shared.icon(for: domain) {

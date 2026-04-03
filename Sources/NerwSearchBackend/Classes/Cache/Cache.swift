@@ -1,11 +1,11 @@
 import Foundation
 
-public class CacheManager {
+public final class CacheManager {
     public static let shared = CacheManager()
 
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "com.nerw.cache", attributes: .concurrent)
-    private var cache: [String: Any] = [:]
+    private var cache: CacheData = CacheData()
 
     private var cacheFileURL: URL? {
         guard
@@ -28,29 +28,32 @@ public class CacheManager {
 
     // MARK: - Public API
 
-    public func set(_ value: Any, forKey key: String) {
+    public func set<T: Codable>(_ value: T, forKey key: String) {
         queue.async(flags: .barrier) {
-            self.cache[key] = value
+            self.cache.storage[key] = CachedValue(value)
             self.saveCache()
         }
     }
 
-    public func get(forKey key: String) -> Any? {
+    public func get<T: Codable>(forKey key: String, as type: T.Type) -> T? {
         queue.sync {
-            return cache[key]
+            guard let cached = cache.storage[key] else {
+                return nil
+            }
+            return cached.getValue(as: type)
         }
     }
 
     public func remove(forKey key: String) {
         queue.async(flags: .barrier) {
-            self.cache.removeValue(forKey: key)
+            self.cache.storage.removeValue(forKey: key)
             self.saveCache()
         }
     }
 
     public func clear() {
         queue.async(flags: .barrier) {
-            self.cache.removeAll()
+            self.cache.storage.removeAll()
             self.saveCache()
         }
     }
@@ -60,7 +63,7 @@ public class CacheManager {
     private func loadCache() {
         guard let url = cacheFileURL,
             let data = try? Data(contentsOf: url),
-            let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            let json = try? JSONDecoder().decode(CacheData.self, from: data)
         else {
             return
         }
@@ -69,15 +72,29 @@ public class CacheManager {
 
     private func saveCache() {
         guard let url = cacheFileURL else { return }
-        // JSONSerialization requires valid JSON types (NSString, NSNumber, NSArray, NSDictionary, or NSNull)
-        // We assume 'value' passed to 'set' complies with this.
-
         do {
-            let data = try JSONSerialization.data(
-                withJSONObject: cache, options: [.prettyPrinted, .sortedKeys])
-            try data.write(to: url)
+            let data = try JSONEncoder().encode(cache)
+            try data.write(to: url, options: .atomic)
         } catch {
             print("[CacheManager] Failed to save cache: \(error)")
         }
+    }
+}
+
+// MARK: - Codable Types
+
+private struct CacheData: Codable {
+    var storage: [String: CachedValue] = [:]
+}
+
+private struct CachedValue: Codable {
+    let data: Data
+
+    init(_ value: some Codable) {
+        self.data = (try? JSONEncoder().encode(value)) ?? Data()
+    }
+
+    func getValue<T: Codable>(as type: T.Type) -> T? {
+        return try? JSONDecoder().decode(type, from: data)
     }
 }

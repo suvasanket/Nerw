@@ -1,5 +1,6 @@
 import Cocoa
 import NerwSearchBackend
+import NerwUtils
 
 class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
@@ -112,10 +113,18 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         resetBtn.controlSize = .small
         resetBtn.font = .systemFont(ofSize: 11)
 
+        let deleteLogsBtn = NSButton(
+            title: "Delete Logs", target: self, action: #selector(deleteLogsClicked(_:)))
+        deleteLogsBtn.bezelStyle = .rounded
+        deleteLogsBtn.controlSize = .small
+        deleteLogsBtn.font = .systemFont(ofSize: 11)
+
         let resetStack = NSStackView()
         resetStack.orientation = .horizontal
         resetStack.alignment = .centerY
+        resetStack.spacing = 10
         resetStack.addArrangedSubview(resetBtn)
+        resetStack.addArrangedSubview(deleteLogsBtn)
         resetStack.addArrangedSubview(NSView())  // Spacer
 
         let resetSection = SettingsSection(
@@ -165,6 +174,46 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         alert.beginSheetModal(for: self.view.window!) { response in
             if response == .alertFirstButtonReturn {
                 ConfigManager.shared.reset()
+            }
+        }
+    }
+
+    @objc private func deleteLogsClicked(_ sender: NSButton) {
+        let logDir = Logger.shared.logDirectory
+
+        let alert = NSAlert()
+        alert.messageText = "Delete Logs"
+        alert.informativeText = "Are you sure you want to delete all log files in ~/.nerw/logs/?"
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: self.view.window!) { response in
+            if response == .alertFirstButtonReturn {
+                do {
+                    let fileManager = FileManager.default
+                    let logFiles = try fileManager.contentsOfDirectory(
+                        at: logDir, includingPropertiesForKeys: nil
+                    )
+
+                    var deletedCount = 0
+                    for file in logFiles where file.pathExtension == "log" {
+                        try fileManager.removeItem(at: file)
+                        deletedCount += 1
+                    }
+
+                    let resultAlert = NSAlert()
+                    resultAlert.messageText = "Logs Deleted"
+                    resultAlert.informativeText =
+                        "Successfully deleted \(deletedCount) log file(s)."
+                    resultAlert.addButton(withTitle: "OK")
+                    resultAlert.runModal()
+                } catch {
+                    let errorAlert = NSAlert()
+                    errorAlert.messageText = "Error Deleting Logs"
+                    errorAlert.informativeText = error.localizedDescription
+                    errorAlert.addButton(withTitle: "OK")
+                    errorAlert.runModal()
+                }
             }
         }
     }

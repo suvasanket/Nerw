@@ -244,7 +244,8 @@ class ExtensionCardView: NSView {
         ])
 
         let cacheKey = "ext_settings_\(manifest?.id ?? "")"
-        let savedSettings = CacheManager.shared.get(forKey: cacheKey) as? [String: Any] ?? [:]
+        let savedSettings: [String: AnyCodable] =
+            CacheManager.shared.get(forKey: cacheKey, as: [String: AnyCodable].self) ?? [:]
 
         for setting in settings {
             let settingView = createSettingView(
@@ -326,19 +327,20 @@ class ExtensionCardView: NSView {
     @objc private func settingChanged(_ sender: NSView) {
         guard let id = sender.identifier?.rawValue, let manifest = manifest else { return }
         let cacheKey = "ext_settings_\(manifest.id)"
-        var savedSettings = CacheManager.shared.get(forKey: cacheKey) as? [String: Any] ?? [:]
+        var savedSettings: [String: AnyCodable] =
+            CacheManager.shared.get(forKey: cacheKey, as: [String: AnyCodable].self) ?? [:]
 
         if let textField = sender as? NSTextField {
             // Check if it should be a number
             if let setting = manifest.settings?.first(where: { $0.id == id }),
                 setting.type == .number
             {
-                savedSettings[id] = textField.doubleValue
+                savedSettings[id] = AnyCodable(textField.doubleValue)
             } else {
-                savedSettings[id] = textField.stringValue
+                savedSettings[id] = AnyCodable(textField.stringValue)
             }
         } else if let toggle = sender as? NSButton {
-            savedSettings[id] = (toggle.state == .on)
+            savedSettings[id] = AnyCodable(toggle.state == .on)
         }
 
         CacheManager.shared.set(savedSettings, forKey: cacheKey)
