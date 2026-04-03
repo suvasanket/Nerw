@@ -947,109 +947,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             delegate?.didPressEscape()
             return true
 
-        case #selector(NSResponder.insertNewline(_:)):
-            let modifiers = NSApp.currentEvent?.modifierFlags ?? []
-
-            // 1. Priority: Execute Selected Result (if actionable)
-            if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
-                if executeResult(
-                    actions[selectedIndex], query: inputField.stringValue, modifiers: modifiers)
-                {
-                    return true
-                }
-            }
-
-            // 2. Check if we are in argument mode (Multi-Step)
-            if case .argument(let action, let step, var args) = inputState {
-                args.append(inputField.stringValue)
-
-                var isLastStep = false
-                switch action.type {
-                case .arg(let placeholders, _):
-                    isLastStep = step >= placeholders.count - 1
-                case .args:
-                    isLastStep = true  // Single step for args type
-                default: break
-                }
-
-                if isLastStep {
-                    // Final Submission
-                    switch action.type {
-                    case .arg(_, let perform):
-                        perform(action, args)
-                    case .args(_, _, let perform):
-                        if let p = perform {
-                            // Single string arg for 'args' type
-                            p(action, args.joined(separator: " "))
-                        } else {
-                            // Fallback
-                            delegate?.didSubmit(
-                                text: "\(action.title) \(args.joined(separator: " "))")
-                        }
-                    default: break
-                    }
-                    closeSession(restoreText: false)
-                    return true
-                } else {
-                    // Move to next step
-                    enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
-                    return true
-                }
-            }
-
-            // 3. Active Action Submission (No result selected from list)
-            if let action = activeAction {
-                switch action.type {
-                case .instant(let perform):
-                    perform(action)
-                    resetToSearch()
-                case .inlineArg(let perform, _):
-                    perform(action, inputField.stringValue)
-                    resetToSearch()
-                case .args(_, _, let perform):
-                    perform?(action, inputField.stringValue)
-                    resetToSearch()
-                default:
-                    delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
-                    resetToSearch()
-                }
-                return true
-            }
-
-            // 4. Default Search Action
-            if !actions.isEmpty {
-                let selectedAction = actions[selectedIndex]
-
-                if selectedAction.supportsArguments {
-                    // If simple arg and has input, maybe execute directly?
-                    if case .arg(let placeholders, let perform) = selectedAction.type,
-                        placeholders.isEmpty == false,
-                        !inputField.stringValue.isEmpty
-                    {
-
-                        // Treat current input as the argument?
-                        perform(selectedAction, [inputField.stringValue])
-                        FrecencyManager.shared.recordUsage(
-                            id: selectedAction.id, forQuery: inputField.stringValue)
-                        closeSession(restoreText: false)
-                        return true
-                    }
-
-                    // Enter argument mode
-                    previousSearchText = inputField.stringValue
-                    enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
-                    return true
-                }
-
-                if !executeResult(
-                    selectedAction, query: inputField.stringValue, modifiers: modifiers)
-                {
-                    delegate?.didSubmit(text: selectedAction.title)
-                }
-            } else {
-                delegate?.didSubmit(text: inputField.stringValue)
-            }
-            return true
+        // All Enter variants route to the same handler:
+        // - insertNewline:                       → Enter, Shift+Enter
+        // - insertNewlineIgnoringFieldEditor:     → Option+Enter
+        // - insertLineBreak:                      → Control+Enter
+        case #selector(NSResponder.insertNewline(_:)),
+            #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
+            #selector(NSResponder.insertLineBreak(_:)):
+            return handleEnter()
 
         case #selector(NSResponder.moveUp(_:)):
             moveSelection(by: -1)
@@ -1085,11 +990,119 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                         }
                     }
                     return true
+                // Command+Enter: route to Enter handler (Return key = \r)
+                case "\r":
+                    return handleEnter()
                 default: break
                 }
             }
             return false
         }
+    }
+
+    private func handleEnter() -> Bool {
+        let modifiers = NSApp.currentEvent?.modifierFlags ?? []
+
+        // 1. Priority: Execute Selected Result (if actionable)
+        if !actions.isEmpty && selectedIndex >= 0 && selectedIndex < actions.count {
+            if executeResult(
+                actions[selectedIndex], query: inputField.stringValue, modifiers: modifiers)
+            {
+                return true
+            }
+        }
+
+        // 2. Check if we are in argument mode (Multi-Step)
+        if case .argument(let action, let step, var args) = inputState {
+            args.append(inputField.stringValue)
+
+            var isLastStep = false
+            switch action.type {
+            case .arg(let placeholders, _):
+                isLastStep = step >= placeholders.count - 1
+            case .args:
+                isLastStep = true  // Single step for args type
+            default: break
+            }
+
+            if isLastStep {
+                // Final Submission
+                switch action.type {
+                case .arg(_, let perform):
+                    perform(action, args)
+                case .args(_, _, let perform):
+                    if let p = perform {
+                        // Single string arg for 'args' type
+                        p(action, args.joined(separator: " "))
+                    } else {
+                        // Fallback
+                        delegate?.didSubmit(
+                            text: "\(action.title) \(args.joined(separator: " "))")
+                    }
+                default: break
+                }
+                closeSession(restoreText: false)
+                return true
+            } else {
+                // Move to next step
+                enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
+                return true
+            }
+        }
+
+        // 3. Active Action Submission (No result selected from list)
+        if let action = activeAction {
+            switch action.type {
+            case .instant(let perform):
+                perform(action)
+                resetToSearch()
+            case .inlineArg(let perform, _):
+                perform(action, inputField.stringValue)
+                resetToSearch()
+            case .args(_, _, let perform):
+                perform?(action, inputField.stringValue)
+                resetToSearch()
+            default:
+                delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
+                resetToSearch()
+            }
+            return true
+        }
+
+        // 4. Default Search Action
+        if !actions.isEmpty {
+            let selectedAction = actions[selectedIndex]
+
+            if selectedAction.supportsArguments {
+                // If simple arg and has input, maybe execute directly?
+                if case .arg(let placeholders, let perform) = selectedAction.type,
+                    placeholders.isEmpty == false,
+                    !inputField.stringValue.isEmpty
+                {
+
+                    // Treat current input as the argument?
+                    perform(selectedAction, [inputField.stringValue])
+                    FrecencyManager.shared.recordUsage(
+                        id: selectedAction.id, forQuery: inputField.stringValue)
+                    closeSession(restoreText: false)
+                    return true
+                }
+
+                // Enter argument mode
+                previousSearchText = inputField.stringValue
+                enterArgumentMode(action: selectedAction, step: 0, collectedArgs: [])
+                return true
+            }
+
+            if !executeResult(
+                selectedAction, query: inputField.stringValue, modifiers: modifiers)
+            {
+                delegate?.didSubmit(text: selectedAction.title)
+            }
+        } else {
+            delegate?.didSubmit(text: inputField.stringValue)
+        }
+        return true
     }
 
     // MARK: - Search
