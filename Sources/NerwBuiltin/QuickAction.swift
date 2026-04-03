@@ -23,9 +23,10 @@ public class QuickAction {
 
             do {
                 try task.run()
-                task.waitUntilExit()
 
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                task.waitUntilExit()
+
                 guard let output = String(data: data, encoding: .utf8) else {
                     DispatchQueue.main.async { completion([]) }
                     return

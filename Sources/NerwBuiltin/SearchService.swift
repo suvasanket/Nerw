@@ -195,18 +195,124 @@ public class SearchService {
     }
 
     private func createAction(for app: AppSearch.AppInfo) -> NerwAction {
+        var quickAction: NerwAction? = nil
+
+        if app.name == "Activity Monitor" {
+            quickAction = NerwAction(
+                id: "nerw.quick.process",
+                title: "Quit Process",
+                subtitle: "Search and terminate running processes",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Process Name",
+                    searcher: { _, query, completion in
+                        QuickAction.shared.searchProcesses(
+                            query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name.lowercased() == "finder" {
+            quickAction = NerwAction(
+                id: "nerw.quick.findfile",
+                title: "Find File",
+                subtitle: "Search or open finder",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Search",
+                    searcher: { _, query, completion in
+                        FindFile.shared.search(query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name.lowercased() == "shortcuts" {
+            quickAction = NerwAction(
+                id: "nerw.quick.shortcuts",
+                title: "Run Shortcut",
+                subtitle: "Run a shortcut from your library",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Shortcut Name",
+                    searcher: { _, query, completion in
+                        Task {
+                            do {
+                                let allShortcuts = try await ShortcutsManager.shared
+                                    .listShortcuts()
+                                let lowerQuery = query.lowercased()
+                                let filtered = allShortcuts.filter {
+                                    query.isEmpty || $0.lowercased().contains(lowerQuery)
+                                }
+
+                                let actions = filtered.map { name in
+                                    NerwAction(
+                                        id: "nerw.shortcuts.run.\(name)",
+                                        title: name,
+                                        subtitle: "Run Shortcut",
+                                        icon: .file(URL(fileURLWithPath: app.path)),
+                                        triggers: [name],
+                                        type: .instant(perform: { _ in
+                                            Task {
+                                                try? await ShortcutsManager.shared
+                                                    .runShortcut(name)
+                                            }
+                                        })
+                                    )
+                                }
+                                completion(actions)
+                            } catch {
+                                print("[SearchService] Shortcuts error: \(error)")
+                                completion([])
+                            }
+                        }
+                    },
+                    perform: nil
+                )
+            )
+        } else if app.name == "System Settings" {
+            quickAction = NerwAction(
+                id: "nerw.quick.systemsettings",
+                title: "System Settings",
+                subtitle: "Search preference panes",
+                icon: .file(URL(fileURLWithPath: app.path)),
+                triggers: [],
+                type: .args(
+                    placeholder: "Setting Name",
+                    searcher: { _, query, completion in
+                        System.shared.listSystemSettings(
+                            query: query, completion: completion)
+                    },
+                    perform: nil
+                )
+            )
+        }
+
+        let performOpen: (NerwAction) -> Void = { _ in
+            DispatchQueue.global(qos: .userInitiated).async {
+                NSWorkspace.shared.openApplication(
+                    at: URL(fileURLWithPath: app.path),
+                    configuration: NSWorkspace.OpenConfiguration()
+                )
+            }
+        }
+
+        let actionType: NerwAction.ActionType
+        if let qa = quickAction {
+            actionType = .hybrid(perform: performOpen, action: NerwActionBox(qa))
+        } else {
+            actionType = .instant(perform: performOpen)
+        }
+
         return NerwAction(
             id: "nerw.app.\(app.name)",
             title: app.name,
             subtitle: "Application",
             icon: .file(URL(fileURLWithPath: app.path)),
             triggers: [app.name.lowercased()],
-            type: .instant(perform: { _ in
-                NSWorkspace.shared.openApplication(
-                    at: URL(fileURLWithPath: app.path),
-                    configuration: NSWorkspace.OpenConfiguration()
-                )
-            })
+            type: actionType
         )
     }
 
