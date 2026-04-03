@@ -20,6 +20,7 @@ public struct Config: Codable {
     public var uiConfig: UIConfig?
     public var actionAliases: [String: [String]] = [:]
     public var actionHotkeys: [String: String] = [:]
+    public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
 
     public init() {}
 }

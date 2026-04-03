@@ -272,6 +272,39 @@ public class SearchService {
             ?? engine.name
         let iconType = self.resolveIcon(for: engine, domain: domain)
 
+        // Add modifiers based on config
+        var modifiers: [NerwAction.ModifierKey: NerwAction.ModifierAction] = [:]
+        let configModifiers = ConfigManager.shared.config.searchEngineModifiers
+
+        for (modStr, triggers) in configModifiers {
+            if let modKey = NerwAction.ModifierKey(rawValue: modStr) {
+                // Find engine for these triggers
+                if let modEngine = SearchEngine.shared.engines.first(where: { e in
+                    e.isEnabled && !Set(e.triggers).isDisjoint(with: triggers)
+                }) {
+                    let modDomain =
+                        URL(string: modEngine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
+                        .host ?? modEngine.name
+                    let modIcon = self.resolveIcon(for: modEngine, domain: modDomain)
+
+                    modifiers[modKey] = NerwAction.ModifierAction(
+                        title: "Search \(modEngine.name)",
+                        subtitle: "Search for '\(query)' on \(modEngine.name)",
+                        icon: modIcon,
+                        perform: { _ in
+                            let encodedQuery =
+                                query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                                ?? ""
+                            let urlString = String(format: modEngine.urlTemplate, encodedQuery)
+                            if let url = URL(string: urlString) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
         return NerwAction(
             id: "nerw.web.search.\(engine.name)",
             title: "Search \(engine.name)",
@@ -279,6 +312,7 @@ public class SearchService {
             icon: iconType ?? .system("globe"),
             category: .webSearch,
             triggers: [],
+            modifiers: modifiers,
             type: .instant(perform: { _ in
                 let encodedQuery =
                     query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""

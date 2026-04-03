@@ -82,14 +82,13 @@ Nerw learns from you. It uses a **Frecency** (Frequency + Recency) algorithm to 
 
 ## 🛠 Advanced Workflows
 
-### Custom Search Engines
-Add your own search engines directly from the UI.
-1.  **Trigger**: Type `add` or `add search engine`.
-2.  **Step 1**: Enter the Search URL. Use `%s` for the query placeholder.
-    - Example: `https://github.com/search?q=%s`
-3.  **Step 2**: Enter a Keyword trigger.
-    - Example: `gh`
-4.  **Use**: Type `gh my-query` to search.
+### Custom Search Engine Modifiers
+Map keyboard modifier keys to specific search engines for instant "Feeling Lucky" or alternative searches.
+1.  **Default**: `Shift + Enter` is mapped to **Google Lucky Search** (skips the search results page and goes directly to the first result).
+2.  **Customization**:
+    -   Add or remove mappings in **Settings > Search Engines**.
+    -   Map `Shift`, `Command`, `Option`, or `Control` to any of your added search engines or bangs.
+3.  **Use**: Type a query and press the modifier key with `Enter` (e.g., `Shift + Enter`) to use the alternative engine.
 
 ### UI Theming
 Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`.

@@ -58,6 +58,9 @@ public class SearchEngine {
                 name: "Google", triggers: ["google", "g"],
                 urlTemplate: "https://www.google.com/search?q=%@", icon: "se_google"),
             Engine(
+                name: "Google Lucky Search", triggers: ["lucky"],
+                urlTemplate: "https://www.google.com/search?q=%@&btnI=I", icon: "se_google"),
+            Engine(
                 name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
                 urlTemplate: "https://duckduckgo.com/?q=%@", icon: "se_duckduckgo"),
         ]
@@ -148,7 +151,7 @@ public class SearchEngine {
     }
 
     public func isBuiltIn(name: String) -> Bool {
-        let defaults = ["Google", "DuckDuckGo"]
+        let defaults = ["Google", "Google Lucky Search", "DuckDuckGo"]
         return defaults.contains(name)
     }
 
