@@ -15,6 +15,7 @@ EXT_ICON_DEST=$(RESOURCES_DIR)/nerw_ext.icns
 main:
 	@swift-format format -rip .
 	swift-format lint -r . || true
+	swift run SearchServiceTests
 	swift build
 
 clean:

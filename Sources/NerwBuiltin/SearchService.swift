@@ -194,7 +194,7 @@ public class SearchService {
         }
     }
 
-    private func createAction(for app: AppSearch.AppInfo) -> NerwAction {
+    public func createAction(for app: AppSearch.AppInfo) -> NerwAction {
         var quickAction: NerwAction? = nil
 
         if app.name == "Activity Monitor" {

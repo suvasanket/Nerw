@@ -69,5 +69,10 @@ let package = Package(
             dependencies: ["NerwCore", "NerwSearchBackend", "NerwUI"],
             path: "Tests/NerwTests"
         ),
+        .executableTarget(
+            name: "SearchServiceTests",
+            dependencies: ["NerwCore", "NerwSearchBackend", "NerwBuiltin"],
+            path: "Tests/SearchServiceTests"
+        ),
     ]
 )
