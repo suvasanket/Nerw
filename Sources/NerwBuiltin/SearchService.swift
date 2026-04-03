@@ -362,12 +362,32 @@ public class SearchService {
     }
 
     private func resolveIcon(for engine: Engine, domain: String) -> NerwAction.IconType? {
-        if let iconStr = engine.icon, let url = URL(string: iconStr) {
-            if url.isFileURL { return .file(url) }
+        if let iconStr = engine.icon {
+            if let url = URL(string: iconStr), url.isFileURL {
+                return .file(url)
+            }
+            if let icon = NSImage(named: NSImage.Name(iconStr)) {
+                return .image(icon)
+            }
+            if let icon = IconManager.shared.icon(forKey: iconStr) {
+                return .image(icon)
+            }
         }
 
         if domain.contains("google.com") { return .image(NSImage(named: "se_google")!) }
-        if domain.contains("duckduckgo.com") { return .image(NSImage(named: "se_duckduckgo")!) }
+        if domain.contains("duckduckgo.com") {
+            return .image(NSImage(named: "se_duckduckgo")!)
+        }
+        if domain.contains("duck.ai") {
+            if let icon = NSImage(named: "se_duckduckgo") {
+                return .image(icon)
+            }
+            return .image(NSImage(named: "se_duckduckgo")!)
+        }
+
+        if let icon = IconManager.shared.icon(for: domain) {
+            return .image(icon)
+        }
 
         return .system("globe")
     }
