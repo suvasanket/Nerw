@@ -4,6 +4,7 @@ import NerwCore
 
 public class AppSearch {
     public static let shared = AppSearch()
+    private let fileManager = FileManager.default
 
     public struct AppInfo {
         public let name: String
@@ -19,6 +20,8 @@ public class AppSearch {
     // Allow refreshing to be async but cache access sync
     private let cacheQueue = DispatchQueue(
         label: "com.nerw.appsearch.cache", attributes: .concurrent)
+    private let metadataUpdateQueue = DispatchQueue(label: "com.nerw.appsearch.metadata")
+    private var pendingRefreshWorkItem: DispatchWorkItem?
 
     private var metadataQuery: NSMetadataQuery!
 
@@ -34,6 +37,10 @@ public class AppSearch {
 
     public func getAllApps() -> [AppInfo] {
         return cacheQueue.sync { cachedApps }
+    }
+
+    public var monitoredSearchScopePaths: [String] {
+        searchScopeURLs.map(\.path)
     }
 
     // Manual refresh is no longer needed with live query, but kept for compatibility
@@ -53,13 +60,7 @@ public class AppSearch {
         // Explicitly set scopes to user-facing application directories only.
         // Explicitly set scopes.
         // Include /System/Library/CoreServices for Finder, Archive Utility, Screen Sharing, etc.
-        let searchScopes = [
-            URL(fileURLWithPath: "/Applications"),
-            URL(fileURLWithPath: "/System/Applications"),
-            URL(fileURLWithPath: "/Users"),
-            URL(fileURLWithPath: "/System/Library/CoreServices"),
-        ]
-        metadataQuery.searchScopes = searchScopes
+        metadataQuery.searchScopes = searchScopeURLs
 
         NotificationCenter.default.addObserver(
             self,
@@ -82,63 +83,22 @@ public class AppSearch {
 
     @objc private func queryDidUpdate(_ notification: Notification) {
         metadataQuery.disableUpdates()
-
-        var newApps: [AppInfo] = []
-        let count = metadataQuery.resultCount
-
-        for i in 0..<count {
-            guard let item = metadataQuery.result(at: i) as? NSMetadataItem,
-                let path = item.value(forAttribute: kMDItemPath as String) as? String
-            else {
-                continue
-            }
-
-            // Filter out helper apps (apps inside other apps)
-            if path.range(of: ".app/", options: .caseInsensitive) != nil {
-                continue
-            }
-
-            // Refined Logic for System Libraries
-            if path.contains("/System/Library/") {
-                // Check for CoreServices
-                if path.contains("/CoreServices/") {
-                    // Allow:
-                    // 1. Apps in /System/Library/CoreServices/Applications/ (e.g. Keychain Access, Archive Utility)
-                    // 2. Finder.app (Root of CoreServices)
-                    let isCoreServicesApp = path.contains("/CoreServices/Applications/")
-                    let isFinder = path.hasSuffix("/CoreServices/Finder.app")
-
-                    if isCoreServicesApp || isFinder {
-                        // Keep it
-                    } else {
-                        // Block everything else in CoreServices (Dock, Siri, ControlCenter, etc.)
-                        continue
-                    }
-                } else {
-                    // Block all other System Libraries (Input Methods, Frameworks, etc.)
-                    continue
-                }
-            } else if path.contains("/Library/") {
-                // Block other general Library paths if any sneak in
-                continue
-            }
-
-            // Exclude hidden folders/System internals
-            if path.contains("/.") || path.starts(with: "/private") {
-                continue
-            }
-
-            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-            newApps.append(AppInfo(name: name, path: path))
+        let results = (0..<metadataQuery.resultCount).compactMap {
+            metadataQuery.result(at: $0) as? NSMetadataItem
         }
-
-        // Removed manual Finder check as it should be found via CoreServices scope now.
-
-        cacheQueue.async(flags: .barrier) {
-            self.cachedApps = newApps
-        }
-
         metadataQuery.enableUpdates()
+
+        pendingRefreshWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let newApps = self.buildAppList(from: results)
+
+            self.cacheQueue.async(flags: .barrier) {
+                self.cachedApps = newApps
+            }
+        }
+        pendingRefreshWorkItem = workItem
+        metadataUpdateQueue.async(execute: workItem)
     }
 
     private func runShell(_ command: String) -> String? {
@@ -158,5 +118,68 @@ public class AppSearch {
         } catch {
             return nil
         }
+    }
+
+    private var searchScopeURLs: [URL] {
+        let homeApplications = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(
+            "Applications")
+
+        return [
+            URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/System/Applications"),
+            homeApplications,
+            URL(fileURLWithPath: "/System/Library/CoreServices"),
+        ]
+    }
+
+    private func buildAppList(from items: [NSMetadataItem]) -> [AppInfo] {
+        var newApps: [AppInfo] = []
+        var seenPaths = Set<String>()
+
+        for item in items {
+            guard let path = item.value(forAttribute: kMDItemPath as String) as? String else {
+                continue
+            }
+
+            if !shouldIncludeApp(at: path) || !seenPaths.insert(path).inserted {
+                continue
+            }
+
+            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+            newApps.append(AppInfo(name: name, path: path))
+        }
+
+        return newApps.sorted {
+            if $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedSame {
+                return $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending
+            }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    private func shouldIncludeApp(at path: String) -> Bool {
+        if path.range(of: ".app/", options: .caseInsensitive) != nil {
+            return false
+        }
+
+        if path.contains("/System/Library/") {
+            if path.contains("/CoreServices/") {
+                let isCoreServicesApp = path.contains("/CoreServices/Applications/")
+                let isFinder = path.hasSuffix("/CoreServices/Finder.app")
+                if !(isCoreServicesApp || isFinder) {
+                    return false
+                }
+            } else {
+                return false
+            }
+        } else if path.contains("/Library/"), !path.contains("/Applications/") {
+            return false
+        }
+
+        if path.contains("/.") || path.starts(with: "/private") {
+            return false
+        }
+
+        return true
     }
 }

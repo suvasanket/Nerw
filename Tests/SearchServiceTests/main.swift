@@ -1,6 +1,7 @@
 import Foundation
 import NerwBuiltin
 import NerwCore
+import NerwUtils
 
 func runTests() {
     print("[Testing] Starting SearchService functional tests...")
@@ -8,6 +9,9 @@ func runTests() {
     testAppQuickActionsCreation()
     testRegularAppHasNoQuickAction()
     testInlineArgFallbackExtraction()
+    testSearchServiceCaching()
+    testMemoryLimits()
+    testAppSearchScopes()
 
     print("[Testing] All SearchService tests PASSED.")
 
@@ -94,6 +98,71 @@ func testInlineArgFallbackExtraction() {
     }
 
     print("  ✓ testInlineArgFallbackExtraction passed.")
+}
+
+func testSearchServiceCaching() {
+    SearchService.shared.clearCache()
+    // By default, asyncUpdate: false makes it synchronous load
+    SearchService.shared.loadCache(asyncUpdate: false)
+    let candidates = SearchService.shared.getCandidates()
+    if candidates.isEmpty {
+        fatalError("FAIL: Candidates should not be empty after synchronous cache load.")
+    }
+
+    // Test clear
+    SearchService.shared.clearCache()
+    // It should transparently rebuild since it's empty
+    let newCandidates = SearchService.shared.getCandidates()
+    if newCandidates.isEmpty {
+        fatalError("FAIL: getCandidates must fallback and rebuild if cache is cleared.")
+    }
+    print("  ✓ testSearchServiceCaching passed.")
+}
+
+func testMemoryLimits() {
+    SearchService.shared.clearCache()
+
+    // Simulate low threshold
+    MemoryManager.shared.maxAllowedMemoryMB = 0.0001
+
+    if !MemoryManager.shared.isMemoryHigh() {
+        fatalError("FAIL: memory manager did not trip when threshold is 0.0001 MB")
+    }
+
+    // load cache - should immediately clear and do nothing further
+    SearchService.shared.loadCache(asyncUpdate: false)
+    // fallback mechanisms in getCandidates should still return things
+    let candidates = SearchService.shared.getCandidates()
+    if candidates.isEmpty {
+        fatalError("FAIL: getCandidates must return candidates even when memory is high")
+    }
+
+    // restore
+    MemoryManager.shared.maxAllowedMemoryMB = 40.0
+    print("  ✓ testMemoryLimits passed.")
+}
+
+func testAppSearchScopes() {
+    let scopes = Set(AppSearch.shared.monitoredSearchScopePaths)
+    let homeApplicationsPath = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Applications").path
+
+    let expectedScopes: Set<String> = [
+        "/Applications",
+        "/System/Applications",
+        "/System/Library/CoreServices",
+        homeApplicationsPath,
+    ]
+
+    if scopes != expectedScopes {
+        fatalError("FAIL: AppSearch scopes changed unexpectedly. Got \(scopes)")
+    }
+
+    if scopes.contains("/Users") {
+        fatalError("FAIL: AppSearch must not index the entire /Users tree.")
+    }
+
+    print("  ✓ testAppSearchScopes passed.")
 }
 
 // Execute

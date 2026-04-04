@@ -161,6 +161,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         if ConfigManager.shared.config.showShortcutsInMain {
             ShortcutsEngine.shared.refresh()
         }
+        SearchService.shared.loadCache()
     }
 
     override func loadView() {
@@ -526,6 +527,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         formView?.removeFromSuperview()
         formView = nil
 
+        // Drop strong references to all candidates and actions so ARC can immediately reclaim >100MB of icon data
+        actions = []
+        resultsTableView.reloadData()
+
+        SearchService.shared.clearCache()
+        ResultCellView.clearIconCache()
+        IconManager.shared.clearMemoryCache()
         delegate?.didPressEscape()
     }
 

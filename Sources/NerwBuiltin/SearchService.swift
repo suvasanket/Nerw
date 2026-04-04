@@ -9,7 +9,52 @@ public class SearchService {
     // Concurrency control for App Search
     private var searchWorkItem: DispatchWorkItem?
 
+    // Action Cache
+    private var cachedCandidates: [NerwAction] = []
+    private var isCacheLoaded = false
+    private let cacheLock = NSLock()
+    private var cacheRefreshWorkItem: DispatchWorkItem?
+
     private init() {}
+
+    public func loadCache(asyncUpdate: Bool = true) {
+        cacheLock.lock()
+        if !isCacheLoaded {
+            cachedCandidates = buildCandidates()
+            isCacheLoaded = true
+        }
+        cacheLock.unlock()
+
+        if asyncUpdate {
+            cacheRefreshWorkItem?.cancel()
+            var workItem: DispatchWorkItem?
+            workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                let fresh = self.buildCandidates()
+                self.cacheLock.lock()
+                if self.isCacheLoaded, workItem?.isCancelled == false {
+                    self.cachedCandidates = fresh
+                }
+                self.cacheLock.unlock()
+            }
+            cacheRefreshWorkItem = workItem
+            if let workItem {
+                DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+            }
+        }
+    }
+
+    public func clearCache() {
+        searchWorkItem?.cancel()
+        cacheRefreshWorkItem?.cancel()
+
+        cacheLock.lock()
+        cachedCandidates = []
+        isCacheLoaded = false
+        cacheLock.unlock()
+
+        MemoryManager.shared.forceMemoryFree()
+    }
 
     public func performAction(id: String) {
         // Find the action from all candidates
@@ -34,25 +79,39 @@ public class SearchService {
     }
 
     public func getCandidates() -> [NerwAction] {
-        var candidates: [NerwAction] = []
+        cacheLock.lock()
+        let loaded = isCacheLoaded
+        let cache = cachedCandidates
+        cacheLock.unlock()
 
-        // Builtin
-        candidates.append(contentsOf: Nerw.shared.getAllActions())
-        candidates.append(contentsOf: System.shared.getAllActions())
-        candidates.append(FindFile.shared.getTriggerAction())
+        if loaded {
+            return cache
+        }
+        return buildCandidates()
+    }
 
-        // Shortcuts
-        candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
+    private func buildCandidates() -> [NerwAction] {
+        return autoreleasepool {
+            var candidates: [NerwAction] = []
 
-        // Extensions
-        candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
+            // Builtin
+            candidates.append(contentsOf: Nerw.shared.getAllActions())
+            candidates.append(contentsOf: System.shared.getAllActions())
+            candidates.append(FindFile.shared.getTriggerAction())
 
-        // Apps
-        let allApps = AppSearch.shared.getAllApps()
-        let appActions = allApps.map { self.createAction(for: $0) }
-        candidates.append(contentsOf: appActions)
+            // Shortcuts
+            candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
 
-        return candidates
+            // Extensions
+            candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
+
+            // Apps
+            let allApps = AppSearch.shared.getAllApps()
+            let appActions = allApps.map { self.createAction(for: $0) }
+            candidates.append(contentsOf: appActions)
+
+            return candidates
+        }
     }
 
     public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
@@ -133,58 +192,61 @@ public class SearchService {
 
         // 4. Standard Fuzzy Search (Background)
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            if self.searchWorkItem?.isCancelled == true { return }
+            autoreleasepool {
+                guard let self = self else { return }
+                if self.searchWorkItem?.isCancelled == true { return }
 
-            // Fuzzy Search Candidates
-            let searchStrings = allCandidates.map { action in
-                if action.triggers.isEmpty { return action.title }
-                return action.title + " " + action.triggers.joined(separator: " ")
-            }
-
-            let fuse = Fuse()
-
-            // Safety check: ensure query is not too long
-            let safeQuery = String(query.prefix(100))
-
-            let results = fuse.searchSync(safeQuery, in: searchStrings)
-
-            if self.searchWorkItem?.isCancelled == true { return }
-
-            // Safety check: filter out-of-bounds indices
-            let validResults = results.filter { $0.index < allCandidates.count }
-            let matchedActions = validResults.map { allCandidates[$0.index] }
-
-            // Web Fallback
-            var fallbackAction: NerwAction? = nil
-            if let topMatch = FrecencyManager.shared.getMostRecentID(for: query),
-                topMatch.id.starts(with: "nerw.web.search.")
-            {
-                let engineName = String(topMatch.id.dropFirst("nerw.web.search.".count))
-                if let engine = SearchEngine.shared.engines.first(where: { $0.name == engineName })
-                {
-                    fallbackAction = self.createWebSearchAction(query: query, engine: engine)
+                // Fuzzy Search Candidates
+                let searchStrings = allCandidates.map { action in
+                    if action.triggers.isEmpty { return action.title }
+                    return action.title + " " + action.triggers.joined(separator: " ")
                 }
-            }
 
-            if fallbackAction == nil {
-                fallbackAction = self.createWebSearchAction(
-                    query: query, engine: SearchEngine.shared.getDefaultEngine())
-            }
+                let fuse = Fuse()
 
-            // NLP Rank
-            let catResult = QueryCategorizer.shared.classifySync(query)
-            var allActions = matchedActions
-            if let fallback = fallbackAction {
-                allActions.append(fallback)
-            }
-            let ranked = self.rankResults(
-                actions: allActions, query: query,
-                categoryResult: catResult.category)
+                // Safety check: ensure query is not too long
+                let safeQuery = String(query.prefix(100))
 
-            DispatchQueue.main.async {
-                if self.searchWorkItem?.isCancelled == false {
-                    completion(ranked)
+                let results = fuse.searchSync(safeQuery, in: searchStrings)
+
+                if self.searchWorkItem?.isCancelled == true { return }
+
+                // Safety check: filter out-of-bounds indices
+                let validResults = results.filter { $0.index < allCandidates.count }
+                let matchedActions = validResults.map { allCandidates[$0.index] }
+
+                // Web Fallback
+                var fallbackAction: NerwAction? = nil
+                if let topMatch = FrecencyManager.shared.getMostRecentID(for: query),
+                    topMatch.id.starts(with: "nerw.web.search.")
+                {
+                    let engineName = String(topMatch.id.dropFirst("nerw.web.search.".count))
+                    if let engine = SearchEngine.shared.engines.first(where: {
+                        $0.name == engineName
+                    }) {
+                        fallbackAction = self.createWebSearchAction(query: query, engine: engine)
+                    }
+                }
+
+                if fallbackAction == nil {
+                    fallbackAction = self.createWebSearchAction(
+                        query: query, engine: SearchEngine.shared.getDefaultEngine())
+                }
+
+                // NLP Rank
+                let catResult = QueryCategorizer.shared.classifySync(query)
+                var allActions = matchedActions
+                if let fallback = fallbackAction {
+                    allActions.append(fallback)
+                }
+                let ranked = self.rankResults(
+                    actions: allActions, query: query,
+                    categoryResult: catResult.category)
+
+                DispatchQueue.main.async {
+                    if self.searchWorkItem?.isCancelled == false {
+                        completion(ranked)
+                    }
                 }
             }
         }

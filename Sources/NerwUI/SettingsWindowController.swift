@@ -1,4 +1,5 @@
 import Cocoa
+import NerwBuiltin
 import NerwSearchBackend
 
 private class SettingsWindow: NSWindow {
@@ -12,7 +13,7 @@ private class SettingsWindow: NSWindow {
     }
 }
 
-public class SettingsWindowController: NSWindowController {
+public class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     public init() {
         let window = SettingsWindow(
@@ -36,6 +37,8 @@ public class SettingsWindowController: NSWindowController {
         let tabViewController = SettingsTabViewController()
         self.contentViewController = tabViewController
 
+        window.delegate = self
+
         // Setup Visual Effect View
         let visualEffectView = NSVisualEffectView()
         visualEffectView.blendingMode = .behindWindow
@@ -58,6 +61,10 @@ public class SettingsWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    public func windowWillClose(_ notification: Notification) {
+        SearchService.shared.clearCache()
     }
 }
 

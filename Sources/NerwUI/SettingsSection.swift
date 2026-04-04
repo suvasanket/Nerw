@@ -57,7 +57,17 @@ class SettingsSection: NSStackView {
         }
     }
 
-    init(title: String, contentViews: [NSView], isCollapsable: Bool = false) {
+    private var onExpand: (() -> Void)?
+    private var hasLoadedContent: Bool = false
+
+    init(
+        title: String, contentViews: [NSView] = [], isCollapsable: Bool = false,
+        isExpanded: Bool = true,
+        onExpand: (() -> Void)? = nil
+    ) {
+        self.isExpanded = isExpanded
+        self.onExpand = onExpand
+        self.hasLoadedContent = (onExpand == nil) || !contentViews.isEmpty
         super.init(frame: .zero)
 
         self.orientation = .vertical
@@ -104,6 +114,13 @@ class SettingsSection: NSStackView {
         for view in contentViews {
             contentStack.addArrangedSubview(view)
         }
+
+        if isCollapsable && !isExpanded {
+            contentStack.isHidden = true
+            chevronImageView.image = NSImage(
+                systemSymbolName: "chevron.right",
+                accessibilityDescription: "Toggle Section")
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -111,6 +128,11 @@ class SettingsSection: NSStackView {
     }
 
     @objc private func toggleSection() {
+        if !isExpanded && !hasLoadedContent {
+            onExpand?()
+            hasLoadedContent = true
+        }
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             context.allowsImplicitAnimation = true
@@ -129,5 +151,6 @@ class SettingsSection: NSStackView {
     /// Adds a view to the section's content area
     func addContent(_ view: NSView) {
         contentStack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
     }
 }

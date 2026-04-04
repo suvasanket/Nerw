@@ -39,6 +39,7 @@ public final class QueryCategorizer {
 
     /// Reusable tagger — allocated once, string swapped per call.
     private let tagger = NLTagger(tagSchemes: [.lexicalClass])
+    private let taggerLock = NSLock()
 
     // MARK: - Phrase lists (sorted longest-first for greedy matching)
 
@@ -213,6 +214,9 @@ public final class QueryCategorizer {
     // MARK: - Private: NLP Analysis
 
     private func nlpWebScore(_ query: String) -> Double {
+        taggerLock.lock()
+        defer { taggerLock.unlock() }
+
         tagger.string = query
         let range = query.startIndex..<query.endIndex
 

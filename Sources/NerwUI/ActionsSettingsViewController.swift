@@ -5,9 +5,17 @@ import NerwSearchBackend
 
 class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, KeybindRecorderDelegate
 {
+    private struct ActionRowModel {
+        let title: String
+        let triggers: [String]
+        let id: String
+        let icon: NerwAction.IconType?
+        let iconURL: URL?
+    }
 
     private let scrollView = NSScrollView()
     private let stackView = FlippedStackView()
+    private var reloadGeneration = 0
 
     override func loadView() {
         self.view = NSView()
@@ -17,7 +25,23 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        reloadData()
+    }
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        if stackView.arrangedSubviews.isEmpty {
+            reloadData()
+        }
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        reloadGeneration += 1
+        // Aggressively drop all generated views to free memory
+        for subview in stackView.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
+        IconManager.shared.clearMemoryCache()
     }
 
     private func setupUI() {
@@ -51,113 +75,105 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
     }
 
     private func reloadData() {
+        reloadGeneration += 1
+        let generation = reloadGeneration
+
         // Clear current stack
         for subview in stackView.arrangedSubviews {
             subview.removeFromSuperview()
         }
 
-        // 1. Apps Section — load on background then update UI
-        let apps = AppSearch.shared.getAllApps().sorted { $0.name < $1.name }
-        // Pre-build rows without icons first (icons loaded async)
-        let appRows = apps.map { app in
-            let id = "nerw.app." + app.path
-            return createActionRow(
-                title: app.name,
-                triggers: [app.name],
-                id: id,
-                icon: nil,  // No icon yet — will be loaded async
-                iconURL: URL(fileURLWithPath: app.path)
-            )
-        }
-        addSection(title: "Applications", rows: appRows)
+        // Build lightweight row models off the main thread so settings don't
+        // keep the entire executable action graph resident.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let apps = self.makeApplicationRows()
+            let systemActions = self.makeRows(
+                from: Nerw.shared.getAllActions() + System.shared.getAllActions())
+            let shortcuts = self.makeRows(from: ShortcutsEngine.shared.getAllActions())
+            let findFileAction = self.makeRows(from: [FindFile.shared.getTriggerAction()])
+            let extensions = self.makeExtensionRows()
 
-        // 2. System Section
-        var systemActions = System.shared.getAllActions()
-        systemActions.append(contentsOf: Nerw.shared.getAllActions())
-        // Ensure unique by ID
-        var uniqueSystemActions: [String: NerwAction] = [:]
-        for action in systemActions {
-            uniqueSystemActions[action.id] = action
-        }
-        let sortedSystemActions = uniqueSystemActions.values.sorted { $0.title < $1.title }
-
-        let systemRows = sortedSystemActions.map { action in
-            createActionRow(
-                title: action.title,
-                triggers: action.triggers,
-                id: action.id,
-                icon: action.icon
-            )
-        }
-        addSection(title: "System", rows: systemRows)
-
-        // 3. Shortcuts
-        let shortcuts = ShortcutsEngine.shared.getAllActions()
-        let shortcutRows = shortcuts.map { action in
-            createActionRow(
-                title: action.title,
-                triggers: action.triggers,
-                id: action.id,
-                icon: action.icon
-            )
-        }
-        addSection(title: "Shortcuts", rows: shortcutRows)
-
-        // 4. File Search
-        let findFileAction = FindFile.shared.getTriggerAction()
-        let findFileRows = [
-            createActionRow(
-                title: findFileAction.title,
-                triggers: findFileAction.triggers,
-                id: findFileAction.id,
-                icon: findFileAction.icon
-            )
-        ]
-        addSection(title: "File Search", rows: findFileRows)
-
-        // 5. Extensions
-        let extensions = ExtensionEngine.shared.extensions
-        for ext in extensions {
-            let entryActions = ExtensionEngine.shared.getAllEntryActions().filter {
-                $0.id.contains(ext.id)
+            DispatchQueue.main.async {
+                guard generation == self.reloadGeneration else { return }
+                self.addLazySection(title: "Applications", actions: apps)
+                self.addLazySection(title: "System", actions: systemActions)
+                self.addLazySection(title: "Shortcuts", actions: shortcuts)
+                self.addLazySection(title: "File Search", actions: findFileAction)
+                for ext in extensions {
+                    self.addLazySection(title: ext.0, actions: ext.1)
+                }
             }
-            let extRows = entryActions.map { action in
-                createActionRow(
-                    title: action.title,
-                    triggers: action.triggers,
-                    id: action.id,
-                    icon: action.icon
-                )
-            }
-            addSection(title: ext.name, rows: extRows)
         }
     }
 
-    private func addSection(title: String, rows: [NSView]) {
-        guard !rows.isEmpty else { return }
+    private func addLazySection(title: String, actions: [ActionRowModel]) {
+        guard !actions.isEmpty else { return }
 
-        let sectionStack = NSStackView()
-        sectionStack.orientation = .vertical
-        sectionStack.spacing = 0
-        sectionStack.alignment = .leading
-
-        for (index, row) in rows.enumerated() {
-            sectionStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: sectionStack.widthAnchor).isActive = true
-
-            if index < rows.count - 1 {
-                let line = NSBox()
-                line.boxType = .separator
-                sectionStack.addArrangedSubview(line)
-                line.widthAnchor.constraint(equalTo: sectionStack.widthAnchor).isActive = true
-            }
-        }
+        // Create the section without content initially
+        weak var sectionRef: SettingsSection?
 
         let section = SettingsSection(
-            title: title, contentViews: [sectionStack], isCollapsable: true)
+            title: title,
+            contentViews: [],
+            isCollapsable: true,
+            isExpanded: false,
+            onExpand: { [weak self] in
+                guard let self = self, let actualSection = sectionRef else { return }
+                self.populateSection(section: actualSection, actions: actions)
+            }
+        )
+
+        sectionRef = section
         stackView.addArrangedSubview(section)
         section.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40).isActive =
             true
+    }
+
+    private func populateSection(section: SettingsSection, actions: [ActionRowModel]) {
+        // We process small batches of rows to avoid main thread locking up
+        let batchSize = 100
+        var currentIndex = 0
+
+        func processBatch() {
+            let endIndex = min(currentIndex + batchSize, actions.count)
+            let batch = actions[currentIndex..<endIndex]
+
+            for (i, action) in batch.enumerated() {
+                let row = self.createActionRow(
+                    title: action.title,
+                    triggers: action.triggers,
+                    id: action.id,
+                    icon: action.icon,
+                    iconURL: action.iconURL
+                )
+
+                section.addContent(row)
+
+                // Add separator except for the ultimate last item
+                let globalIndex = currentIndex + i
+                if globalIndex < actions.count - 1 {
+                    let line = NSBox()
+                    line.boxType = .separator
+                    section.addContent(line)
+                    line.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
+                }
+            }
+
+            currentIndex = endIndex
+
+            if currentIndex < actions.count {
+                // Yield and continue next batch
+                DispatchQueue.main.async {
+                    processBatch()
+                }
+            } else {
+                // Request layout update to accommodate new rows smoothly
+                section.window?.layoutIfNeeded()
+            }
+        }
+
+        processBatch()
     }
 
     private func createActionRow(
@@ -209,6 +225,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         let titleLabel = NSTextField(labelWithString: title)
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         titleLabel.textColor = .labelColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(titleLabel)
 
         // Default Triggers in brackets
@@ -220,6 +238,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             let triggerLabel = NSTextField(labelWithString: triggerString)
             triggerLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
             triggerLabel.textColor = .secondaryLabelColor
+            triggerLabel.lineBreakMode = .byTruncatingTail
+            triggerLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             row.addArrangedSubview(triggerLabel)
         }
 
@@ -274,6 +294,123 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.addArrangedSubview(recorder)
 
         return row
+    }
+
+    private func makeRows(from actions: [NerwAction]) -> [ActionRowModel] {
+        actions
+            .map {
+                ActionRowModel(
+                    title: $0.title,
+                    triggers: $0.triggers,
+                    id: $0.id,
+                    icon: $0.icon,
+                    iconURL: nil
+                )
+            }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private func makeApplicationRows() -> [ActionRowModel] {
+        let apps = AppSearch.shared.getAllApps()
+        var rows: [ActionRowModel] = []
+
+        for app in apps {
+            let appURL = URL(fileURLWithPath: app.path)
+
+            rows.append(
+                ActionRowModel(
+                    title: app.name,
+                    triggers: [app.name.lowercased()],
+                    id: "nerw.app.\(app.name)",
+                    icon: nil,
+                    iconURL: appURL
+                )
+            )
+
+            if let quickAction = quickActionRow(for: app, iconURL: appURL) {
+                rows.append(quickAction)
+            }
+        }
+
+        return rows.sorted {
+            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private func quickActionRow(for app: AppSearch.AppInfo, iconURL: URL) -> ActionRowModel? {
+        switch app.name.lowercased() {
+        case "activity monitor":
+            return ActionRowModel(
+                title: "Quit Process",
+                triggers: [],
+                id: "nerw.quick.process",
+                icon: nil,
+                iconURL: iconURL
+            )
+        case "finder":
+            return ActionRowModel(
+                title: "Find File",
+                triggers: [],
+                id: "nerw.quick.findfile",
+                icon: nil,
+                iconURL: iconURL
+            )
+        case "shortcuts":
+            return ActionRowModel(
+                title: "Run Shortcut",
+                triggers: [],
+                id: "nerw.quick.shortcuts",
+                icon: nil,
+                iconURL: iconURL
+            )
+        case "system settings":
+            return ActionRowModel(
+                title: "System Settings",
+                triggers: [],
+                id: "nerw.quick.systemsettings",
+                icon: nil,
+                iconURL: iconURL
+            )
+        default:
+            return nil
+        }
+    }
+
+    private func makeExtensionRows() -> [(String, [ActionRowModel])] {
+        ExtensionEngine.shared.extensions.map { manifest in
+            let rows = manifest.actions.map { actionManifest in
+                let resolvedIcon = resolveExtensionIcon(
+                    actionIcon: actionManifest.icon, manifestIcon: manifest.icon)
+
+                return ActionRowModel(
+                    title: actionManifest.name,
+                    triggers: actionManifest.triggers,
+                    id: "nerw.ext.\(manifest.id).\(actionManifest.name)",
+                    icon: resolvedIcon.icon,
+                    iconURL: resolvedIcon.iconURL
+                )
+            }
+            .sorted { (lhs: ActionRowModel, rhs: ActionRowModel) in
+                lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+
+            return (manifest.name, rows)
+        }
+    }
+
+    private func resolveExtensionIcon(actionIcon: String?, manifestIcon: String?)
+        -> (icon: NerwAction.IconType?, iconURL: URL?)
+    {
+        let iconName = actionIcon ?? manifestIcon
+        guard let iconName, !iconName.isEmpty else {
+            return (.system("puzzlepiece.extension"), nil)
+        }
+
+        if iconName.hasPrefix("/") {
+            return (nil, URL(fileURLWithPath: iconName))
+        }
+
+        return (.system(iconName), nil)
     }
 
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {

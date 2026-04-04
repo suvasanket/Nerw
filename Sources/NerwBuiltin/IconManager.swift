@@ -5,10 +5,12 @@ public class IconManager {
 
     private let iconDirectory: URL
     private let fileManager = FileManager.default
-    private let queue = DispatchQueue(label: "com.nerw.iconmanager", attributes: .concurrent)
-
-    // Memory Cache
-    private var memoryCache: [String: NSImage] = [:]
+    private let memoryCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 64
+        cache.totalCostLimit = 16 * 1024 * 1024
+        return cache
+    }()
 
     private init() {
         if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -28,24 +30,15 @@ public class IconManager {
     public func icon(for urlOrDomain: String) -> NSImage? {
         guard let domain = extractDomain(from: urlOrDomain) else { return nil }
 
-        // Check Memory (Thread-Safe Read)
-        var cached: NSImage?
-        queue.sync {
-            cached = memoryCache[domain]
-        }
-        if let image = cached {
+        if let image = memoryCache.object(forKey: domain as NSString) {
             return image
         }
 
-        // Check Disk
         let fileURL = iconDirectory.appendingPathComponent("\(domain).png")
         if fileManager.fileExists(atPath: fileURL.path),
             let image = NSImage(contentsOf: fileURL)
         {
-            // Update Memory (Thread-Safe Write)
-            queue.async(flags: .barrier) {
-                self.memoryCache[domain] = image
-            }
+            memoryCache.setObject(image, forKey: domain as NSString, cost: cacheCost(for: image))
             return image
         }
 
@@ -55,21 +48,13 @@ public class IconManager {
     /// Looks up an icon by its raw storage key (filename without extension),
     /// bypassing domain extraction. Use this for custom user-provided icons.
     public func icon(forKey key: String) -> NSImage? {
-        // Check Memory
-        var cached: NSImage?
-        queue.sync {
-            cached = memoryCache[key]
-        }
-        if let image = cached { return image }
+        if let image = memoryCache.object(forKey: key as NSString) { return image }
 
-        // Check Disk
         let fileURL = iconDirectory.appendingPathComponent("\(key).png")
         if fileManager.fileExists(atPath: fileURL.path),
             let image = NSImage(contentsOf: fileURL)
         {
-            queue.async(flags: .barrier) {
-                self.memoryCache[key] = image
-            }
+            memoryCache.setObject(image, forKey: key as NSString, cost: cacheCost(for: image))
             return image
         }
         return nil
@@ -110,10 +95,8 @@ public class IconManager {
                 try? pngData.write(to: fileURL)
             }
 
-            // Save to Memory
-            self.queue.async(flags: .barrier) {
-                self.memoryCache[domain] = image
-            }
+            self.memoryCache.setObject(
+                image, forKey: domain as NSString, cost: self.cacheCost(for: image))
 
             completion(image)
         }.resume()
@@ -153,11 +136,12 @@ public class IconManager {
             }
         }
 
-        // Update memory cache synchronously so callers see it immediately (no race)
-        queue.sync(flags: .barrier) {
-            self.memoryCache[safeKey] = resized
-        }
+        memoryCache.setObject(resized, forKey: safeKey as NSString, cost: cacheCost(for: resized))
         return safeKey
+    }
+
+    public func clearMemoryCache() {
+        memoryCache.removeAllObjects()
     }
 
     private func extractDomain(from urlString: String) -> String? {
@@ -170,5 +154,12 @@ public class IconManager {
             return url.host
         }
         return nil
+    }
+
+    private func cacheCost(for image: NSImage) -> Int {
+        let size = image.size
+        let width = max(Int(size.width), 1)
+        let height = max(Int(size.height), 1)
+        return width * height * 4
     }
 }

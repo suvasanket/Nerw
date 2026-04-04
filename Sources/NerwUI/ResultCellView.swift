@@ -158,8 +158,17 @@ class ResultCellView: NSTableCellView {
         ])
     }
 
-    // Shared Cache for file icons to avoid flicker/re-gen during selection
-    private static let iconCache = NSCache<NSString, NSImage>()
+    // Shared cache for file icons to avoid regenerating thumbnails while navigating.
+    private static let iconCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 96
+        cache.totalCostLimit = 24 * 1024 * 1024
+        return cache
+    }()
+
+    static func clearIconCache() {
+        iconCache.removeAllObjects()
+    }
 
     func configure(
         with action: NerwAction, isSelected: Bool, isExplicitNavigation: Bool = false,
@@ -258,7 +267,8 @@ class ResultCellView: NSTableCellView {
 
                         // Cache it for next time
                         if let image = image {
-                            ResultCellView.iconCache.setObject(image, forKey: cacheKey)
+                            ResultCellView.iconCache.setObject(
+                                image, forKey: cacheKey, cost: Self.cacheCost(for: image))
                         }
 
                         // Verify cell is still configured for this action
@@ -394,6 +404,13 @@ class ResultCellView: NSTableCellView {
         } else {
             hintStack.isHidden = true
         }
+    }
+
+    private static func cacheCost(for image: NSImage) -> Int {
+        let size = image.size
+        let width = max(Int(size.width), 1)
+        let height = max(Int(size.height), 1)
+        return width * height * 4
     }
 }
 
