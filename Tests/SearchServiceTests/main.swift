@@ -13,6 +13,10 @@ func runTests() {
     testMemoryLimits()
     testAppSearchScopes()
 
+    print("[Testing] Starting Builtin & UI tests...")
+    testClipboardManagerStorage()
+    testSplitPaneInitialization()
+
     print("[Testing] All SearchService tests PASSED.")
 
     runBackendTests()

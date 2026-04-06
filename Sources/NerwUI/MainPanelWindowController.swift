@@ -1,6 +1,7 @@
 // MainPanelWindowController.swift
 import Cocoa
 import NerwCore
+import NerwSearchBackend
 
 public class MainPanelWindowController: NSObject {
     private var panel: MainPanel!
@@ -79,6 +80,8 @@ public class MainPanelWindowController: NSObject {
         let x = screenRect.origin.x + (screenRect.width - windowRect.width) / 2
 
         panel.setFrameOrigin(NSPoint(x: x, y: newOriginY))
+        NerwPanelContext.shared.update(mainPanelFrame: panel.frame)
+        NerwPanelContext.shared.update(configFontName: ConfigManager.shared.config.uiConfig?.font)
     }
 
     public func toggle() {
@@ -91,11 +94,15 @@ public class MainPanelWindowController: NSObject {
         panel.makeFirstResponder(contentViewController.inputField)
     }
 
-    public func hide() {
+    public func hide(restoreFocus: Bool = true) {
+        guard isVisible else { return }
+
         panel.orderOut(nil)
         contentViewController.reset()
         // Return focus to the previous application
-        NSApp.hide(nil)
+        if restoreFocus {
+            NSApp.hide(nil)
+        }
     }
 
     public func updateHeight(_ height: CGFloat) {
@@ -104,6 +111,7 @@ public class MainPanelWindowController: NSObject {
         frame.origin.y -= diff
         frame.size.height = height
         panel.setFrame(frame, display: true, animate: true)
+        NerwPanelContext.shared.update(mainPanelFrame: panel.frame)
     }
 }
 

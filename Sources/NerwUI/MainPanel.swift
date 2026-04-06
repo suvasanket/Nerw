@@ -9,13 +9,6 @@ public class MainPanel: NSPanel {
 
     public override func resignKey() {
         super.resignKey()
-        // If we are visible but losing key status (e.g. to an accessory window),
-        // normally we might resign. But here we force key if we want to stay active,
-        // or we let resignHandler handle the dismissal.
-        // However, standard Spotlight behavior is to close on resign.
-        if isVisible {
-            self.makeKey()
-        }
         resignHandler?()
     }
 

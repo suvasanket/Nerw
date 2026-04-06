@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupController: MainPanelWindowController!
     private var settingsController: SettingsWindowController?
     private var extensionInstallController: ExtensionInstallWindowController?
+    private var clipboardController = ClipboardController()
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -22,6 +23,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
 
         registerGlobalHotkey()
+
+        ClipboardManager.shared.showWindowCallback = { [weak self] in
+            // Show the new window first so the app doesn't lose the key window
+            self?.clipboardController.show()
+            // Then hide the main panel without aggressively restoring OS focus
+            self?.popupController.hide(restoreFocus: false)
+        }
+        ClipboardManager.shared.start()
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
@@ -125,6 +134,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePopup() {
+        if clipboardController.isVisible {
+            clipboardController.didCancel()
+            return
+        }
         popupController.toggle()
     }
 
