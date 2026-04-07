@@ -97,11 +97,18 @@ public class MainPanelWindowController: NSObject {
     public func hide(restoreFocus: Bool = true) {
         guard isVisible else { return }
 
-        panel.orderOut(nil)
         contentViewController.reset()
+        panel.orderOut(nil)
+
         // Return focus to the previous application
         if restoreFocus {
-            NSApp.hide(nil)
+            // Only hide the app if we are not moving focus to another of our own windows (e.g. Settings)
+            let isFocusStayingInApp = NSApp.windows.contains {
+                $0.isVisible && $0.isKeyWindow && $0 != panel
+            }
+            if !isFocusStayingInApp {
+                NSApp.hide(nil)
+            }
         }
     }
 

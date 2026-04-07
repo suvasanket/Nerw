@@ -230,7 +230,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.addArrangedSubview(titleLabel)
 
         // Default Triggers in brackets
-        let customAliases = ConfigManager.shared.config.actionAliases[id] ?? []
+        let customAliases = NerwActionPreferenceStore.aliases(for: id)
         let defaultTriggers = triggers.filter { !customAliases.contains($0) }
 
         if !defaultTriggers.isEmpty {
@@ -283,7 +283,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.addArrangedSubview(aliasContainer)
 
         // Hotkey Recorder
-        let currentHotkey = ConfigManager.shared.config.actionHotkeys[id] ?? ""
+        let currentHotkey = NerwActionPreferenceStore.hotkey(for: id)
         let recorder = KeybindRecorder(keybind: currentHotkey)
         recorder.identifier = NSUserInterfaceItemIdentifier(id)
         recorder.delegate = self
@@ -415,30 +415,12 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
 
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let id = recorder.identifier?.rawValue else { return }
-
-        if keybind.isEmpty {
-            ConfigManager.shared.config.actionHotkeys.removeValue(forKey: id)
-        } else {
-            ConfigManager.shared.config.actionHotkeys[id] = keybind
-        }
-
-        ConfigManager.shared.save()
+        NerwActionPreferenceStore.updateHotkey(keybind, for: id)
     }
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField,
             let id = textField.identifier?.rawValue
         else { return }
-
-        let aliases = textField.stringValue.components(separatedBy: .whitespaces).filter {
-            !$0.isEmpty
-        }
-
-        if aliases.isEmpty {
-            ConfigManager.shared.config.actionAliases.removeValue(forKey: id)
-        } else {
-            ConfigManager.shared.config.actionAliases[id] = aliases
-        }
-
-        ConfigManager.shared.save()
+        NerwActionPreferenceStore.updateAliases(rawValue: textField.stringValue, for: id)
     }
 }

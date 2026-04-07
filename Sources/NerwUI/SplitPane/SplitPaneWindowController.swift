@@ -84,7 +84,13 @@ public class SplitPaneWindowController: NSObject {
     public func hide() {
         if panel.isVisible {
             panel.orderOut(nil)
-            NSApp.hide(nil)
+
+            let isFocusStayingInApp = NSApp.windows.contains {
+                $0.isVisible && $0.isKeyWindow && $0 != panel
+            }
+            if !isFocusStayingInApp {
+                NSApp.hide(nil)
+            }
         }
     }
 

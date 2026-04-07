@@ -90,6 +90,31 @@ Map keyboard modifier keys to specific search engines for instant "Feeling Lucky
     -   Map `Shift`, `Command`, `Option`, or `Control` to any of your added search engines or bangs.
 3.  **Use**: Type a query and press the modifier key with `Enter` (e.g., `Shift + Enter`) to use the alternative engine.
 
+### Action Context
+Open a side popup for the currently selected action to inspect and trigger the operations available for that action.
+1.  **Trigger**: Press `Cmd + K` while an action is selected in the main panel.
+2.  **Scope**: The popup is always built from the currently selected action only.
+3.  **Layout**:
+    -   The popup opens as a compact, glassy menu-style operation list without a search field.
+    -   The first operation is selected by default.
+    -   The list uses grouped separators and concise trailing metadata instead of repeating section/subtitle text on every row.
+    -   Alias and hotkey configuration open inline editors inside the same popup.
+4.  **Contents**:
+    -   Default action execution for the selected result.
+    -   Secondary/quick actions for hybrid results.
+    -   Modifier-backed actions, such as alternate search-engine actions.
+    -   Global per-action configuration entries like **Set Alias** and **Set Hotkey**.
+5.  **Navigation**:
+    -   `Enter`: Execute the selected operation.
+    -   `Esc` or `Cmd + K`: Close the popup.
+    -   `Down Arrow` / `Ctrl + N`: Move selection down.
+    -   `Up Arrow` / `Ctrl + P`: Move selection up.
+    -   Typing letters or initials jumps selection to the matching operation, similar to a native macOS context menu.
+6.  **Editing**:
+    -   Aliases are saved as space-separated triggers for the selected action.
+    -   Hotkeys are recorded directly from the popup and registered as action-specific global shortcuts.
+7.  **Close**: Press `Esc` or execute/save an operation to close the popup.
+
 ### UI Theming
 Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`.
 You can customize:
@@ -137,6 +162,7 @@ Designed for mouse-free usage:
 - **Actions**:
   - `Enter`: Open/Execute selected result. (Hold `Cmd` to Reveal in Finder for files).
   - `Tab`: Enter Argument Mode (if supported) or trigger **Quick Action** (if available).
+  - `Cmd + K`: Open or close **Action Context** for the selected action.
   - `Esc`: Close Nerw.
 
 ## ⚡ Performance

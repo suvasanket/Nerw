@@ -143,6 +143,10 @@ class KeybindRecorder: NSView {
         isRecording = true
     }
 
+    func beginRecording() {
+        isRecording = true
+    }
+
     override var acceptsFirstResponder: Bool {
         return true
     }
@@ -161,6 +165,14 @@ class KeybindRecorder: NSView {
         if modifierFlags.isEmpty && (keyCode == 53) {
             isRecording = false
             return nil  // Consume event
+        }
+
+        // Delete clears the current shortcut.
+        if modifierFlags.isEmpty && (keyCode == 51) {
+            self.currentKeybind = ""
+            self.delegate?.keybindRecorder(self, didChangeKeybind: "")
+            isRecording = false
+            return nil
         }
 
         let newKeybind = HotkeyParser.string(for: modifierFlags, keyCode: keyCode)

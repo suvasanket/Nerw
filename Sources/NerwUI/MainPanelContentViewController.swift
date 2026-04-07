@@ -93,6 +93,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var tintView: NSView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
     private var formView: FormView?
+    private var actionContextWindow: ActionContextPanel?
+    private var actionContextViewController: ActionContextViewController?
 
     private var isDebugMode = false
 
@@ -398,6 +400,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         DispatchQueue.main.async {
             self.applyTheming()
             self.resultsTableView.reloadData()
+            self.refreshActionContextIfNeeded()
         }
     }
 
@@ -477,6 +480,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func reset() {
+        dismissActionContext()
         activeAction = nil
         inputState = .search
         inputField.stringValue = ""
@@ -512,8 +516,275 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
     }
 
+    private func toggleActionContext() {
+        if actionContextWindow?.isVisible == true {
+            dismissActionContext()
+            return
+        }
+
+        showActionContext()
+    }
+
+    private func showActionContext() {
+        guard let action = currentContextAction() else { return }
+
+        let context = NerwActionContextBuilder.build(for: action)
+        let anchorRect = actionContextAnchorRect()
+
+        let controller = actionContextViewController ?? ActionContextViewController()
+        controller.delegate = self
+        controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+        controller.render(context: context)
+        actionContextViewController = controller
+
+        let panel: ActionContextPanel
+        if let existing = actionContextWindow {
+            panel = existing
+        } else {
+            panel = ActionContextPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 343, height: 200),
+                styleMask: [.nonactivatingPanel, .borderless],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
+            panel.level = .floating
+            panel.hidesOnDeactivate = false
+            panel.contentView = controller.view
+            actionContextWindow = panel
+        }
+
+        controller.view.layoutSubtreeIfNeeded()
+        let contentSize = controller.preferredContentSize
+        panel.setFrame(
+            NSRect(origin: panel.frame.origin, size: contentSize), display: true)
+
+        if let parentWindow = self.view.window {
+            let screenRect = parentWindow.convertToScreen(anchorRect)
+            let windowOrigin = NSPoint(
+                x: screenRect.maxX,
+                y: screenRect.midY - contentSize.height / 2
+            )
+            panel.setFrameOrigin(windowOrigin)
+            parentWindow.addChildWindow(panel, ordered: .above)
+            panel.orderFront(nil)
+        }
+
+        DispatchQueue.main.async {
+            panel.makeKey()
+            controller.focusForInteraction()
+        }
+    }
+
+    private func dismissActionContext() {
+        guard let panel = actionContextWindow else { return }
+        if let parent = panel.parent {
+            parent.removeChildWindow(panel)
+        }
+        panel.orderOut(nil)
+
+        // Restore focus to main window input
+        if !inputField.isHidden {
+            view.window?.makeKeyAndOrderFront(nil)
+            view.window?.makeFirstResponder(inputField)
+        }
+    }
+
+    private func refreshActionContextIfNeeded() {
+        guard let panel = actionContextWindow, panel.isVisible else { return }
+        guard let action = currentContextAction() else {
+            dismissActionContext()
+            return
+        }
+
+        let controller = actionContextViewController
+        controller?.render(context: NerwActionContextBuilder.build(for: action))
+
+        // Reposition after content size change
+        if let controller, let parentWindow = self.view.window {
+            controller.view.layoutSubtreeIfNeeded()
+            let contentSize = controller.preferredContentSize
+            let anchorRect = actionContextAnchorRect()
+            controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+            let screenRect = parentWindow.convertToScreen(anchorRect)
+            let windowOrigin = NSPoint(
+                x: screenRect.maxX,
+                y: screenRect.midY - contentSize.height / 2
+            )
+            panel.setFrame(
+                NSRect(origin: windowOrigin, size: contentSize), display: true)
+        }
+    }
+
+    private func actionContextConnectorHeight(for anchorRect: NSRect) -> CGFloat {
+        let selectionVerticalInsets = LayoutMetrics.Cell.Margin.vertical * 2
+        let defaultHeight = LayoutMetrics.Results.rowHeight - selectionVerticalInsets
+
+        guard !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
+            !scrollView.isHidden
+        else {
+            return max(0, defaultHeight)
+        }
+
+        return max(0, anchorRect.height - selectionVerticalInsets)
+    }
+
+    private func actionContextAnchorRect() -> NSRect {
+        let insetX = max(backgroundView.bounds.width - 8, 0)
+
+        // Align to selected row if visible
+        if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
+            !scrollView.isHidden
+        {
+            let rowRect = resultsTableView.rect(ofRow: selectedIndex)
+            let rectInView = backgroundView.convert(rowRect, from: resultsTableView)
+            return NSRect(x: insetX, y: rectInView.minY, width: 8, height: rectInView.height)
+        }
+
+        return NSRect(x: insetX, y: 0, width: 8, height: backgroundView.bounds.height)
+    }
+
+    private func currentContextAction() -> NerwAction? {
+        if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count {
+            return actions[selectedIndex]
+        }
+        return activeAction
+    }
+
+    private func actionForContext(id: String) -> NerwAction? {
+        if let current = currentContextAction(), current.id == id {
+            return current
+        }
+        if let activeAction, activeAction.id == id {
+            return activeAction
+        }
+        return actions.first(where: { $0.id == id })
+    }
+
+    private func modifierFlags(for key: NerwAction.ModifierKey) -> NSEvent.ModifierFlags {
+        switch key {
+        case .command:
+            return .command
+        case .shift:
+            return .shift
+        case .control:
+            return .control
+        case .option:
+            return .option
+        }
+    }
+
+    private func autocompleteInlineTrigger(for action: NerwAction) {
+        if let trigger = action.triggers.first {
+            inputField.stringValue = trigger + " "
+        } else if !inputField.stringValue.hasSuffix(" ") {
+            inputField.stringValue += " "
+        }
+        inputField.currentEditor()?.moveToEndOfLine(nil)
+    }
+
+    @discardableResult
+    private func performSecondaryAction(for action: NerwAction) -> Bool {
+        guard case .hybrid(_, let box) = action.type else { return false }
+
+        let quickAction = box.value
+        previousSearchText = inputField.stringValue
+
+        switch quickAction.type {
+        case .arg, .args:
+            activateArgumentMode(for: quickAction, initialArg: "")
+        case .form:
+            enterFormMode(action: quickAction)
+        case .inlineArg:
+            autocompleteInlineTrigger(for: quickAction)
+        case .instant, .hybrid:
+            FrecencyManager.shared.recordUsage(id: quickAction.id, forQuery: previousSearchText)
+            activeAction = quickAction
+            updateUIForCurrentState()
+            inputField.stringValue = ""
+            actions = []
+            updateActions()
+        }
+
+        return true
+    }
+
+    private func performPrimaryAction(for action: NerwAction) -> Bool {
+        if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
+            actions[selectedIndex].id == action.id
+        {
+            return executeResult(action, query: inputField.stringValue, modifiers: [])
+        }
+
+        if case .argument(let currentAction, let step, var args) = inputState,
+            currentAction.id == action.id
+        {
+            args.append(inputField.stringValue)
+            return submitArgumentAction(action: currentAction, step: step, args: args)
+        }
+
+        if let activeAction, activeAction.id == action.id {
+            return submitActiveAction(activeAction)
+        }
+
+        return executeResult(action, query: inputField.stringValue, modifiers: [])
+    }
+
+    private func submitArgumentAction(action: NerwAction, step: Int, args: [String]) -> Bool {
+        var isLastStep = false
+        switch action.type {
+        case .arg(let placeholders, _):
+            isLastStep = step >= placeholders.count - 1
+        case .args:
+            isLastStep = true
+        default:
+            break
+        }
+
+        if isLastStep {
+            switch action.type {
+            case .arg(_, let perform):
+                perform(action, args)
+            case .args(_, _, let perform):
+                if let perform {
+                    perform(action, args.joined(separator: " "))
+                } else {
+                    delegate?.didSubmit(text: "\(action.title) \(args.joined(separator: " "))")
+                }
+            default:
+                break
+            }
+            closeSession(restoreText: false)
+            return true
+        }
+
+        enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
+        return true
+    }
+
+    private func submitActiveAction(_ action: NerwAction) -> Bool {
+        switch action.type {
+        case .instant(let perform):
+            perform(action)
+            resetToSearch()
+        case .inlineArg(let perform, _):
+            perform(action, inputField.stringValue)
+            resetToSearch()
+        case .args(_, _, let perform):
+            perform?(action, inputField.stringValue)
+            resetToSearch()
+        default:
+            delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
+            resetToSearch()
+        }
+        return true
+    }
+
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true) {
+        dismissActionContext()
         activeAction = nil
         inputState = .search
 
@@ -617,6 +888,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func resetToSearch() {
         print("[DebugUI] resetToSearch called")
+        dismissActionContext()
         activeAction = nil
         inputState = .search
 
@@ -647,49 +919,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             case .inlineArg:
                 // Universal completion for inline actions: replace field with "trigger "
-                if let trigger = selectedAction.triggers.first {
-                    inputField.stringValue = trigger + " "
-                    inputField.currentEditor()?.moveToEndOfLine(nil)
-                } else if !inputField.stringValue.hasSuffix(" ") {
-                    // Fallback
-                    inputField.stringValue += " "
-                    inputField.currentEditor()?.moveToEndOfLine(nil)
-                }
+                autocompleteInlineTrigger(for: selectedAction)
                 return true
 
-            case .hybrid(_, let box):
-                let quickAction = box.value
-                // Check if quick action needs arguments
-                previousSearchText = inputField.stringValue
-                switch quickAction.type {
-                case .arg, .args:
-                    activateArgumentMode(for: quickAction, initialArg: "")
-                case .form:
-                    enterFormMode(action: quickAction)
-                case .inlineArg:
-                    // Just autocomplete to the trigger word and let search() handle it
-                    if let trigger = quickAction.triggers.first {
-                        inputField.stringValue = trigger + " "
-                    } else if !inputField.stringValue.hasSuffix(" ") {
-                        inputField.stringValue += " "
-                    }
-                    inputField.currentEditor()?.moveToEndOfLine(nil)
-                    return true
-                case .instant, .hybrid:
-                    // Record Usage for Instant/Hybrid swap
-                    FrecencyManager.shared.recordUsage(
-                        id: quickAction.id, forQuery: previousSearchText)
-
-                    // Direct Swap
-                    activeAction = quickAction
-                    // updateUIForCurrentState will handle placeholder/icon
-                    updateUIForCurrentState()
-
-                    inputField.stringValue = ""
-                    actions = []
-                    updateActions()
-                }
-                return true
+            case .hybrid:
+                return performSecondaryAction(for: selectedAction)
 
             case .instant:
                 return false
@@ -713,43 +947,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     return true
 
                 case .inlineArg:
-                    if let trigger = selectedAction.triggers.first {
-                        inputField.stringValue = trigger + " "
-                    } else if !inputField.stringValue.hasSuffix(" ") {
-                        inputField.stringValue += " "
-                    }
-                    inputField.currentEditor()?.moveToEndOfLine(nil)
+                    autocompleteInlineTrigger(for: selectedAction)
                     return true
 
-                case .hybrid(_, let box):
-                    let quickAction = box.value
-                    previousSearchText = inputField.stringValue
-                    // Similar logic to top-level hybrid handling
-                    switch quickAction.type {
-                    case .arg, .args:
-                        activateArgumentMode(for: quickAction, initialArg: "")
-                    case .form:
-                        enterFormMode(action: quickAction)
-                    case .inlineArg:
-                        if let trigger = quickAction.triggers.first {
-                            inputField.stringValue = trigger + " "
-                        } else if !inputField.stringValue.hasSuffix(" ") {
-                            inputField.stringValue += " "
-                        }
-                        inputField.currentEditor()?.moveToEndOfLine(nil)
-                        return true
-                    default:
-                        // Instant/Hybrid swap
-                        FrecencyManager.shared.recordUsage(
-                            id: quickAction.id, forQuery: previousSearchText)
-                        activeAction = quickAction
-                        updateUIForCurrentState()
-
-                        inputField.stringValue = ""
-                        actions = []
-                        updateActions()
-                    }
-                    return true
+                case .hybrid:
+                    return performSecondaryAction(for: selectedAction)
 
                 case .instant:
                     // Instant actions generally execute on Enter, not Tab.
@@ -792,6 +994,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func enterArgumentMode(action: NerwAction, step: Int, collectedArgs: [String]) {
         print("[DebugUI] Entering Argument Mode for action: \(action.title)")
+        dismissActionContext()
         if step == 0 {
             FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
         }
@@ -831,6 +1034,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func enterFormMode(action: NerwAction) {
         guard case .form(let fields, _, _) = action.type else { return }
 
+        dismissActionContext()
         inputState = .form(action: action)
         activeAction = action
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
@@ -905,6 +1109,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private func activateArgumentMode(for action: NerwAction, initialArg: String) {
         // Switch to Argument Mode
+        dismissActionContext()
         activeAction = action
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
 
@@ -998,6 +1203,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                         }
                     }
                     return true
+                case "k":
+                    toggleActionContext()
+                    return true
                 // Command+Enter: route to Enter handler (Return key = \r)
                 case "\r":
                     return handleEnter()
@@ -1023,58 +1231,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // 2. Check if we are in argument mode (Multi-Step)
         if case .argument(let action, let step, var args) = inputState {
             args.append(inputField.stringValue)
-
-            var isLastStep = false
-            switch action.type {
-            case .arg(let placeholders, _):
-                isLastStep = step >= placeholders.count - 1
-            case .args:
-                isLastStep = true  // Single step for args type
-            default: break
-            }
-
-            if isLastStep {
-                // Final Submission
-                switch action.type {
-                case .arg(_, let perform):
-                    perform(action, args)
-                case .args(_, _, let perform):
-                    if let p = perform {
-                        // Single string arg for 'args' type
-                        p(action, args.joined(separator: " "))
-                    } else {
-                        // Fallback
-                        delegate?.didSubmit(
-                            text: "\(action.title) \(args.joined(separator: " "))")
-                    }
-                default: break
-                }
-                closeSession(restoreText: false)
-                return true
-            } else {
-                // Move to next step
-                enterArgumentMode(action: action, step: step + 1, collectedArgs: args)
-                return true
-            }
+            return submitArgumentAction(action: action, step: step, args: args)
         }
 
         // 3. Active Action Submission (No result selected from list)
         if let action = activeAction {
-            switch action.type {
-            case .instant(let perform):
-                perform(action)
-                resetToSearch()
-            case .inlineArg(let perform, _):
-                perform(action, inputField.stringValue)
-                resetToSearch()
-            case .args(_, _, let perform):
-                perform?(action, inputField.stringValue)
-                resetToSearch()
-            default:
-                delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
-                resetToSearch()
-            }
-            return true
+            return submitActiveAction(action)
         }
 
         // 4. Default Search Action
@@ -1180,6 +1342,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             count: actions.count, resultsHeight: totalResultsHeight, isSeparatorExpanded: isExpanded
         )
         updateSelectionIcon()
+        refreshActionContextIfNeeded()
     }
 
     @discardableResult
@@ -1328,6 +1491,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         NSAnimationContext.endGrouping()
+        refreshActionContextIfNeeded()
     }
 }
 
@@ -1351,6 +1515,48 @@ extension MainPanelContentViewController: FormViewDelegate {
 
         perform(action, values)
         closeSession(restoreText: false)
+    }
+}
+
+extension MainPanelContentViewController: ActionContextViewControllerDelegate {
+    func actionContext(
+        _ controller: ActionContextViewController,
+        didInvoke operation: NerwActionContext.Operation,
+        in context: NerwActionContext
+    ) {
+        dismissActionContext()
+
+        guard let action = actionForContext(id: context.actionID) else { return }
+
+        switch operation.kind {
+        case .primary:
+            _ = performPrimaryAction(for: action)
+        case .secondary:
+            _ = performSecondaryAction(for: action)
+        case .modifier(let key):
+            _ = executeResult(
+                action,
+                query: inputField.stringValue,
+                modifiers: modifierFlags(for: key)
+            )
+        case .alias, .hotkey:
+            break
+        }
+    }
+
+    func actionContext(
+        _ controller: ActionContextViewController,
+        didUpdatePreferencesFor actionID: String
+    ) {
+        SearchService.shared.clearCache()
+
+        if case .search = inputState {
+            search(query: inputField.stringValue)
+        }
+    }
+
+    func actionContextDidRequestClose(_ controller: ActionContextViewController) {
+        dismissActionContext()
     }
 }
 
