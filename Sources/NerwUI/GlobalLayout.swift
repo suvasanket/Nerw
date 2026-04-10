@@ -6,7 +6,7 @@ public struct GlobalLayout {
     public static let mainWidth: CGFloat = 700
 
     /// Standard height for split pane and secondary windows
-    public static let mainHeight: CGFloat = 500
+    public static let mainHeight: CGFloat = 450
 
     /// Shared corner radius for all primary UI panels
     public static let cornerRadius: CGFloat = 28

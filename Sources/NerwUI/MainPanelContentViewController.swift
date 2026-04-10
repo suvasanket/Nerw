@@ -20,6 +20,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         struct Window {
             static let width: CGFloat = GlobalLayout.mainWidth
             static let cornerRadius: CGFloat = GlobalLayout.cornerRadius
+            static let heightBuffer: CGFloat = 10
         }
 
         struct SearchField {
@@ -28,14 +29,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             static let top: CGFloat = 12  // Margin from window top
             static let bottom: CGFloat = 12  // Margin from window bottom (in shrink view)
             static let leading: CGFloat = 12  // Margin from icon container
-            static let trailing: CGFloat = 20  // Margin from window trailing edge
+            /// Margin from window trailing edge
+            static let trailing: CGFloat = GlobalLayout.horizontalMargin
         }
 
         struct IconContainer {
             static let height: CGFloat = 40
             static let iconSize: CGFloat = 20
             static let spacing: CGFloat = 12
-            static let leading: CGFloat = 20  // Margin from window leading edge
+            /// Margin from window leading edge
+            static let leading: CGFloat = GlobalLayout.horizontalMargin
         }
 
         struct Separator {
@@ -44,13 +47,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             static let lineHeight: CGFloat = 1  // Actual separator line height
             static let top: CGFloat = 2  // Reduced margin to keep visuals tight
             static let bottom: CGFloat = 0  // Margin to Results top
-            static let leading: CGFloat = 20
-            static let trailing: CGFloat = 20
+            static let leading: CGFloat = GlobalLayout.horizontalMargin
+            static let trailing: CGFloat = GlobalLayout.horizontalMargin
         }
 
         struct Results {
             static let rowHeight: CGFloat = 50
-            static let maxVisibleRows: Int = 9
+            static var maxVisibleRows: Int {
+                let overhead =
+                    SearchField.top + SearchField.height + Separator.top + Separator.expandedHeight
+                    + Separator.bottom + Results.expandedBottom + Window.heightBuffer
+                let available = GlobalLayout.mainHeight - overhead
+                return max(1, Int(floor(available / rowHeight)))
+            }
             static let bottom: CGFloat = 0  // Default margin
             static let expandedBottom: CGFloat = 16  // Margin when expanded
         }
@@ -476,8 +485,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
     }
 
-    func reset() {
-        dismissActionContext()
+    func reset(restoreFocus: Bool = true) {
+        dismissActionContext(restoreFocus: restoreFocus)
         activeAction = nil
         inputState = .search
         inputField.stringValue = ""
@@ -575,7 +584,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
     }
 
-    private func dismissActionContext() {
+    private func dismissActionContext(restoreFocus: Bool = true) {
         guard let panel = actionContextWindow else { return }
         if let parent = panel.parent {
             parent.removeChildWindow(panel)
@@ -583,7 +592,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         panel.orderOut(nil)
 
         // Restore focus to main window input
-        if !inputField.isHidden {
+        if restoreFocus && !inputField.isHidden {
             view.window?.makeKeyAndOrderFront(nil)
             view.window?.makeFirstResponder(inputField)
         }
@@ -780,8 +789,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     // MARK: - Helpers
-    private func closeSession(restoreText: Bool = true) {
-        dismissActionContext()
+    private func closeSession(restoreText: Bool = true, restoreFocus: Bool = true) {
+        dismissActionContext(restoreFocus: restoreFocus)
         activeAction = nil
         inputState = .search
 

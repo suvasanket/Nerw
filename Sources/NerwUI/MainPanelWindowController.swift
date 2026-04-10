@@ -97,7 +97,7 @@ public class MainPanelWindowController: NSObject {
     public func hide(restoreFocus: Bool = true) {
         guard isVisible else { return }
 
-        contentViewController.reset()
+        contentViewController.reset(restoreFocus: false)
         panel.orderOut(nil)
 
         // Return focus to the previous application
@@ -158,7 +158,8 @@ extension MainPanelWindowController: MainPanelContentDelegate {
             let resultsSection = resultsHeight + bottomPadding
 
             // Add a 6pt buffer to ensure no clipping occurs
-            let newHeight = searchSection + separatorSection + resultsSection + 10
+            let newHeight =
+                searchSection + separatorSection + resultsSection + metrics.Window.heightBuffer
             updateHeight(newHeight)
         } else {
             // Shrink view height (SearchField.top + SearchField.height + SearchField.bottom)
