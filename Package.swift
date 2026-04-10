@@ -33,7 +33,7 @@ let package = Package(
         ),
         .target(
             name: "NerwCore",
-            dependencies: ["NerwSearchBackend"],
+            dependencies: ["NerwSearchBackend", "NerwUtils"],
             path: "Sources/NerwCore"
         ),
         .target(

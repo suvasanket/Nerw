@@ -1,4 +1,5 @@
 import Cocoa
+import NerwCore
 import NerwSearchBackend
 
 class NoDividerSplitView: NSSplitView {
@@ -40,8 +41,8 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     }
 
     public override func loadView() {
-        let metricsWidth: CGFloat = 750
-        let metricsHeight: CGFloat = 480
+        let metricsWidth = GlobalLayout.mainWidth
+        let metricsHeight = GlobalLayout.mainHeight
         view = NSView(frame: NSRect(x: 0, y: 0, width: metricsWidth, height: metricsHeight))
         view.wantsLayer = true
         setupViews()
@@ -57,7 +58,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         view.addSubview(visualEffect)
 
         // Window styling
-        view.layer?.cornerRadius = 28  // Matched to main panel's
+        view.layer?.cornerRadius = GlobalLayout.cornerRadius  // Matched to main panel's
         view.layer?.masksToBounds = true
         view.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
         view.layer?.borderWidth = 1.0

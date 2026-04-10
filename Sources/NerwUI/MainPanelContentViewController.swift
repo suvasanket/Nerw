@@ -18,8 +18,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     // MARK: - Layout Configuration
     struct LayoutMetrics {
         struct Window {
-            static let width: CGFloat = 650
-            static let cornerRadius: CGFloat = 28
+            static let width: CGFloat = GlobalLayout.mainWidth
+            static let cornerRadius: CGFloat = GlobalLayout.cornerRadius
         }
 
         struct SearchField {
@@ -50,7 +50,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         struct Results {
             static let rowHeight: CGFloat = 50
-            static let maxVisibleRows: Int = 5
+            static let maxVisibleRows: Int = 9
             static let bottom: CGFloat = 0  // Default margin
             static let expandedBottom: CGFloat = 16  // Margin when expanded
         }
@@ -301,9 +301,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         resultsTableView.delegate = self
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("result"))
-        // Result alignment fix:
-        // Left side aligns natively (implicit padding ~20pt).
-        // To fix right overflow and match separator width, we subtract margins (20+20=40pt).
         let columnWidth =
             LayoutMetrics.Window.width
             - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)

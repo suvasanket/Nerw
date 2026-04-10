@@ -1,4 +1,5 @@
 import Cocoa
+import NerwCore
 import NerwSearchBackend
 import NerwUtils
 

@@ -1,6 +1,7 @@
 import Cocoa
 import NerwCore
 import NerwSearchBackend
+import NerwUtils
 
 class HazardTapeView: NSView {
     override init(frame frameRect: NSRect) {

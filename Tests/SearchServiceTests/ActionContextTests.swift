@@ -2,6 +2,7 @@ import Foundation
 import NerwCore
 import NerwSearchBackend
 import NerwUI
+import NerwUtils
 
 func runActionContextTests() {
     print("[Testing] Starting Action Context tests...")

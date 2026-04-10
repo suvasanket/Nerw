@@ -1,4 +1,5 @@
 import Cocoa
+import NerwCore
 import NerwSearchBackend
 
 class SplitPanel: NSPanel {
@@ -38,8 +39,8 @@ public class SplitPaneWindowController: NSObject {
     }
 
     private func setupPanel() {
-        let metricsWidth: CGFloat = 800
-        let metricsHeight: CGFloat = 450
+        let metricsWidth = GlobalLayout.mainWidth
+        let metricsHeight = GlobalLayout.mainHeight
 
         panel = SplitPanel(
             contentRect: NSRect(x: 0, y: 0, width: metricsWidth, height: metricsHeight),
@@ -69,8 +70,8 @@ public class SplitPaneWindowController: NSObject {
         guard let screen = NSScreen.main else { return }
 
         // Use a wider default size to better fit the side-by-side layout
-        let width: CGFloat = 750
-        let height: CGFloat = 480
+        let width = GlobalLayout.mainWidth
+        let height = GlobalLayout.mainHeight
         let size = NSSize(width: width, height: height)
         let exactOrig = NerwPanelContext.shared.exactOrigin(forSize: size, in: screen.visibleFrame)
 

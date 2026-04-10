@@ -1,6 +1,7 @@
 import Carbon
 import Cocoa
 import NerwSearchBackend
+import NerwUtils
 
 protocol KeybindRecorderDelegate: AnyObject {
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String)
