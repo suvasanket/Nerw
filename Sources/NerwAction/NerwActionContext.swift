@@ -22,12 +22,14 @@ public struct NerwActionContext {
         case modifier(NerwAction.ModifierKey)
         case alias
         case hotkey
+        case toggleEnabled
     }
 
     public enum Interaction: Equatable {
         case execute
         case textInput(placeholder: String, value: String)
         case hotkeyInput(value: String)
+        case toggle(isOn: Bool)
     }
 
     public struct Operation {
@@ -171,6 +173,15 @@ public enum NerwActionContextBuilder {
                     ? "Assign a global hotkey to this action" : hotkeyValue,
                 icon: .system("command"),
                 interaction: .hotkeyInput(value: hotkeyValue)
+            ),
+            .init(
+                id: "toggleEnabled",
+                kind: .toggleEnabled,
+                title: NerwActionEnabled.get(for: action.id) ? "Disable Action" : "Enable Action",
+                subtitle: NerwActionEnabled.get(for: action.id)
+                    ? "Hide this action from search results" : "Show this action in search results",
+                icon: .system(NerwActionEnabled.get(for: action.id) ? "eye.slash" : "eye"),
+                interaction: .toggle(isOn: NerwActionEnabled.get(for: action.id))
             ),
         ]
     }

@@ -4,6 +4,7 @@ import NerwUtils
 public struct ActionPreferences: Codable {
     public var actionAliases: [String: [String]] = [:]
     public var actionHotkeys: [String: String] = [:]
+    public var disabledActions: [String] = []
 
     public init() {}
 }
@@ -88,5 +89,13 @@ public class NerwActionPreferenceManager {
 
     public func updateHotkey(_ hotkey: String, for actionID: String) {
         NerwActionHotkey.set(hotkey, for: actionID)
+    }
+
+    public func isActionEnabled(for actionID: String) -> Bool {
+        NerwActionEnabled.get(for: actionID)
+    }
+
+    public func updateActionEnabled(_ enabled: Bool, for actionID: String) {
+        NerwActionEnabled.set(enabled, for: actionID)
     }
 }

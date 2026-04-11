@@ -188,6 +188,13 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.edgeInsets = NSEdgeInsets(top: 4, left: 12, bottom: 4, right: 12)
         row.heightAnchor.constraint(equalToConstant: 36).isActive = true
 
+        // Enable Toggle
+        let toggle = NSButton(
+            checkboxWithTitle: "", target: self, action: #selector(handleToggleEnabled(_:)))
+        toggle.state = NerwActionEnabled.get(for: id) ? .on : .off
+        toggle.identifier = NSUserInterfaceItemIdentifier(id)
+        row.addArrangedSubview(toggle)
+
         // Icon
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -423,5 +430,20 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             let id = textField.identifier?.rawValue
         else { return }
         NerwActionPreferenceManager.shared.updateAliases(rawValue: textField.stringValue, for: id)
+    }
+
+    @objc private func handleToggleEnabled(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        let enabled = sender.state == .on
+        NerwActionEnabled.set(enabled, for: id)
+
+        // Reload search cache if needed
+        SearchService.shared.loadCache(asyncUpdate: true)
+
+        let status = enabled ? "enabled" : "disabled"
+        NerwNotificationManager.shared.show(
+            content: "Action \(status): \(id)",
+            level: .info
+        )
     }
 }

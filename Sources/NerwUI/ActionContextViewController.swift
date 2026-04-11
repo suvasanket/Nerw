@@ -831,7 +831,30 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             showAliasEditor(operation: operation, placeholder: placeholder, value: value)
         case .hotkeyInput(let value):
             showHotkeyEditor(operation: operation, value: value)
+        case .toggle:
+            commitToggleEnabled()
         }
+    }
+
+    private func commitToggleEnabled() {
+        guard let context, selectedIndex >= 0, selectedIndex < operations.count else { return }
+        let operation = operations[selectedIndex].operation
+        guard operation.kind == .toggleEnabled else { return }
+
+        let currentEnabled = NerwActionEnabled.get(for: context.actionID)
+        let nextEnabled = !currentEnabled
+        NerwActionEnabled.set(nextEnabled, for: context.actionID)
+
+        // Show feedback
+        let status = nextEnabled ? "enabled" : "disabled"
+        NerwNotificationManager.shared.show(
+            content: "Action \(status): \(context.actionTitle)",
+            level: .info
+        )
+
+        // Refresh the context UI
+        delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
+        delegate?.actionContextDidRequestClose(self)
     }
 
     private func showAliasEditor(
@@ -927,6 +950,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             if case .hotkeyInput(let value) = operation.interaction, !value.isEmpty {
                 return value
             }
+            return nil
+        case .toggleEnabled:
             return nil
         }
     }

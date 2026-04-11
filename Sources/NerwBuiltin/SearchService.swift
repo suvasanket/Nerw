@@ -112,6 +112,11 @@ public class SearchService {
             let appActions = allApps.map { self.createAction(for: $0) }
             candidates.append(contentsOf: appActions)
 
+            // Filter disabled actions
+            candidates = candidates.filter { action in
+                NerwActionEnabled.get(for: action.id)
+            }
+
             return candidates
         }
     }

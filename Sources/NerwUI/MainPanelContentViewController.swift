@@ -1619,7 +1619,7 @@ extension MainPanelContentViewController: ActionContextViewControllerDelegate {
                 query: inputField.stringValue,
                 modifiers: modifierFlags(for: key)
             )
-        case .alias, .hotkey:
+        case .alias, .hotkey, .toggleEnabled:
             break
         }
     }
