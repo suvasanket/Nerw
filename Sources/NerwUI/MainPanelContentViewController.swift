@@ -25,7 +25,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         struct SearchField {
             static let height: CGFloat = 32
-            static let fontSize: CGFloat = 22
+            static let fontSize: CGFloat = GlobalLayout.fontSizeSearch
             static let top: CGFloat = 12  // Margin from window top
             static let bottom: CGFloat = 12  // Margin from window bottom (in shrink view)
             static let leading: CGFloat = 12  // Margin from icon container
@@ -35,7 +35,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         struct IconContainer {
             static let height: CGFloat = 40
-            static let iconSize: CGFloat = 20
+            static let iconSize: CGFloat = GlobalLayout.iconSizeMain
             static let spacing: CGFloat = 12
             /// Margin from window leading edge
             static let leading: CGFloat = GlobalLayout.horizontalMargin
@@ -81,8 +81,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             struct Text {
                 static let titleTop: CGFloat = 6
                 static let subtitleTop: CGFloat = 1
-                static let titleSize: CGFloat = 14
-                static let subtitleSize: CGFloat = 11
+                static let titleSize: CGFloat = GlobalLayout.fontSizeResultTitle
+                static let subtitleSize: CGFloat = GlobalLayout.fontSizeResultSubtitle
             }
         }
     }
@@ -339,7 +339,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading
             ),
             iconContainer.centerYAnchor.constraint(
-                equalTo: inputField.centerYAnchor, constant: -1.5),
+                equalTo: inputField.centerYAnchor, constant: 1.0),
             iconContainer.heightAnchor.constraint(
                 equalToConstant: LayoutMetrics.IconContainer.height),
 

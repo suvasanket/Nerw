@@ -115,15 +115,17 @@ Open a side popup for the currently selected action to inspect and trigger the o
     -   Hotkeys are recorded directly from the popup and registered as action-specific global shortcuts.
 7.  **Close**: Press `Esc` or execute/save an operation to close the popup.
 
-### UI Theming
-Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`.
+### UI Theming & Typography
+Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`. Core dimensions and typography are centralized in `GlobalLayout.swift`.
 You can customize:
-- `font`: Custom font name.
+- `font`: Custom font name (Global tokens in `GlobalLayout.swift` define sizes).
 - `mainBackgroundColor`: Hex color for the panel background.
 - `selectionBackgroundColor`: Hex color for the selected item background.
 - `mainForegroundColor`: Hex color for primary text.
 - `selectionForegroundColor`: Hex color for selected item text.
 - `hintColor`: Hex color for placeholder/hint text.
+
+Recent UI updates have increased the default font sizes (e.g., Search input to 24pt, Result titles to 16pt) for a more premium, high-readability experience.
 
 ### Multi-Argument Navigation
 For actions requiring multiple inputs (like adding a search engine):

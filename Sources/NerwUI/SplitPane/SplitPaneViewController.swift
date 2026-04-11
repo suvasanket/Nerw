@@ -92,7 +92,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
         // Search field replacing title label
         searchField.placeholderString = titleContent
-        searchField.font = .systemFont(ofSize: 22, weight: .light)
+        searchField.font = .systemFont(ofSize: GlobalLayout.fontSizeSearch, weight: .light)
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.focusRingType = .none
@@ -185,7 +185,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         searchField.stringValue = ""
 
         if let fontName = NerwPanelContext.shared.configFontName,
-            let font = NSFont(name: fontName, size: 22)
+            let font = NSFont(name: fontName, size: GlobalLayout.fontSizeSearch)
         {
             searchField.font = font
         }
