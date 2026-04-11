@@ -147,8 +147,8 @@ public enum NerwActionContextBuilder {
     private static func configurationOperations(for action: NerwAction) -> [NerwActionContext
         .Operation]
     {
-        let aliasesValue = NerwActionPreferenceManager.shared.aliasesString(for: action.id)
-        let hotkeyValue = NerwActionPreferenceManager.shared.hotkey(for: action.id)
+        let aliasesValue = NerwActionAlias.getString(for: action.id)
+        let hotkeyValue = NerwActionHotkey.get(for: action.id)
 
         return [
             .init(

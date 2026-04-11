@@ -67,48 +67,26 @@ public class NerwActionPreferenceManager {
     // MARK: - API
 
     public func aliases(for actionID: String) -> [String] {
-        preferences.actionAliases[actionID] ?? []
+        NerwActionAlias.get(for: actionID)
     }
 
     public func aliasesString(for actionID: String) -> String {
-        aliases(for: actionID).joined(separator: " ")
+        NerwActionAlias.getString(for: actionID)
     }
 
     public func hotkey(for actionID: String) -> String {
-        preferences.actionHotkeys[actionID] ?? ""
+        NerwActionHotkey.get(for: actionID)
     }
 
     public func parsedAliases(from rawValue: String) -> [String] {
-        var seen = Set<String>()
-        var parsed: [String] = []
-
-        for alias in rawValue.components(separatedBy: .whitespacesAndNewlines) {
-            let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !seen.contains(trimmed) else { continue }
-            seen.insert(trimmed)
-            parsed.append(trimmed)
-        }
-
-        return parsed
+        NerwActionAlias.parse(from: rawValue)
     }
 
     public func updateAliases(rawValue: String, for actionID: String) {
-        let aliases = parsedAliases(from: rawValue)
-        if aliases.isEmpty {
-            preferences.actionAliases.removeValue(forKey: actionID)
-        } else {
-            preferences.actionAliases[actionID] = aliases
-        }
-        save()
+        NerwActionAlias.set(rawValue: rawValue, for: actionID)
     }
 
     public func updateHotkey(_ hotkey: String, for actionID: String) {
-        let trimmed = hotkey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            preferences.actionHotkeys.removeValue(forKey: actionID)
-        } else {
-            preferences.actionHotkeys[actionID] = trimmed
-        }
-        save()
+        NerwActionHotkey.set(hotkey, for: actionID)
     }
 }

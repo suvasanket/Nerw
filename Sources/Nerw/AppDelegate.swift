@@ -39,6 +39,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil)
 
         NotificationCenter.default.addObserver(
+            self, selector: #selector(configDidUpdate),
+            name: Notification.Name("NerwActionPreferencesDidUpdate"),
+            object: nil)
+
+        NotificationCenter.default.addObserver(
             self, selector: #selector(openSettings),
             name: Notification.Name("NerwOpenSettings"),
             object: nil)
