@@ -910,21 +910,24 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     ) -> String? {
         switch operation.kind {
         case .primary:
-            return genericPrimaryTitles.contains(operation.title) ? context.actionTitle : nil
+            if operation.title == "Start Inline Input" || operation.title == "Enter Arguments" {
+                return "⇥"
+            }
+            return "⏎"
         case .secondary:
-            return nil
+            return "⇥"
         case .modifier(let key):
-            return key.actionContextSymbol
+            return "\(key.actionContextSymbol) ⏎"
         case .alias:
             if case .textInput(_, let value) = operation.interaction, !value.isEmpty {
                 return value
             }
-            return "Aliases"
+            return nil
         case .hotkey:
             if case .hotkeyInput(let value) = operation.interaction, !value.isEmpty {
                 return value
             }
-            return "Record"
+            return nil
         }
     }
 
