@@ -354,6 +354,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         static let editorPadding: CGFloat = 12
         static let cornerRadius: CGFloat = 18
         static let connectorLineWidth: CGFloat = 3
+        static let rowHeight: CGFloat = 38
     }
 
     private struct OperationEntry {
@@ -431,6 +432,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     }
 
     func render(context: NerwActionContext) {
+        _ = view
         self.context = context
         operations = context.sections.enumerated().flatMap { sectionIndex, section in
             section.operations.enumerated().map { operationIndex, operation in
@@ -510,7 +512,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         tableView.addTableColumn(column)
         tableView.headerView = nil
         tableView.backgroundColor = .clear
-        tableView.rowHeight = 38
+        tableView.rowHeight = LayoutMetrics.rowHeight
         tableView.intercellSpacing = .zero
         tableView.selectionHighlightStyle = .none
         tableView.focusRingType = .none
@@ -701,7 +703,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         }
 
         let visibleRows = CGFloat(min(max(operations.count, 1), 6))
-        let height = max(96, 26 + visibleRows * tableView.rowHeight)
+        let height = max(96, 26 + visibleRows * LayoutMetrics.rowHeight)
         preferredContentSize = NSSize(width: width, height: height)
     }
 

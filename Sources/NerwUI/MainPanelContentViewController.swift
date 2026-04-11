@@ -569,10 +569,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         if let parentWindow = self.view.window {
             let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NSPoint(
-                x: screenRect.maxX,
-                y: screenRect.midY - contentSize.height / 2
-            )
+            let windowOrigin = NerwPanelContext.shared.sideOrigin(
+                forSize: contentSize, anchorRect: screenRect)
             panel.setFrameOrigin(windowOrigin)
             parentWindow.addChildWindow(panel, ordered: .above)
             panel.orderFront(nil)
@@ -615,10 +613,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let anchorRect = actionContextAnchorRect()
             controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
             let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NSPoint(
-                x: screenRect.maxX,
-                y: screenRect.midY - contentSize.height / 2
-            )
+            let windowOrigin = NerwPanelContext.shared.sideOrigin(
+                forSize: contentSize, anchorRect: screenRect)
             panel.setFrame(
                 NSRect(origin: windowOrigin, size: contentSize), display: true)
         }

@@ -42,4 +42,12 @@ public class NerwPanelContext {
 
         return CGPoint(x: targetX, y: targetY)
     }
+
+    public func sideOrigin(forSize size: CGSize, anchorRect: CGRect) -> CGPoint {
+        // Position the window to the right of the anchor rect, centered vertically to it.
+        return CGPoint(
+            x: anchorRect.maxX,
+            y: anchorRect.midY - size.height / 2
+        )
+    }
 }
