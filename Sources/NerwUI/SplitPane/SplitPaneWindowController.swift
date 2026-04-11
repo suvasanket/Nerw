@@ -64,6 +64,29 @@ public class SplitPaneWindowController: NSObject {
                 self?.contentViewController.delegate?.didCancel()
             }
         }
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(configDidUpdate),
+            name: Notification.Name("NerwConfigDidUpdate"),
+            object: nil)
+    }
+
+    @objc private func configDidUpdate() {
+        DispatchQueue.main.async {
+            self.applyLayout()
+        }
+    }
+
+    private func applyLayout() {
+        guard let panel = panel, panel.isVisible else { return }
+        let size = NSSize(width: GlobalLayout.mainWidth, height: GlobalLayout.mainHeight)
+        panel.setContentSize(size)
+
+        if let screen = NSScreen.main {
+            let exactOrig = NerwPanelContext.shared.exactOrigin(
+                forSize: size, in: screen.visibleFrame)
+            panel.setFrameOrigin(exactOrig)
+        }
     }
 
     public func show() {

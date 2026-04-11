@@ -18,27 +18,27 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     // MARK: - Layout Configuration
     struct LayoutMetrics {
         struct Window {
-            static let width: CGFloat = GlobalLayout.mainWidth
-            static let cornerRadius: CGFloat = GlobalLayout.cornerRadius
+            static var width: CGFloat { GlobalLayout.mainWidth }
+            static var cornerRadius: CGFloat { GlobalLayout.cornerRadius }
             static let heightBuffer: CGFloat = 10
         }
 
         struct SearchField {
             static let height: CGFloat = 32
-            static let fontSize: CGFloat = GlobalLayout.fontSizeSearch
+            static var fontSize: CGFloat { GlobalLayout.fontSizeSearch }
             static let top: CGFloat = 12  // Margin from window top
             static let bottom: CGFloat = 12  // Margin from window bottom (in shrink view)
             static let leading: CGFloat = 12  // Margin from icon container
             /// Margin from window trailing edge
-            static let trailing: CGFloat = GlobalLayout.horizontalMargin
+            static var trailing: CGFloat { GlobalLayout.horizontalMargin }
         }
 
         struct IconContainer {
             static let height: CGFloat = 40
-            static let iconSize: CGFloat = GlobalLayout.iconSizeMain
+            static var iconSize: CGFloat { GlobalLayout.iconSizeMain }
             static let spacing: CGFloat = 12
             /// Margin from window leading edge
-            static let leading: CGFloat = GlobalLayout.horizontalMargin
+            static var leading: CGFloat { GlobalLayout.horizontalMargin }
         }
 
         struct Separator {
@@ -47,8 +47,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             static let lineHeight: CGFloat = 1  // Actual separator line height
             static let top: CGFloat = 2  // Reduced margin to keep visuals tight
             static let bottom: CGFloat = 0  // Margin to Results top
-            static let leading: CGFloat = GlobalLayout.horizontalMargin
-            static let trailing: CGFloat = GlobalLayout.horizontalMargin
+            static var leading: CGFloat { GlobalLayout.horizontalMargin }
+            static var trailing: CGFloat { GlobalLayout.horizontalMargin }
         }
 
         struct Results {
@@ -65,7 +65,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         struct Cell {
-            static let cornerRadius: CGFloat = 14
+            static var cornerRadius: CGFloat { GlobalLayout.cornerRadius / 2 }  // Responsive to global corner radius
 
             struct Margin {
                 static let vertical: CGFloat = 3
@@ -81,8 +81,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             struct Text {
                 static let titleTop: CGFloat = 6
                 static let subtitleTop: CGFloat = 1
-                static let titleSize: CGFloat = GlobalLayout.fontSizeResultTitle
-                static let subtitleSize: CGFloat = GlobalLayout.fontSizeResultSubtitle
+                static var titleSize: CGFloat { GlobalLayout.fontSizeResultTitle }
+                static var subtitleSize: CGFloat { GlobalLayout.fontSizeResultSubtitle }
             }
         }
     }
@@ -100,7 +100,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var statusIconContainer: NSStackView!
     private var backgroundView: NSVisualEffectView!
     private var tintView: NSView!
+    private var innerGlow: NSView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
+
+    private var iconContainerLeadingConstraint: NSLayoutConstraint!
+    private var iconContainerWidthConstraints: [NSLayoutConstraint] = []
+    private var iconContainerHeightConstraints: [NSLayoutConstraint] = []
+    private var inputFieldLeadingConstraint: NSLayoutConstraint!
+    private var inputFieldTrailingConstraint: NSLayoutConstraint!
+    private var accessoryStackViewLeadingConstraint: NSLayoutConstraint!
+    private var accessoryStackViewTrailingConstraint: NSLayoutConstraint!
     private var formView: FormView?
     private var actionContextWindow: ActionContextPanel?
     private var actionContextViewController: ActionContextViewController?
@@ -211,7 +220,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         backgroundView.addSubview(tintView)
 
         // Inner highlight edge - subtle white glow for liquid glass feel
-        let innerGlow = NSView()
+        innerGlow = NSView()
         innerGlow.wantsLayer = true
         innerGlow.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius - 1
         innerGlow.layer?.borderColor = NSColor.white.withAlphaComponent(0.06).cgColor
@@ -249,14 +258,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
         defaultSearchIcon.contentTintColor = .secondaryLabelColor
         defaultSearchIcon.translatesAutoresizingMaskIntoConstraints = false
-        defaultSearchIcon.widthAnchor.constraint(
+        let iconWidth = defaultSearchIcon.widthAnchor.constraint(
             equalToConstant: LayoutMetrics.IconContainer.iconSize
         )
-        .isActive = true
-        defaultSearchIcon.heightAnchor.constraint(
+        iconWidth.isActive = true
+        let iconHeight = defaultSearchIcon.heightAnchor.constraint(
             equalToConstant: LayoutMetrics.IconContainer.iconSize
         )
-        .isActive = true
+        iconHeight.isActive = true
+
+        iconContainerWidthConstraints.append(iconWidth)
+        iconContainerHeightConstraints.append(iconHeight)
+
         defaultSearchIcon.imageScaling = .scaleProportionallyUpOrDown
         iconContainer.addArrangedSubview(defaultSearchIcon)
 
@@ -329,15 +342,28 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         backgroundView.addSubview(scrollView)
 
         // Constraints
+        iconContainerLeadingConstraint = iconContainer.leadingAnchor.constraint(
+            equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading
+        )
+        inputFieldLeadingConstraint = inputField.leadingAnchor.constraint(
+            equalTo: iconContainer.trailingAnchor, constant: LayoutMetrics.SearchField.leading)
+        inputFieldTrailingConstraint = inputField.trailingAnchor.constraint(
+            equalTo: backgroundView.trailingAnchor,
+            constant: -LayoutMetrics.SearchField.trailing)
+        accessoryStackViewLeadingConstraint = accessoryStackView.leadingAnchor.constraint(
+            equalTo: backgroundView.leadingAnchor,
+            constant: LayoutMetrics.Separator.leading)
+        accessoryStackViewTrailingConstraint = accessoryStackView.trailingAnchor.constraint(
+            equalTo: backgroundView.trailingAnchor,
+            constant: -LayoutMetrics.Separator.trailing)
+
         NSLayoutConstraint.activate([
             backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
             backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            iconContainer.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.IconContainer.leading
-            ),
+            iconContainerLeadingConstraint,
             iconContainer.centerYAnchor.constraint(
                 equalTo: inputField.centerYAnchor, constant: 1.0),
             iconContainer.heightAnchor.constraint(
@@ -345,21 +371,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             inputField.topAnchor.constraint(
                 equalTo: backgroundView.topAnchor, constant: LayoutMetrics.SearchField.top),
-            inputField.leadingAnchor.constraint(
-                equalTo: iconContainer.trailingAnchor, constant: LayoutMetrics.SearchField.leading),
-            inputField.trailingAnchor.constraint(
-                equalTo: backgroundView.trailingAnchor,
-                constant: -LayoutMetrics.SearchField.trailing),
+            inputFieldLeadingConstraint,
+            inputFieldTrailingConstraint,
             inputField.heightAnchor.constraint(equalToConstant: LayoutMetrics.SearchField.height),
 
             accessoryStackView.topAnchor.constraint(
                 equalTo: inputField.bottomAnchor, constant: LayoutMetrics.Separator.top),
-            accessoryStackView.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor,
-                constant: LayoutMetrics.Separator.leading),
-            accessoryStackView.trailingAnchor.constraint(
-                equalTo: backgroundView.trailingAnchor,
-                constant: -LayoutMetrics.Separator.trailing),
+            accessoryStackViewLeadingConstraint,
+            accessoryStackViewTrailingConstraint,
 
             // Constrain separator height explicitly to the line height
             separatorView.heightAnchor.constraint(
@@ -404,10 +423,44 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     @objc private func configDidUpdate() {
         DispatchQueue.main.async {
+            self.applyLayout()
             self.applyTheming()
             self.resultsTableView.reloadData()
             self.refreshActionContextIfNeeded()
         }
+    }
+
+    private func applyLayout() {
+        // Update Corner Radius
+        backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
+        innerGlow.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius - 1
+
+        // Update Frame (Width)
+        view.frame.size.width = LayoutMetrics.Window.width
+        // Notify delegate if window needs update
+        delegate?.requestsResize(to: view.frame.height)
+
+        // Update Constraints
+        iconContainerLeadingConstraint.constant = LayoutMetrics.IconContainer.leading
+        inputFieldTrailingConstraint.constant = -LayoutMetrics.SearchField.trailing
+        accessoryStackViewLeadingConstraint.constant = LayoutMetrics.Separator.leading
+        accessoryStackViewTrailingConstraint.constant = -LayoutMetrics.Separator.trailing
+
+        for constraint in iconContainerWidthConstraints {
+            constraint.constant = LayoutMetrics.IconContainer.iconSize
+        }
+        for constraint in iconContainerHeightConstraints {
+            constraint.constant = LayoutMetrics.IconContainer.iconSize
+        }
+
+        // Table View Column Width
+        if let column = resultsTableView.tableColumns.first {
+            column.width =
+                LayoutMetrics.Window.width
+                - (LayoutMetrics.Separator.leading + LayoutMetrics.Separator.trailing)
+        }
+
+        view.layoutSubtreeIfNeeded()
     }
 
     private func applyTheming() {
@@ -461,24 +514,48 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func setIcons(_ icons: [NSImage]) {
+        iconContainerWidthConstraints.removeAll()
+        iconContainerHeightConstraints.removeAll()
+        iconContainerWidthConstraints.append(
+            contentsOf: [
+                defaultSearchIcon.constraints.first {
+                    $0.firstAttribute == .width
+                }
+            ].compactMap { $0 })  // This is a bit hacky, better keep references
+
+        // Actually let's just clear and rebuild properly
         for subview in iconContainer.arrangedSubviews {
             subview.removeFromSuperview()
         }
 
         if icons.isEmpty {
-            iconContainer.addArrangedSubview(defaultSearchIcon)
+            let iv = defaultSearchIcon!
+            iconContainer.addArrangedSubview(iv)
+            // Re-store constraints
+            let width = iv.widthAnchor.constraint(
+                equalToConstant: LayoutMetrics.IconContainer.iconSize)
+            width.isActive = true
+            let height = iv.heightAnchor.constraint(
+                equalToConstant: LayoutMetrics.IconContainer.iconSize)
+            height.isActive = true
+            iconContainerWidthConstraints.append(width)
+            iconContainerHeightConstraints.append(height)
         } else {
             for image in icons {
                 let iv = NSImageView()
                 iv.image = image
                 iv.contentTintColor = .secondaryLabelColor
                 iv.translatesAutoresizingMaskIntoConstraints = false
-                iv.widthAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
-                    .isActive =
-                    true
-                iv.heightAnchor.constraint(equalToConstant: LayoutMetrics.IconContainer.iconSize)
-                    .isActive =
-                    true
+                let iconWidth = iv.widthAnchor.constraint(
+                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                iconWidth.isActive = true
+                let iconHeight = iv.heightAnchor.constraint(
+                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                iconHeight.isActive = true
+
+                iconContainerWidthConstraints.append(iconWidth)
+                iconContainerHeightConstraints.append(iconHeight)
+
                 iv.imageScaling = .scaleProportionallyUpOrDown
                 iconContainer.addArrangedSubview(iv)
             }

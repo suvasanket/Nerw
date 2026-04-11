@@ -208,7 +208,7 @@ class ResultCellView: NSTableCellView {
 
         // Background Logic
         // Active (Moved): System Accent with frosted glass translucency
-        let useSystemSelection = config?.useSystemSelectionColor ?? false
+        let useSystemSelection = config?.useSystemSelectionColor ?? true
         let activeBg: NSColor
 
         if useSystemSelection {

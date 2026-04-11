@@ -12,12 +12,27 @@ public struct UIConfig: Codable {
     public init() {}
 }
 
+public struct LayoutConfig: Codable {
+    public var mainWidth: Double = 700
+    public var mainHeight: Double = 500
+    public var cornerRadius: Double = 28
+    public var horizontalMargin: Double = 20
+    public var fontSizeSearch: Double = 25.0
+    public var fontSizeResultTitle: Double = 14.0
+    public var fontSizeResultSubtitle: Double = 11.0
+    public var fontSizeSplitPaneItem: Double = 15.0
+    public var iconSizeMain: Double = 26.0
+
+    public init() {}
+}
+
 public struct Config: Codable {
     public var defaultSearchEngine: [String] = ["google", "g"]
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var findFileOnSpace: Bool = true
     public var showShortcutsInMain: Bool = false
     public var uiConfig: UIConfig?
+    public var layoutConfig: LayoutConfig = LayoutConfig()
     public var actionAliases: [String: [String]] = [:]
     public var actionHotkeys: [String: String] = [:]
     public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]

@@ -175,6 +175,24 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             previewView.bottomAnchor.constraint(
                 equalTo: rightContainer.bottomAnchor, constant: -16),
         ])
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(configDidUpdate),
+            name: Notification.Name("NerwConfigDidUpdate"),
+            object: nil)
+    }
+
+    @objc private func configDidUpdate() {
+        DispatchQueue.main.async {
+            self.applyLayout()
+        }
+    }
+
+    private func applyLayout() {
+        view.layer?.cornerRadius = GlobalLayout.cornerRadius
+        searchField.font = .systemFont(ofSize: GlobalLayout.fontSizeSearch, weight: .light)
+        view.frame.size = NSSize(width: GlobalLayout.mainWidth, height: GlobalLayout.mainHeight)
+        view.layoutSubtreeIfNeeded()
     }
 
     public override func viewWillAppear() {
