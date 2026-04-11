@@ -1,4 +1,5 @@
 import Foundation
+import NerwUtils
 
 public struct ActionPreferences: Codable {
     public var actionAliases: [String: [String]] = [:]
@@ -16,8 +17,7 @@ public class NerwActionPreferenceManager {
     private let preferencesFile: URL
 
     private init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        self.configDirectory = home.appendingPathComponent(".nerw")
+        self.configDirectory = NerwPaths.configDirectory
         self.preferencesFile = configDirectory.appendingPathComponent("actions.json")
 
         self.preferences = ActionPreferences()

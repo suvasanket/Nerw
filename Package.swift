@@ -33,7 +33,7 @@ let package = Package(
         ),
         .target(
             name: "NerwAction",
-            dependencies: ["NerwSearchBackend"],
+            dependencies: ["NerwSearchBackend", "NerwUtils"],
             path: "Sources/NerwAction"
         ),
         .target(
@@ -48,7 +48,7 @@ let package = Package(
         ),
         .target(
             name: "NerwSearchBackend",
-            dependencies: [],
+            dependencies: ["NerwUtils"],
             path: "Sources/NerwSearchBackend",
             exclude: ["Classes/Fuse_LICENSE"]
         ),

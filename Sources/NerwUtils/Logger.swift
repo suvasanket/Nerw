@@ -9,10 +9,8 @@ public final class Logger {
     private let dateFormatter: DateFormatter
 
     public var logDirectory: URL {
-        let home = fileManager.homeDirectoryForCurrentUser
-        let nerwDir = home.appendingPathComponent(".nerw")
-        let logsDir = nerwDir.appendingPathComponent("logs")
-        try? fileManager.createDirectory(at: logsDir, withIntermediateDirectories: true)
+        let logsDir = NerwPaths.logsDirectory
+        NerwPaths.ensureDirectoryExists(at: logsDir)
         return logsDir
     }
 

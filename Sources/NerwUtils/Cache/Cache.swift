@@ -8,18 +8,9 @@ public final class CacheManager {
     private var cache: CacheData = CacheData()
 
     private var cacheFileURL: URL? {
-        guard
-            let appSupport = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            )
-            .first
-        else {
-            return nil
-        }
-        let nerwDir = appSupport.appendingPathComponent("Nerw")
-        try? fileManager.createDirectory(
-            at: nerwDir, withIntermediateDirectories: true, attributes: nil)
-        return nerwDir.appendingPathComponent("cache.json")
+        let dataDir = NerwPaths.dataDirectory
+        NerwPaths.ensureDirectoryExists(at: dataDir)
+        return dataDir.appendingPathComponent("cache.json")
     }
 
     private init() {

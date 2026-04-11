@@ -1,4 +1,5 @@
 import Foundation
+import NerwUtils
 
 /// Sensitivity level for frecency scoring (0-10 scale)
 /// - 0: Disabled (frecency has no effect)
@@ -40,31 +41,15 @@ public class FrecencyManager {
     private let maxQueryItems: Int = 2000
 
     private var storeFileURL: URL? {
-        guard
-            let appSupport = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            )
-            .first
-        else {
-            return nil
-        }
-        let nerwDir = appSupport.appendingPathComponent("Nerw")
-        try? fileManager.createDirectory(
-            at: nerwDir, withIntermediateDirectories: true, attributes: nil)
-        return nerwDir.appendingPathComponent("frecency.json")
+        let dataDir = NerwPaths.dataDirectory
+        NerwPaths.ensureDirectoryExists(at: dataDir)
+        return dataDir.appendingPathComponent("frecency.json")
     }
 
     private var queryStoreFileURL: URL? {
-        guard
-            let appSupport = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            )
-            .first
-        else {
-            return nil
-        }
-        let nerwDir = appSupport.appendingPathComponent("Nerw")
-        return nerwDir.appendingPathComponent("frecency_query.json")
+        let dataDir = NerwPaths.dataDirectory
+        NerwPaths.ensureDirectoryExists(at: dataDir)
+        return dataDir.appendingPathComponent("frecency_query.json")
     }
 
     private init() {

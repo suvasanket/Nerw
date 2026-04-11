@@ -108,7 +108,7 @@ public class ExtensionEngine {
     private let fileManager = FileManager.default
 
     private var userExtensionsPath: URL {
-        fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".nerw/extensions")
+        NerwPaths.extensionsDirectory
     }
 
     private init() {

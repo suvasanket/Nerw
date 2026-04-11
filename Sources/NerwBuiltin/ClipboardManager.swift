@@ -2,6 +2,7 @@ import Cocoa
 import NerwAction
 import NerwCore
 import NerwSearchBackend
+import NerwUtils
 
 public struct ClipboardEntry: Codable, Equatable {
     public let id: String
@@ -35,10 +36,8 @@ public class ClipboardManager {
     private let maxEntries = 200
 
     private init() {
-        let basePath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-            ".nerw")
-        storageURL = basePath.appendingPathComponent("clipboard.json")
-        imagesDirURL = basePath.appendingPathComponent("ClipboardImages")
+        storageURL = NerwPaths.dataDirectory.appendingPathComponent("clipboard.json")
+        imagesDirURL = NerwPaths.clipboardImagesDirectory
         lastChangeCount = pasteboard.changeCount
 
         try? FileManager.default.createDirectory(

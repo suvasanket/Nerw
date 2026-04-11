@@ -1,4 +1,5 @@
 import Foundation
+import NerwUtils
 
 public struct UIConfig: Codable {
     public var font: String?
@@ -47,11 +48,7 @@ public class ConfigManager {
     private let configFile: URL
 
     private init() {
-        // Default paths
-        let home = FileManager.default.homeDirectoryForCurrentUser
-
-        // New paths
-        self.configDirectory = home.appendingPathComponent(".nerw")
+        self.configDirectory = NerwPaths.configDirectory
         self.configFile = configDirectory.appendingPathComponent("config.json")
 
         // Initialize with default
