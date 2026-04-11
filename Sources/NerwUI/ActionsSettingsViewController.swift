@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
@@ -230,7 +231,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.addArrangedSubview(titleLabel)
 
         // Default Triggers in brackets
-        let customAliases = NerwActionPreferenceStore.aliases(for: id)
+        let customAliases = NerwActionPreferenceManager.shared.aliases(for: id)
         let defaultTriggers = triggers.filter { !customAliases.contains($0) }
 
         if !defaultTriggers.isEmpty {
@@ -283,7 +284,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.addArrangedSubview(aliasContainer)
 
         // Hotkey Recorder
-        let currentHotkey = NerwActionPreferenceStore.hotkey(for: id)
+        let currentHotkey = NerwActionPreferenceManager.shared.hotkey(for: id)
         let recorder = KeybindRecorder(keybind: currentHotkey)
         recorder.identifier = NSUserInterfaceItemIdentifier(id)
         recorder.delegate = self
@@ -415,12 +416,12 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
 
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let id = recorder.identifier?.rawValue else { return }
-        NerwActionPreferenceStore.updateHotkey(keybind, for: id)
+        NerwActionPreferenceManager.shared.updateHotkey(keybind, for: id)
     }
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField,
             let id = textField.identifier?.rawValue
         else { return }
-        NerwActionPreferenceStore.updateAliases(rawValue: textField.stringValue, for: id)
+        NerwActionPreferenceManager.shared.updateAliases(rawValue: textField.stringValue, for: id)
     }
 }

@@ -1,5 +1,6 @@
 import Cocoa
 import CoreServices  // For MDQuery
+import NerwAction
 import NerwCore
 
 public class FindFile {

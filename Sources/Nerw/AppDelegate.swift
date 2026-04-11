@@ -1,5 +1,6 @@
 import Carbon.HIToolbox
 import Cocoa
+import NerwAction
 import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
@@ -174,7 +175,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // 2. Register Action-Specific Hotkeys
-        for (actionID, hotkey) in config.actionHotkeys {
+        for (actionID, hotkey) in NerwActionPreferenceManager.shared.preferences.actionHotkeys {
             guard let (mods, code) = HotkeyParser.parse(hotkey) else { continue }
 
             HotKeyManager.shared.register(

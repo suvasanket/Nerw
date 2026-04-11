@@ -1,4 +1,5 @@
 import Foundation
+import NerwAction
 import NerwCore
 import NerwSearchBackend
 import NerwUI
@@ -19,23 +20,25 @@ func runActionContextTests() {
 }
 
 private func withRestoredActionPreferences(for actionID: String, _ body: () -> Void) {
-    let originalAliases = ConfigManager.shared.config.actionAliases[actionID]
-    let originalHotkey = ConfigManager.shared.config.actionHotkeys[actionID]
+    let originalAliases = NerwActionPreferenceManager.shared.preferences.actionAliases[actionID]
+    let originalHotkey = NerwActionPreferenceManager.shared.preferences.actionHotkeys[actionID]
 
     defer {
         if let originalAliases {
-            ConfigManager.shared.config.actionAliases[actionID] = originalAliases
+            NerwActionPreferenceManager.shared.preferences.actionAliases[actionID] = originalAliases
         } else {
-            ConfigManager.shared.config.actionAliases.removeValue(forKey: actionID)
+            NerwActionPreferenceManager.shared.preferences.actionAliases.removeValue(
+                forKey: actionID)
         }
 
         if let originalHotkey {
-            ConfigManager.shared.config.actionHotkeys[actionID] = originalHotkey
+            NerwActionPreferenceManager.shared.preferences.actionHotkeys[actionID] = originalHotkey
         } else {
-            ConfigManager.shared.config.actionHotkeys.removeValue(forKey: actionID)
+            NerwActionPreferenceManager.shared.preferences.actionHotkeys.removeValue(
+                forKey: actionID)
         }
 
-        ConfigManager.shared.save()
+        NerwActionPreferenceManager.shared.save()
     }
 
     body()
@@ -45,8 +48,9 @@ func testActionContextIncludesModifierAndConfigurationOperations() {
     let actionID = "test.action.context.\(UUID().uuidString)"
 
     withRestoredActionPreferences(for: actionID) {
-        NerwActionPreferenceStore.updateAliases(rawValue: "alpha beta alpha", for: actionID)
-        NerwActionPreferenceStore.updateHotkey("Cmd+Shift+K", for: actionID)
+        NerwActionPreferenceManager.shared.updateAliases(
+            rawValue: "alpha beta alpha", for: actionID)
+        NerwActionPreferenceManager.shared.updateHotkey("Cmd+Shift+K", for: actionID)
 
         let action = NerwAction(
             id: actionID,
@@ -148,23 +152,23 @@ func testActionPreferenceStorePersistsAndClearsValues() {
     let actionID = "test.action.preferences.\(UUID().uuidString)"
 
     withRestoredActionPreferences(for: actionID) {
-        NerwActionPreferenceStore.updateAliases(
+        NerwActionPreferenceManager.shared.updateAliases(
             rawValue: "alpha   beta\nalpha\tgamma",
             for: actionID
         )
 
-        let aliases = NerwActionPreferenceStore.aliases(for: actionID)
+        let aliases = NerwActionPreferenceManager.shared.aliases(for: actionID)
         if aliases != ["alpha", "beta", "gamma"] {
             fatalError("FAIL: Alias parsing changed unexpectedly. Got \(aliases)")
         }
 
-        NerwActionPreferenceStore.updateHotkey("Cmd+Opt+P", for: actionID)
-        if NerwActionPreferenceStore.hotkey(for: actionID) != "Cmd+Opt+P" {
+        NerwActionPreferenceManager.shared.updateHotkey("Cmd+Opt+P", for: actionID)
+        if NerwActionPreferenceManager.shared.hotkey(for: actionID) != "Cmd+Opt+P" {
             fatalError("FAIL: Hotkey store failed to persist the assigned shortcut.")
         }
 
-        NerwActionPreferenceStore.updateHotkey("", for: actionID)
-        if !NerwActionPreferenceStore.hotkey(for: actionID).isEmpty {
+        NerwActionPreferenceManager.shared.updateHotkey("", for: actionID)
+        if !NerwActionPreferenceManager.shared.hotkey(for: actionID).isEmpty {
             fatalError("FAIL: Hotkey store failed to clear the assigned shortcut.")
         }
     }

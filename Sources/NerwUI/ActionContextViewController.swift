@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 import NerwCore
 import NerwSearchBackend
 
@@ -895,7 +896,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
     private func commitAliasEdit() {
         guard let context else { return }
-        NerwActionPreferenceStore.updateAliases(
+        NerwActionPreferenceManager.shared.updateAliases(
             rawValue: aliasField.stringValue,
             for: context.actionID
         )
@@ -987,7 +988,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let context else { return }
-        NerwActionPreferenceStore.updateHotkey(keybind, for: context.actionID)
+        NerwActionPreferenceManager.shared.updateHotkey(keybind, for: context.actionID)
         delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
         delegate?.actionContextDidRequestClose(self)
     }

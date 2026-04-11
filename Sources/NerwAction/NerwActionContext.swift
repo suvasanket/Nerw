@@ -1,53 +1,7 @@
 import Foundation
 import NerwSearchBackend
 
-public enum NerwActionPreferenceStore {
-    public static func aliases(for actionID: String) -> [String] {
-        ConfigManager.shared.config.actionAliases[actionID] ?? []
-    }
-
-    public static func aliasesString(for actionID: String) -> String {
-        aliases(for: actionID).joined(separator: " ")
-    }
-
-    public static func hotkey(for actionID: String) -> String {
-        ConfigManager.shared.config.actionHotkeys[actionID] ?? ""
-    }
-
-    public static func parsedAliases(from rawValue: String) -> [String] {
-        var seen = Set<String>()
-        var parsed: [String] = []
-
-        for alias in rawValue.components(separatedBy: .whitespacesAndNewlines) {
-            let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !seen.contains(trimmed) else { continue }
-            seen.insert(trimmed)
-            parsed.append(trimmed)
-        }
-
-        return parsed
-    }
-
-    public static func updateAliases(rawValue: String, for actionID: String) {
-        let aliases = parsedAliases(from: rawValue)
-        if aliases.isEmpty {
-            ConfigManager.shared.config.actionAliases.removeValue(forKey: actionID)
-        } else {
-            ConfigManager.shared.config.actionAliases[actionID] = aliases
-        }
-        ConfigManager.shared.save()
-    }
-
-    public static func updateHotkey(_ hotkey: String, for actionID: String) {
-        let trimmed = hotkey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            ConfigManager.shared.config.actionHotkeys.removeValue(forKey: actionID)
-        } else {
-            ConfigManager.shared.config.actionHotkeys[actionID] = trimmed
-        }
-        ConfigManager.shared.save()
-    }
-}
+// `NerwActionPreferenceManager` handles preferences.
 
 public struct NerwActionContext {
     public struct Section {
@@ -193,8 +147,8 @@ public enum NerwActionContextBuilder {
     private static func configurationOperations(for action: NerwAction) -> [NerwActionContext
         .Operation]
     {
-        let aliasesValue = NerwActionPreferenceStore.aliasesString(for: action.id)
-        let hotkeyValue = NerwActionPreferenceStore.hotkey(for: action.id)
+        let aliasesValue = NerwActionPreferenceManager.shared.aliasesString(for: action.id)
+        let hotkeyValue = NerwActionPreferenceManager.shared.hotkey(for: action.id)
 
         return [
             .init(

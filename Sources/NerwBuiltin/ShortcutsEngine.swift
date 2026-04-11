@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 import NerwCore
 
 public class ShortcutsEngine: @unchecked Sendable {

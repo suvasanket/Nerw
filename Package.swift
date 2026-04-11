@@ -32,13 +32,18 @@ let package = Package(
             path: "Sources/NerwExtensionKit"
         ),
         .target(
+            name: "NerwAction",
+            dependencies: ["NerwSearchBackend"],
+            path: "Sources/NerwAction"
+        ),
+        .target(
             name: "NerwCore",
-            dependencies: ["NerwSearchBackend", "NerwUtils"],
+            dependencies: ["NerwSearchBackend", "NerwUtils", "NerwAction"],
             path: "Sources/NerwCore"
         ),
         .target(
             name: "NerwBuiltin",
-            dependencies: ["NerwCore", "NerwSearchBackend", "NerwUtils"],
+            dependencies: ["NerwCore", "NerwSearchBackend", "NerwUtils", "NerwAction"],
             path: "Sources/NerwBuiltin"
         ),
         .target(
@@ -54,19 +59,23 @@ let package = Package(
         ),
         .target(
             name: "NerwUI",
-            dependencies: ["NerwCore", "NerwBuiltin", "NerwSearchBackend", "NerwUtils"],
+            dependencies: [
+                "NerwCore", "NerwBuiltin", "NerwSearchBackend", "NerwUtils", "NerwAction",
+            ],
             path: "Sources/NerwUI"
         ),
         .executableTarget(
             name: "Nerw",
             dependencies: [
-                "NerwCore", "NerwUI", "NerwBuiltin", "NerwUtils", "NerwExtensionKit",
+                "NerwCore", "NerwUI", "NerwBuiltin", "NerwUtils", "NerwExtensionKit", "NerwAction",
             ],
             path: "Sources/Nerw"
         ),
         .executableTarget(
             name: "SearchServiceTests",
-            dependencies: ["NerwCore", "NerwSearchBackend", "NerwBuiltin", "NerwUtils", "NerwUI"],
+            dependencies: [
+                "NerwCore", "NerwSearchBackend", "NerwBuiltin", "NerwUtils", "NerwUI", "NerwAction",
+            ],
             path: "Tests/SearchServiceTests"
         ),
     ]

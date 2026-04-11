@@ -1,5 +1,6 @@
 // MainPanelWindowController.swift
 import Cocoa
+import NerwAction
 import NerwCore
 import NerwSearchBackend
 

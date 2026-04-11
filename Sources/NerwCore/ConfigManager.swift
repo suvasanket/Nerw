@@ -33,8 +33,6 @@ public struct Config: Codable {
     public var showShortcutsInMain: Bool = false
     public var uiConfig: UIConfig?
     public var layoutConfig: LayoutConfig = LayoutConfig()
-    public var actionAliases: [String: [String]] = [:]
-    public var actionHotkeys: [String: String] = [:]
     public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
 
     public init() {}

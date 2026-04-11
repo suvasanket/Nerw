@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import NerwAction
 
 public enum NerwNotificationLevel {
     case info

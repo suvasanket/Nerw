@@ -152,8 +152,9 @@ public struct NerwAction {
 
         // Merge custom aliases from config
         var allTriggers = triggers
-        if let custom = ConfigManager.shared.config.actionAliases[id] {
-            allTriggers.append(contentsOf: custom)
+        let customAliases = NerwActionPreferenceManager.shared.aliases(for: id)
+        if !customAliases.isEmpty {
+            allTriggers.append(contentsOf: customAliases)
         }
         // Deduplicate and filter empty, preserving order if possible but Set is easier
         // Actually, let's keep it simple
