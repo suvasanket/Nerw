@@ -435,6 +435,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     func render(context: NerwActionContext) {
         _ = view
         self.context = context
+
         operations = context.sections.enumerated().flatMap { sectionIndex, section in
             section.operations.enumerated().map { operationIndex, operation in
                 let detailText = menuDetailText(for: operation, in: context)
@@ -486,6 +487,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private func setupUI() {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
 
         backgroundView.material = .fullScreenUI
         backgroundView.appearance = NSAppearance(named: .vibrantDark)
@@ -531,10 +533,6 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         backgroundView.addSubview(scrollView)
 
         editorContainer.wantsLayer = true
-        editorContainer.layer?.cornerRadius = 14
-        editorContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.04).cgColor
-        editorContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        editorContainer.layer?.borderWidth = 1
         editorContainer.isHidden = true
         editorContainer.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(editorContainer)
@@ -563,6 +561,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
         aliasField.placeholderString = "space-separated aliases"
         aliasField.font = .systemFont(ofSize: 13)
+        aliasField.alignment = .center
+        aliasField.usesSingleLineMode = true
         aliasField.isBordered = false
         aliasField.drawsBackground = false
         aliasField.focusRingType = .none
@@ -699,7 +699,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         let width: CGFloat = 332 + LayoutMetrics.connectorGapWidth
 
         if editingOperation != nil {
-            preferredContentSize = NSSize(width: width, height: 184)
+            preferredContentSize = NSSize(width: width, height: 140)
             return
         }
 
@@ -741,7 +741,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private func handleKeyboardCommand(_ command: ActionContextKeyboardCommand) -> Bool {
         guard editingOperation == nil else {
             if command == .cancel {
-                delegate?.actionContextDidRequestClose(self)
+                returnToContextList()
                 return true
             }
             return false
@@ -865,8 +865,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         editingOperation = operation
         scrollView.isHidden = true
         editorContainer.isHidden = false
-        editorTitleLabel.stringValue = operation.title
-        editorHintLabel.stringValue = operation.subtitle
+        editorTitleLabel.stringValue = "Set Alias"
+        editorHintLabel.stringValue = "Separate multiple aliases with spaces. Press Enter to save."
 
         clearEditorInputHost()
         aliasField.placeholderString = placeholder
@@ -874,11 +874,10 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         editorInputHost.addSubview(aliasField)
         NSLayoutConstraint.activate([
             aliasField.leadingAnchor.constraint(
-                equalTo: editorInputHost.leadingAnchor, constant: 10),
+                equalTo: editorInputHost.leadingAnchor, constant: 12),
             aliasField.trailingAnchor.constraint(
-                equalTo: editorInputHost.trailingAnchor, constant: -10),
-            aliasField.topAnchor.constraint(equalTo: editorInputHost.topAnchor),
-            aliasField.bottomAnchor.constraint(equalTo: editorInputHost.bottomAnchor),
+                equalTo: editorInputHost.trailingAnchor, constant: -12),
+            aliasField.centerYAnchor.constraint(equalTo: editorInputHost.centerYAnchor),
         ])
 
         hotkeyRecorder = nil
@@ -890,9 +889,9 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         editingOperation = operation
         scrollView.isHidden = true
         editorContainer.isHidden = false
-        editorTitleLabel.stringValue = operation.title
+        editorTitleLabel.stringValue = "Set Hotkey"
         editorHintLabel.stringValue =
-            "Record a shortcut now. Press Delete to clear, or Esc to close."
+            "Press any key combination to record. Esc to cancel."
 
         clearEditorInputHost()
         let recorder = KeybindRecorder(keybind: value)
@@ -923,8 +922,13 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             rawValue: aliasField.stringValue,
             for: context.actionID
         )
+        returnToContextList()
+    }
+
+    private func returnToContextList() {
+        guard let context else { return }
+        editingOperation = nil
         delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
-        delegate?.actionContextDidRequestClose(self)
     }
 
     private func menuDetailText(
@@ -1017,8 +1021,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let context else { return }
         NerwActionPreferenceManager.shared.updateHotkey(keybind, for: context.actionID)
-        delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
-        delegate?.actionContextDidRequestClose(self)
+        returnToContextList()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
@@ -1033,7 +1036,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             commitAliasEdit()
             return true
         case #selector(NSResponder.cancelOperation(_:)):
-            delegate?.actionContextDidRequestClose(self)
+            returnToContextList()
             return true
         default:
             return false
