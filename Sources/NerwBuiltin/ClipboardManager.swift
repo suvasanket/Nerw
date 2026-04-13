@@ -160,7 +160,12 @@ public class ClipboardManager {
                 id: "builtin.clipboard",
                 title: "Clipboard Manager",
                 subtitle: "View clipboard history",
-                icon: .system("doc.on.clipboard"),
+                icon: .image(
+                    NSImage(named: "clipboard") ?? NSImage(
+                        systemSymbolName: "clipboard", accessibilityDescription: nil)
+                        ?? NSImage(
+                            systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+                        ?? NSImage()),
                 triggers: ["clipboard", "clip", "paste", "history"],
                 type: .instant(perform: { _ in
                     ClipboardManager.shared.showWindowCallback?()

@@ -14,7 +14,11 @@ public class Nerw {
                 id: "nerw.builtin.quit",
                 title: "Quit Nerw",
                 subtitle: "Terminate the application",
-                icon: .system("power"),
+                icon: .image(
+                    NSImage(named: "quit") ?? NSImage(
+                        systemSymbolName: "quit", accessibilityDescription: nil)
+                        ?? NSImage(systemSymbolName: "power", accessibilityDescription: nil)
+                        ?? NSImage()),
                 triggers: ["nerw quit"],
                 type: .instant(perform: { _ in
                     NSApp.terminate(nil)

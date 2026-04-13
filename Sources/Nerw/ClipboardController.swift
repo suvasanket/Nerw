@@ -15,7 +15,10 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
         if windowController == nil {
             windowController = SplitPaneWindowController(
                 title: "Search Clipboard History...",
-                icon: NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil),
+                icon: NSImage(named: "clipboard") ?? NSImage(
+                    systemSymbolName: "clipboard", accessibilityDescription: nil) ?? NSImage(
+                        systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+                    ?? NSImage(),
                 dataSource: self,
                 delegate: self
             )

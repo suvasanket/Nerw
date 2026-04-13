@@ -117,7 +117,11 @@ public class System {
                 id: "nerw.system.ejectall",
                 title: "Eject All",
                 subtitle: "Eject all external volumes",
-                icon: .system("eject.fill"),
+                icon: .image(
+                    NSImage(named: "eject") ?? NSImage(
+                        systemSymbolName: "eject", accessibilityDescription: nil)
+                        ?? NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil)
+                        ?? NSImage()),
                 triggers: ["eject all"],
                 type: .instant(perform: { _ in self.ejectAll() })
             ),
