@@ -28,7 +28,11 @@ public class MemoryManager {
 
     /// Trims Foundation-managed caches that are safe to drop at any time.
     public func forceMemoryFree() {
-        URLCache.shared.removeAllCachedResponses()
+        if isMemoryHigh() {
+            DispatchQueue.global(qos: .background).async {
+                URLCache.shared.removeAllCachedResponses()
+            }
+        }
     }
 
     /// Checks if the current memory usage exceeds the configured threshold.
