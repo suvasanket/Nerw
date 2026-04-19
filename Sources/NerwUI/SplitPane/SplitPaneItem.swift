@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 
 public protocol SplitPaneItem {
     var id: String { get }
@@ -23,8 +24,15 @@ public protocol SplitPaneDelegate: AnyObject {
     func didDelete(item: SplitPaneItem)  // triggered on Delete / Backspace
     func didCancel()  // triggered on Esc
     func didSearch(query: String)  // triggered when typing in search field
+    func actionContext(for item: SplitPaneItem) -> NerwActionContext?
+    func didInvokeActionContext(operation: NerwActionContext.Operation, for item: SplitPaneItem)
 }
 
 extension SplitPaneDelegate {
     public func didSearch(query: String) {}
+    public func actionContext(for item: SplitPaneItem) -> NerwActionContext? { nil }
+    public func didInvokeActionContext(
+        operation: NerwActionContext.Operation,
+        for item: SplitPaneItem
+    ) {}
 }

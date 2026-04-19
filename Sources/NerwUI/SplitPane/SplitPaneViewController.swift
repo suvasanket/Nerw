@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 import NerwCore
 import NerwSearchBackend
 
@@ -6,8 +7,13 @@ class NoDividerSplitView: NSSplitView {
     override var dividerThickness: CGFloat { return 0 }
 }
 
+private enum SplitPaneContextShortcut {
+    static let delete = "⌘⌫"
+    static let pin = "⌘P"
+}
+
 public class SplitPaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
-    NSTextFieldDelegate
+    NSTextFieldDelegate, ActionContextViewControllerDelegate
 {
     private let titleContent: String
     public weak var dataSource: SplitPaneDataSource?
@@ -24,6 +30,8 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     private var selectedIndex: Int = 0
     private let iconImage: NSImage?
+    private var actionContextWindow: ActionContextPanel?
+    private var actionContextViewController: ActionContextViewController?
 
     public init(
         title: String, icon: NSImage? = nil, dataSource: SplitPaneDataSource,
@@ -210,6 +218,11 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         reloadData()
     }
 
+    public override func viewWillDisappear() {
+        super.viewWillDisappear()
+        dismissActionContext(restoreFocus: false)
+    }
+
     // Required to receive key events directly on view (fallback if searchfield doesn't focus)
     public override var acceptsFirstResponder: Bool {
         return true
@@ -218,10 +231,12 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     public func reloadData() {
         tableView.reloadData()
         updateSelection(to: min(selectedIndex, max(0, (dataSource?.numberOfItems() ?? 0) - 1)))
+        refreshActionContextIfNeeded()
     }
 
     private func updateSelection(to index: Int) {
         guard let ds = dataSource, ds.numberOfItems() > 0 else {
+            dismissActionContext(restoreFocus: false)
             previewView.configure(with: nil)
             delegate?.didSelect(item: nil)
             return
@@ -241,20 +256,27 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         let item = ds.item(at: selectedIndex)
         previewView.configure(with: item)
         delegate?.didSelect(item: item)
+        refreshActionContextIfNeeded()
     }
 
     public override func keyDown(with event: NSEvent) {
+        if handleCommandShortcut(from: event) {
+            return
+        }
+
         // Esc
         if event.keyCode == 53 {
+            if actionContextWindow?.isVisible == true {
+                dismissActionContext()
+                return
+            }
             delegate?.didCancel()
             return
         }
 
         // Enter
         if event.keyCode == 36 {
-            if let ds = dataSource, ds.numberOfItems() > 0 {
-                delegate?.didActivate(item: ds.item(at: selectedIndex))
-            }
+            handleActivate()
             return
         }
 
@@ -278,10 +300,181 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         super.keyDown(with: event)
     }
 
-    private func handleDelete() {
-        if let ds = dataSource, ds.numberOfItems() > 0 {
-            delegate?.didDelete(item: ds.item(at: selectedIndex))
+    private func handleCommandShortcut(from event: NSEvent) -> Bool {
+        let normalizedFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard normalizedFlags.contains(.command) else { return false }
+
+        if event.keyCode == 51 || event.keyCode == 117 {
+            return performContextOperation(withDetailText: SplitPaneContextShortcut.delete)
         }
+
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "k":
+            toggleActionContext()
+            return true
+        case "p":
+            return performContextOperation(withDetailText: SplitPaneContextShortcut.pin)
+        default:
+            return false
+        }
+    }
+
+    private func handleActivate() {
+        dismissActionContext(restoreFocus: false)
+        guard let item = selectedItem() else { return }
+        delegate?.didActivate(item: item)
+    }
+
+    private func handleDelete() {
+        dismissActionContext(restoreFocus: false)
+        guard let item = selectedItem() else { return }
+        delegate?.didDelete(item: item)
+    }
+
+    private func selectedItem() -> SplitPaneItem? {
+        guard let ds = dataSource, ds.numberOfItems() > 0 else { return nil }
+        return ds.item(at: selectedIndex)
+    }
+
+    private func toggleActionContext() {
+        if actionContextWindow?.isVisible == true {
+            dismissActionContext()
+            return
+        }
+
+        showActionContext()
+    }
+
+    private func showActionContext() {
+        guard let item = selectedItem(),
+            let context = delegate?.actionContext(for: item)
+        else { return }
+
+        let anchorRect = actionContextAnchorRect()
+        let controller = actionContextViewController ?? ActionContextViewController()
+        controller.delegate = self
+        controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+        controller.render(context: context)
+        actionContextViewController = controller
+
+        let panel: ActionContextPanel
+        if let existing = actionContextWindow {
+            panel = existing
+        } else {
+            panel = ActionContextPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 343, height: 200),
+                styleMask: [.nonactivatingPanel, .borderless],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
+            panel.level = .floating
+            panel.hidesOnDeactivate = false
+            panel.contentView = controller.view
+            actionContextWindow = panel
+        }
+
+        controller.view.layoutSubtreeIfNeeded()
+        let contentSize = controller.preferredContentSize
+        panel.setFrame(
+            NSRect(origin: panel.frame.origin, size: contentSize), display: true)
+
+        if let parentWindow = view.window {
+            let screenRect = parentWindow.convertToScreen(anchorRect)
+            let windowOrigin = NerwPanelContext.shared.sideOrigin(
+                forSize: contentSize,
+                anchorRect: screenRect
+            )
+            panel.setFrameOrigin(windowOrigin)
+            parentWindow.addChildWindow(panel, ordered: .above)
+            panel.orderFront(nil)
+        }
+
+        DispatchQueue.main.async {
+            panel.makeKey()
+            controller.focusForInteraction()
+        }
+    }
+
+    private func dismissActionContext(restoreFocus: Bool = true) {
+        guard let panel = actionContextWindow else { return }
+        if let parent = panel.parent {
+            parent.removeChildWindow(panel)
+        }
+        panel.orderOut(nil)
+
+        if restoreFocus, view.window?.isVisible == true {
+            view.window?.makeKeyAndOrderFront(nil)
+            view.window?.makeFirstResponder(searchField)
+        }
+    }
+
+    private func refreshActionContextIfNeeded() {
+        guard let panel = actionContextWindow, panel.isVisible else { return }
+        guard let item = selectedItem(),
+            let context = delegate?.actionContext(for: item)
+        else {
+            dismissActionContext(restoreFocus: false)
+            return
+        }
+
+        let controller = actionContextViewController
+        controller?.render(context: context)
+
+        if let controller, let parentWindow = view.window {
+            controller.view.layoutSubtreeIfNeeded()
+            let contentSize = controller.preferredContentSize
+            let anchorRect = actionContextAnchorRect()
+            controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+            let screenRect = parentWindow.convertToScreen(anchorRect)
+            let windowOrigin = NerwPanelContext.shared.sideOrigin(
+                forSize: contentSize,
+                anchorRect: screenRect
+            )
+            panel.setFrame(
+                NSRect(origin: windowOrigin, size: contentSize),
+                display: true
+            )
+        }
+    }
+
+    private func actionContextConnectorHeight(for anchorRect: NSRect) -> CGFloat {
+        max(0, anchorRect.height)
+    }
+
+    private func actionContextAnchorRect() -> NSRect {
+        guard let ds = dataSource, ds.numberOfItems() > 0,
+            selectedIndex >= 0, selectedIndex < ds.numberOfItems()
+        else {
+            return NSRect(
+                x: leftContainer.frame.maxX - 8,
+                y: 0,
+                width: 8,
+                height: view.bounds.height
+            )
+        }
+
+        let rowRect = tableView.rect(ofRow: selectedIndex)
+        let rectInView = view.convert(rowRect, from: tableView)
+        return NSRect(
+            x: leftContainer.frame.maxX - 8,
+            y: rectInView.minY,
+            width: 8,
+            height: rectInView.height
+        )
+    }
+
+    private func performContextOperation(withDetailText detailText: String) -> Bool {
+        guard let item = selectedItem(),
+            let context = delegate?.actionContext(for: item),
+            let operation = context.operations.first(where: { $0.detailText == detailText })
+        else { return false }
+
+        dismissActionContext(restoreFocus: false)
+        delegate?.didInvokeActionContext(operation: operation, for: item)
+        return true
     }
 
     // MARK: - NSTextFieldDelegate
@@ -293,7 +486,15 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     public func control(
         _ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector
     ) -> Bool {
+        if let event = NSApp.currentEvent, handleCommandShortcut(from: event) {
+            return true
+        }
+
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            if actionContextWindow?.isVisible == true {
+                dismissActionContext()
+                return true
+            }
             if !searchField.stringValue.isEmpty {
                 searchField.stringValue = ""
                 controlTextDidChange(
@@ -305,9 +506,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         }
 
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            if let ds = dataSource, ds.numberOfItems() > 0 {
-                delegate?.didActivate(item: ds.item(at: selectedIndex))
-            }
+            handleActivate()
             return true
         }
 
@@ -358,5 +557,26 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             cell?.configure(with: item, isSelected: row == selectedIndex)
         }
         return cell
+    }
+
+    func actionContext(
+        _ controller: ActionContextViewController,
+        didInvoke operation: NerwActionContext.Operation,
+        in context: NerwActionContext
+    ) {
+        dismissActionContext(restoreFocus: false)
+        guard let item = selectedItem(),
+            delegate?.actionContext(for: item)?.actionID == context.actionID
+        else { return }
+        delegate?.didInvokeActionContext(operation: operation, for: item)
+    }
+
+    func actionContext(
+        _ controller: ActionContextViewController,
+        didUpdatePreferencesFor actionID: String
+    ) {}
+
+    func actionContextDidRequestClose(_ controller: ActionContextViewController) {
+        dismissActionContext()
     }
 }

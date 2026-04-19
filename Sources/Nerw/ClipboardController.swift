@@ -1,17 +1,20 @@
 import Cocoa
+import NerwAction
 import NerwBuiltin
 import NerwUI
 
 class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
     private var windowController: SplitPaneWindowController?
     private var filteredEntries: [ClipboardEntry] = []
+    private var currentQuery: String = ""
 
     var isVisible: Bool {
         return windowController?.isVisible == true
     }
 
     func show() {
-        filteredEntries = ClipboardManager.shared.entries
+        currentQuery = ""
+        refreshFilteredEntries()
         if windowController == nil {
             windowController = SplitPaneWindowController(
                 title: "Search Clipboard History...",
@@ -42,32 +45,69 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
 
     func didActivate(item: SplitPaneItem) {
         if let adapter = item as? ClipboardItemAdapter {
-            ClipboardManager.shared.paste(entry: adapter.entry)
-            windowController?.hide()
+            paste(adapter.entry)
         }
     }
 
     func didDelete(item: SplitPaneItem) {
         if let adapter = item as? ClipboardItemAdapter {
-            ClipboardManager.shared.deleteEntry(id: adapter.entry.id)
-            filteredEntries.removeAll { $0.id == adapter.entry.id }
-            windowController?.reloadData()
+            delete(adapter.entry)
         }
     }
 
     func didSearch(query: String) {
-        if query.isEmpty {
-            filteredEntries = ClipboardManager.shared.entries
-        } else {
-            let lowerQuery = query.lowercased()
-            filteredEntries = ClipboardManager.shared.entries.filter { entry in
-                if let text = entry.text {
-                    return text.lowercased().contains(lowerQuery)
-                }
-                return false
-            }
-        }
+        currentQuery = query
+        refreshFilteredEntries()
         windowController?.reloadData()
+    }
+
+    func actionContext(for item: SplitPaneItem) -> NerwActionContext? {
+        guard let adapter = item as? ClipboardItemAdapter else { return nil }
+        return ClipboardManager.context(for: adapter.entry)
+    }
+
+    func didInvokeActionContext(operation: NerwActionContext.Operation, for item: SplitPaneItem) {
+        guard let adapter = item as? ClipboardItemAdapter else { return }
+
+        switch operation.id {
+        case ClipboardContextOperationID.paste.rawValue:
+            paste(adapter.entry)
+        case ClipboardContextOperationID.delete.rawValue:
+            delete(adapter.entry)
+        case ClipboardContextOperationID.pin.rawValue:
+            ClipboardManager.shared.togglePinned(id: adapter.entry.id)
+            refreshFilteredEntries()
+            windowController?.reloadData()
+        default:
+            break
+        }
+    }
+
+    private func paste(_ entry: ClipboardEntry) {
+        ClipboardManager.shared.paste(entry: entry)
+        windowController?.hide()
+    }
+
+    private func delete(_ entry: ClipboardEntry) {
+        ClipboardManager.shared.deleteEntry(id: entry.id)
+        refreshFilteredEntries()
+        windowController?.reloadData()
+    }
+
+    private func refreshFilteredEntries() {
+        let entries = ClipboardManager.shared.entries
+        guard !currentQuery.isEmpty else {
+            filteredEntries = entries
+            return
+        }
+
+        let lowerQuery = currentQuery.lowercased()
+        filteredEntries = entries.filter { entry in
+            if let text = entry.text {
+                return text.lowercased().contains(lowerQuery)
+            }
+            return false
+        }
     }
 
     func didCancel() {
@@ -81,24 +121,11 @@ struct ClipboardItemAdapter: SplitPaneItem {
     var id: String { entry.id }
 
     var title: String {
-        if let t = entry.text {
-            let s =
-                t.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines)
-                .first ?? t
-            return s.isEmpty ? "Empty Text" : String(s.prefix(50))
-        } else if entry.imagePath != nil {
-            return "Image"
-        }
-        return "Unknown"
+        ClipboardManager.title(for: entry)
     }
 
     var subtitle: String? {
-        if let t = entry.text {
-            return "Text • \(t.count) chars"
-        } else if entry.imagePath != nil {
-            return "Image"
-        }
-        return nil
+        ClipboardManager.subtitle(for: entry)
     }
 
     var timestamp: Date? { entry.timestamp }

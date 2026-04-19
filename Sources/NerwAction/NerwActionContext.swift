@@ -23,6 +23,7 @@ public struct NerwActionContext {
         case alias
         case hotkey
         case toggleEnabled
+        case custom(String)
     }
 
     public enum Interaction: Equatable {
@@ -39,6 +40,7 @@ public struct NerwActionContext {
         public let subtitle: String
         public let icon: NerwAction.IconType?
         public let interaction: Interaction
+        public let detailText: String?
 
         public init(
             id: String,
@@ -46,7 +48,8 @@ public struct NerwActionContext {
             title: String,
             subtitle: String,
             icon: NerwAction.IconType?,
-            interaction: Interaction
+            interaction: Interaction,
+            detailText: String? = nil
         ) {
             self.id = id
             self.kind = kind
@@ -54,6 +57,7 @@ public struct NerwActionContext {
             self.subtitle = subtitle
             self.icon = icon
             self.interaction = interaction
+            self.detailText = detailText
         }
     }
 

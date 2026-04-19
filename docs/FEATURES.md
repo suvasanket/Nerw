@@ -82,6 +82,13 @@ Nerw learns from you. It uses a **Frecency** (Frequency + Recency) algorithm to 
 
 ## 🛠 Advanced Workflows
 
+### Clipboard History
+Search for `clipboard`, `clip`, or `paste` to open the clipboard history split pane.
+- `Enter`: Paste the selected clipboard entry.
+- `Cmd + Backspace`: Delete the selected clipboard entry.
+- `Cmd + K`: Open the clipboard entry context popup with Paste, Delete, and Pin/Unpin operations.
+- `Cmd + P`: Pin or unpin the selected entry. Pinned entries stay at the top of clipboard history.
+
 ### Custom Search Engine Modifiers
 Map keyboard modifier keys to specific search engines for instant "Feeling Lucky" or alternative searches.
 1.  **Default**: `Shift + Enter` is mapped to **Google Lucky Search** (skips the search results page and goes directly to the first result).

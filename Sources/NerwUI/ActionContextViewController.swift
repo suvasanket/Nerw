@@ -935,6 +935,10 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         for operation: NerwActionContext.Operation,
         in context: NerwActionContext
     ) -> String? {
+        if let detailText = operation.detailText, !detailText.isEmpty {
+            return detailText
+        }
+
         switch operation.kind {
         case .primary:
             if operation.title == "Start Inline Input" || operation.title == "Enter Arguments" {
@@ -955,7 +959,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
                 return value
             }
             return nil
-        case .toggleEnabled:
+        case .toggleEnabled, .custom:
             return nil
         }
     }

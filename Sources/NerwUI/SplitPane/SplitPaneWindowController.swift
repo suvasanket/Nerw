@@ -10,7 +10,17 @@ class SplitPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        resignHandler?()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let nextKey = NSApp.keyWindow, self.childWindows?.contains(nextKey) == true {
+                return
+            }
+            if NSApp.keyWindow is ActionContextPanel {
+                return
+            }
+            self.resignHandler?()
+        }
     }
 
     override func cancelOperation(_ sender: Any?) {

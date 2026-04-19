@@ -54,7 +54,11 @@ class ActionContextPanel: NSPanel {
             guard let self = self else { return }
             // Don't dismiss if returning to the parent
             if NSApp.keyWindow == self.parent { return }
-            (self.parent as? MainPanel)?.resignHandler?()
+            if let mainPanel = self.parent as? MainPanel {
+                mainPanel.resignHandler?()
+            } else if let splitPanel = self.parent as? SplitPanel {
+                splitPanel.resignHandler?()
+            }
         }
     }
 

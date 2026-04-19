@@ -4,20 +4,54 @@ import NerwCore
 import NerwSearchBackend
 import NerwUtils
 
+public enum ClipboardContextOperationID: String {
+    case paste = "clipboard.paste"
+    case delete = "clipboard.delete"
+    case pin = "clipboard.pin"
+}
+
 public struct ClipboardEntry: Codable, Equatable {
     public let id: String
     public let timestamp: Date
     public let text: String?
     public let imagePath: String?
+    public let isPinned: Bool
 
     public init(
         id: String = UUID().uuidString, timestamp: Date = Date(), text: String? = nil,
-        imagePath: String? = nil
+        imagePath: String? = nil, isPinned: Bool = false
     ) {
         self.id = id
         self.timestamp = timestamp
         self.text = text
         self.imagePath = imagePath
+        self.isPinned = isPinned
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case timestamp
+        case text
+        case imagePath
+        case isPinned
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        imagePath = try container.decodeIfPresent(String.self, forKey: .imagePath)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(imagePath, forKey: .imagePath)
+        try container.encode(isPinned, forKey: .isPinned)
     }
 }
 
@@ -82,17 +116,24 @@ public class ClipboardManager {
 
         if text == nil && imagePath == nil { return }
 
-        // Deduplicate top entry
-        if let first = entries.first {
-            if first.text == text && text != nil { return }
-            if first.imagePath == imagePath && imagePath != nil { return }
+        let insertionIndex = Self.insertionIndexForNewEntry(in: entries)
+
+        // Deduplicate the most recent non-pinned entry.
+        if insertionIndex < entries.count {
+            let latestUnpinned = entries[insertionIndex]
+            if latestUnpinned.text == text && text != nil { return }
+            if latestUnpinned.imagePath == imagePath && imagePath != nil { return }
         }
 
         let entry = ClipboardEntry(text: text, imagePath: imagePath)
-        entries.insert(entry, at: 0)
+        entries.insert(entry, at: insertionIndex)
 
         while entries.count > maxEntries {
-            let removed = entries.removeLast()
+            let removalIndex =
+                entries.lastIndex(where: { !$0.isPinned })
+                ?? (entries.isEmpty ? nil : entries.count - 1)
+            guard let removalIndex else { break }
+            let removed = entries.remove(at: removalIndex)
             if let path = removed.imagePath {
                 try? FileManager.default.removeItem(atPath: path)
             }
@@ -109,6 +150,18 @@ public class ClipboardManager {
             }
             save()
         }
+    }
+
+    @discardableResult
+    public func togglePinned(id: String) -> Bool {
+        let updatedEntries = Self.entriesByTogglingPin(for: id, in: entries)
+        guard updatedEntries != entries,
+            let updatedEntry = updatedEntries.first(where: { $0.id == id })
+        else { return false }
+
+        entries = updatedEntries
+        save()
+        return updatedEntry.isPinned
     }
 
     public func paste(entry: ClipboardEntry) {
@@ -154,6 +207,121 @@ public class ClipboardManager {
             entries = saved
         }
     }
+
+    public static func insertionIndexForNewEntry(in entries: [ClipboardEntry]) -> Int {
+        entries.prefix(while: { $0.isPinned }).count
+    }
+
+    public static func entriesByTogglingPin(for id: String, in entries: [ClipboardEntry])
+        -> [ClipboardEntry]
+    {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return entries }
+
+        var reorderedEntries = entries
+        let existingEntry = reorderedEntries.remove(at: index)
+        let updatedEntry = ClipboardEntry(
+            id: existingEntry.id,
+            timestamp: existingEntry.timestamp,
+            text: existingEntry.text,
+            imagePath: existingEntry.imagePath,
+            isPinned: !existingEntry.isPinned
+        )
+
+        if updatedEntry.isPinned {
+            reorderedEntries.insert(updatedEntry, at: 0)
+        } else {
+            let insertionIndex = insertionIndexForNewEntry(in: reorderedEntries)
+            reorderedEntries.insert(updatedEntry, at: insertionIndex)
+        }
+
+        return reorderedEntries
+    }
+
+    public static func title(for entry: ClipboardEntry) -> String {
+        if let text = entry.text {
+            let firstLine =
+                text.trimmingCharacters(in: .whitespacesAndNewlines).components(
+                    separatedBy: .newlines
+                ).first ?? text
+            return firstLine.isEmpty ? "Empty Text" : String(firstLine.prefix(50))
+        }
+
+        if entry.imagePath != nil {
+            return "Image"
+        }
+
+        return "Unknown"
+    }
+
+    public static func subtitle(for entry: ClipboardEntry) -> String? {
+        let baseSubtitle: String?
+        if let text = entry.text {
+            baseSubtitle = "Text • \(text.count) chars"
+        } else if entry.imagePath != nil {
+            baseSubtitle = "Image"
+        } else {
+            baseSubtitle = nil
+        }
+
+        if entry.isPinned {
+            if let baseSubtitle {
+                return "Pinned • \(baseSubtitle)"
+            }
+            return "Pinned"
+        }
+
+        return baseSubtitle
+    }
+
+    public static func context(for entry: ClipboardEntry) -> NerwActionContext {
+        let pinTitle = entry.isPinned ? "Unpin" : "Pin"
+        let pinSubtitle =
+            entry.isPinned
+            ? "Return this item to the normal clipboard history order"
+            : "Keep this item at the top of clipboard history"
+
+        return NerwActionContext(
+            actionID: entry.id,
+            actionTitle: title(for: entry),
+            actionSubtitle: subtitle(for: entry) ?? "Clipboard Entry",
+            sections: [
+                .init(
+                    id: "clipboard",
+                    title: "Clipboard",
+                    operations: [
+                        .init(
+                            id: ClipboardContextOperationID.paste.rawValue,
+                            kind: .custom(ClipboardContextOperationID.paste.rawValue),
+                            title: "Paste",
+                            subtitle: "Paste this entry into the frontmost app",
+                            icon: .system("doc.on.clipboard"),
+                            interaction: .execute,
+                            detailText: "⏎"
+                        ),
+                        .init(
+                            id: ClipboardContextOperationID.delete.rawValue,
+                            kind: .custom(ClipboardContextOperationID.delete.rawValue),
+                            title: "Delete",
+                            subtitle: "Remove this entry from clipboard history",
+                            icon: .system("trash"),
+                            interaction: .execute,
+                            detailText: "⌘⌫"
+                        ),
+                        .init(
+                            id: ClipboardContextOperationID.pin.rawValue,
+                            kind: .custom(ClipboardContextOperationID.pin.rawValue),
+                            title: pinTitle,
+                            subtitle: pinSubtitle,
+                            icon: .system(entry.isPinned ? "pin.slash" : "pin"),
+                            interaction: .execute,
+                            detailText: "⌘P"
+                        ),
+                    ]
+                )
+            ]
+        )
+    }
+
     public static func builtinActions() -> [NerwAction] {
         return [
             NerwAction(
