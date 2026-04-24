@@ -89,18 +89,19 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let apps = self.makeApplicationRows()
-            let systemActions = self.makeRows(
-                from: Nerw.shared.getAllActions() + System.shared.getAllActions())
+            let builtinActions = self.makeRows(
+                from: Nerw.shared.getAllActions() + System.shared.getAllActions() + [
+                    FindFile.shared.getTriggerAction()
+                ] + ClipboardManager.builtinActions()
+            )
             let shortcuts = self.makeRows(from: ShortcutsEngine.shared.getAllActions())
-            let findFileAction = self.makeRows(from: [FindFile.shared.getTriggerAction()])
             let extensions = self.makeExtensionRows()
 
             DispatchQueue.main.async {
                 guard generation == self.reloadGeneration else { return }
                 self.addLazySection(title: "Applications", actions: apps)
-                self.addLazySection(title: "System", actions: systemActions)
+                self.addLazySection(title: "Builtin Actions", actions: builtinActions)
                 self.addLazySection(title: "Shortcuts", actions: shortcuts)
-                self.addLazySection(title: "File Search", actions: findFileAction)
                 for ext in extensions {
                     self.addLazySection(title: ext.0, actions: ext.1)
                 }
