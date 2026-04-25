@@ -891,7 +891,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         editorContainer.isHidden = false
         editorTitleLabel.stringValue = "Set Hotkey"
         editorHintLabel.stringValue =
-            "Press any key combination to record. Esc to cancel."
+            "Press key combo to record. Esc to cancel. Backspace to remove."
 
         clearEditorInputHost()
         let recorder = KeybindRecorder(keybind: value)

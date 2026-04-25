@@ -17,6 +17,7 @@ func runTests() {
     print("[Testing] Starting Builtin & UI tests...")
     testClipboardManagerStorage()
     testSplitPaneInitialization()
+    runMainPanelTests()
     runActionContextTests()
 
     print("[Testing] All SearchService tests PASSED.")

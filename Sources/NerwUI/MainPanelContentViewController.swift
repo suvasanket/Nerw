@@ -13,6 +13,12 @@ protocol MainPanelContentDelegate: AnyObject {
     func requestsResize(to height: CGFloat)
 }
 
+enum MainPanelTextSelection {
+    static func collapsedRange(for text: String) -> NSRange {
+        NSRange(location: text.utf16.count, length: 0)
+    }
+}
+
 class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NSTableViewDataSource,
     NSTableViewDelegate
 {
@@ -669,9 +675,23 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Restore focus to main window input
         if restoreFocus && !inputField.isHidden {
-            view.window?.makeKeyAndOrderFront(nil)
-            view.window?.makeFirstResponder(inputField)
+            restoreInputFocusPreservingCaret()
         }
+    }
+
+    func restoreInputFocusPreservingCaret() {
+        view.window?.makeKeyAndOrderFront(nil)
+        view.window?.makeFirstResponder(inputField)
+        collapseInputSelectionToEnd()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.collapseInputSelectionToEnd()
+        }
+    }
+
+    private func collapseInputSelectionToEnd() {
+        guard let editor = inputField.currentEditor() else { return }
+        editor.selectedRange = MainPanelTextSelection.collapsedRange(for: inputField.stringValue)
     }
 
     private func refreshActionContextIfNeeded() {
