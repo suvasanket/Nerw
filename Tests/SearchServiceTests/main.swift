@@ -13,6 +13,7 @@ func runTests() {
     testSearchServiceCaching()
     testMemoryLimits()
     testAppSearchScopes()
+    testSystemActionsDoNotIncludeSleep()
 
     print("[Testing] Starting Builtin & UI tests...")
     testClipboardManagerStorage()
@@ -170,6 +171,18 @@ func testAppSearchScopes() {
     }
 
     print("  ✓ testAppSearchScopes passed.")
+}
+
+func testSystemActionsDoNotIncludeSleep() {
+    let systemActions = System.shared.getAllActions()
+
+    if systemActions.contains(where: {
+        $0.id == "nerw.system.sleep" || $0.title == "Sleep" || $0.triggers.contains("sleep")
+    }) {
+        fatalError("FAIL: System actions must not include Sleep.")
+    }
+
+    print("  ✓ testSystemActionsDoNotIncludeSleep passed.")
 }
 
 // Execute

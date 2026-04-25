@@ -102,16 +102,6 @@ public class System {
                 type: .instant(perform: { _ in self.emptyDownloads() })
             ),
 
-            // Sleep
-            NerwAction(
-                id: "nerw.system.sleep",
-                title: "Sleep",
-                subtitle: "Put your Mac to sleep",
-                icon: .system("moon.zzz.fill"),
-                triggers: ["sleep"],
-                type: .instant(perform: { _ in self.sleep() })
-            ),
-
             // Eject All
             NerwAction(
                 id: "nerw.system.ejectall",
@@ -172,11 +162,6 @@ public class System {
                 print("[System] Empty Downloads error: \(error)")
             }
         }
-    }
-
-    private func sleep() {
-        let script = "tell application \"System Events\" to sleep"
-        runAppleScript(script)
     }
 
     private func eject(volumeName: String) {

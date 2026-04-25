@@ -34,7 +34,6 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - **Engine**: Real-time fetching from `en.wikipedia.org/api/rest_v1/page/summary`.
     - **Action**: Opens the article in your default browser.
 6.  **System Commands**: Quick access to common macOS actions:
-    - `sleep` - Put your Mac to sleep
     - `empty downloads` - Move Downloads folder contents to Trash
     - `eject [volume]` - Eject a specific volume (shows available volumes)
     - `eject all` - Eject all external volumes

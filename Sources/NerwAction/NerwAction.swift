@@ -54,7 +54,7 @@ public struct NerwAction {
     }
 
     public enum ActionType {
-        /// Executes immediately (e.g., "Reload Config", "Sleep").
+        /// Executes immediately (e.g., "Reload Config").
         /// - perform: Handler receives the action instance itself.
         case instant(
             perform: (NerwAction) -> Void
