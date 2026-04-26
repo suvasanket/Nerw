@@ -102,6 +102,15 @@ public struct NerwResult {
         return copy
     }
 
+    /// Configure as an option for a query action.
+    /// `value` is the string that will be passed as the query when selected.
+    public func option(value: String) -> NerwResult {
+        var copy = self
+        copy.actionType = "option"
+        copy.actionValue = value
+        return copy
+    }
+
     /// Configure as argument action (prompts user for inputs).
     /// `names` defines the placeholder for each step.
     /// `action` is the function name called with collected args.

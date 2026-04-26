@@ -76,6 +76,7 @@ public class ExtensionEngine {
                 searcher: { [weak self] _, arg, completion in
                     self?.runExtension(
                         id: manifest.id, query: arg, trigger: primaryTrigger,
+                        functionName: actionManifest.function ?? actionManifest.name,
                         completion: completion)
                 }
             )
@@ -90,12 +91,17 @@ public class ExtensionEngine {
         } else {
             actionType = .args(
                 placeholder: "Query...",
-                searcher: { _, query, completion in
-                    self.runExtension(
+                searcher: { [weak self] _, query, completion in
+                    self?.runExtension(
                         id: manifest.id, query: query, trigger: primaryTrigger,
+                        functionName: actionManifest.function ?? actionManifest.name,
                         completion: completion)
                 },
-                perform: nil
+                perform: { [weak self] _, query in
+                    self?.performAction(
+                        actionManifest.function ?? actionManifest.name, extensionId: manifest.id,
+                        args: [query])
+                }
             )
         }
 
@@ -352,7 +358,7 @@ public class ExtensionEngine {
     }
 
     public func runExtension(
-        id: String, query: String, trigger: String? = nil,
+        id: String, query: String, trigger: String? = nil, functionName: String? = nil,
         completion: @escaping ([NerwAction]) -> Void
     ) {
         guard let ext = loadedExtensions.first(where: { $0.manifest.id == id }),
@@ -384,7 +390,7 @@ public class ExtensionEngine {
                 return
             }
 
-            let results = self.parseResults(data, extensionId: id)
+            let results = self.parseResults(data, extensionId: id, functionName: functionName)
             DispatchQueue.main.async {
                 completion(results)
             }
@@ -553,7 +559,9 @@ public class ExtensionEngine {
 
     // MARK: - Result Parsing
 
-    private func parseResults(_ data: Data, extensionId: String) -> [NerwAction] {
+    private func parseResults(_ data: Data, extensionId: String, functionName: String? = nil)
+        -> [NerwAction]
+    {
         guard
             let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
         else {
@@ -562,14 +570,16 @@ public class ExtensionEngine {
 
         var results: [NerwAction] = []
         for dict in jsonArray {
-            if let action = parseItem(dict, extensionId: extensionId) {
+            if let action = parseItem(dict, extensionId: extensionId, functionName: functionName) {
                 results.append(action)
             }
         }
         return results
     }
 
-    private func parseItem(_ dict: [String: Any], extensionId: String) -> NerwAction? {
+    private func parseItem(_ dict: [String: Any], extensionId: String, functionName: String? = nil)
+        -> NerwAction?
+    {
         let title = dict["title"] as? String ?? "No Title"
         let subtitle = dict["subtitle"] as? String ?? ""
         let iconName = dict["icon"] as? String
@@ -632,7 +642,8 @@ public class ExtensionEngine {
 
         if explicitType == "hybrid" {
             guard let quickActionDict = dict["quickAction"] as? [String: Any],
-                let qa = parseItem(quickActionDict, extensionId: extensionId)
+                let qa = parseItem(
+                    quickActionDict, extensionId: extensionId, functionName: functionName)
             else {
                 return nil
             }
@@ -697,6 +708,16 @@ public class ExtensionEngine {
             type = .instant(
                 perform: { [weak self] _ in
                     self?.performAction(actionValue, extensionId: extensionId)
+                }
+            )
+        } else if explicitType == "option" {
+            type = .instant(
+                perform: { [weak self] _ in
+                    if let fName = functionName, let val = actionValue {
+                        self?.performAction(fName, extensionId: extensionId, args: [val])
+                    } else {
+                        self?.performAction(actionValue, extensionId: extensionId)
+                    }
                 }
             )
         } else {

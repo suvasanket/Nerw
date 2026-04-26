@@ -376,6 +376,30 @@ public func instant(action: String) -> NerwResult {
 }
 ```
 
+### `.option(value:)`
+
+**What it does:** Configures the result as a programmatic option for a query action (an action with `type: "args"`). When the user presses Enter on this result, the `value` is sent to your extension's `perform(action:)` handler as the query (via `action.args.first`). 
+
+```swift
+public func option(value: String) -> NerwResult
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | String | The string to submit as the query when this option is selected. |
+
+**Implementation:**
+```swift
+public func option(value: String) -> NerwResult {
+    var copy = self
+    copy.actionType = "option"
+    copy.actionValue = value
+    return copy
+}
+```
+
 **Example:**
 ```swift
 // URL action - opens in browser
