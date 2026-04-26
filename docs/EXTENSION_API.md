@@ -70,7 +70,8 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `name` | string | Yes | Display name shown in the UI |
 | `description` | string | No | Brief description shown as subtitle (use `%s` for argument placeholder) |
 | `triggers` | array | Yes | Keyword triggers that activate this action |
-| `type` | string | No | Action type: "inlineArg" or "args" (default) |
+| `type` | string | No | Action type: "inlineArg", "noArg" (instantly executes), or "args" (default) |
+| `function` | string | No | Function name called when type is "noArg". If absent, uses `name` |
 | `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
 
 > **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.

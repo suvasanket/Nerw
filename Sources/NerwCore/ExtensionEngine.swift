@@ -69,12 +69,22 @@ public class ExtensionEngine {
         if actionManifest.type == "inlineArg" {
             actionType = .inlineArg(
                 perform: { [weak self] _, arg in
-                    self?.performAction(actionManifest.name, extensionId: manifest.id, args: [arg])
+                    self?.performAction(
+                        actionManifest.function ?? actionManifest.name, extensionId: manifest.id,
+                        args: [arg])
                 },
                 searcher: { [weak self] _, arg, completion in
                     self?.runExtension(
                         id: manifest.id, query: arg, trigger: primaryTrigger,
                         completion: completion)
+                }
+            )
+        } else if actionManifest.type == "noArg" {
+            actionType = .instant(
+                perform: { [weak self] _ in
+                    self?.performAction(
+                        actionManifest.function ?? actionManifest.name, extensionId: manifest.id,
+                        args: [])
                 }
             )
         } else {
