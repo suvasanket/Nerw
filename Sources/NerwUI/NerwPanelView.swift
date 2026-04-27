@@ -133,13 +133,13 @@ public class NerwPanelView: NSView {
 
         // Content View
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        baseView.addSubview(contentView)
+        effectView.addSubview(contentView)
 
         NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: baseView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: baseView.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: baseView.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: baseView.bottomAnchor),
+            contentView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: effectView.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
         ])
     }
 

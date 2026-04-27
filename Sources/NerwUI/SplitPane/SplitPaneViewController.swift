@@ -26,7 +26,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     private let tableView = NSTableView()
     private let previewView = SplitPanePreviewView()
-    private let searchField = NSTextField()
+    private let searchField = ThemedTextField()
     private let searchIconView = NSImageView()
 
     private var selectedIndex: Int = 0
