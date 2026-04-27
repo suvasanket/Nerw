@@ -24,11 +24,12 @@ struct ExtensionInput: Codable {
 
 /// Represents a command returned by the extension process via stdout for action execution.
 struct ExtensionCommand: Codable {
-    let type: String  // "open", "copy", "log", "notify", "dismiss_notify"
+    let type: String  // "open", "copy", "log", "notify", "dismiss_notify", "show_panel"
     let value: String?
     let level: String?
     let progressive: Bool?
     let id: String?
+    let title: String?
 }
 
 /// Wrapper for command responses from action execution.
@@ -354,7 +355,34 @@ public class ExtensionEngine {
             }
         }
 
+        // 3. Inject Theme Configuration
+        values["_theme"] = AnyCodable(getThemeDict())
+
         return values
+    }
+
+    private func getThemeDict() -> [String: Any] {
+        let theme = NerwTheme.current()
+        var dict: [String: Any] = [
+            "backgroundMaterial": theme.backgroundMaterial,
+            "tintOpacity": theme.tintOpacity,
+            "cornerRadius": theme.cornerRadius,
+            "borderColorHex": theme.borderColorHex,
+            "borderOpacity": theme.borderOpacity,
+            "borderWidth": theme.borderWidth,
+            "innerGlowEnabled": theme.innerGlowEnabled,
+            "innerGlowColorHex": theme.innerGlowColorHex,
+            "innerGlowOpacity": theme.innerGlowOpacity,
+        ]
+
+        if let tint = theme.tintColorHex { dict["tintColorHex"] = tint }
+        if let font = theme.fontName { dict["fontName"] = font }
+        if let fg = theme.foregroundColorHex { dict["foregroundColorHex"] = fg }
+        if let sbg = theme.selectionBackgroundColorHex { dict["selectionBackgroundColorHex"] = sbg }
+        if let sfg = theme.selectionForegroundColorHex { dict["selectionForegroundColorHex"] = sfg }
+        if let hint = theme.hintColorHex { dict["hintColorHex"] = hint }
+
+        return dict
     }
 
     public func runExtension(
@@ -521,6 +549,10 @@ public class ExtensionEngine {
                 if let idStr = cmd.id, let uuid = UUID(uuidString: idStr) {
                     NerwSystem.shared.ui?.dismissNotification(id: uuid)
                 }
+            case "show_panel":
+                let panelTitle = cmd.title ?? "Extension"
+                let panelContent = cmd.value ?? ""
+                NerwSystem.shared.ui?.showExtensionPanel(title: panelTitle, content: panelContent)
             default:
                 print("[ExtensionEngine] Unknown command type: \(cmd.type)")
             }

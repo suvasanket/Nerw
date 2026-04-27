@@ -105,9 +105,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var accessoryStackView: NSStackView!
     private var accessoryStackViewHeightConstraint: NSLayoutConstraint!
     private var statusIconContainer: NSStackView!
-    private var backgroundView: NSVisualEffectView!
-    private var tintView: NSView!
-    private var innerGlow: NSView!
+    private var panelView: NerwPanelView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
 
     private var iconContainerLeadingConstraint: NSLayoutConstraint!
@@ -204,52 +202,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func setupViews() {
-        // Background - NSVisualEffectView for frosted glass (Glassmorphic)
-        backgroundView = NSVisualEffectView()
-        backgroundView.material = .fullScreenUI
-        backgroundView.appearance = NSAppearance(named: .vibrantDark)
-        backgroundView.blendingMode = .behindWindow
-        backgroundView.state = .active
-        backgroundView.wantsLayer = true
-        backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
-        backgroundView.layer?.masksToBounds = true
-        backgroundView.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
-        backgroundView.layer?.borderWidth = 1.0
+        // NerwPanelView
+        panelView = NerwPanelView(style: .main)
+        panelView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(panelView)
 
-        backgroundView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(backgroundView)
-
-        // Tint View - Light overlay for frosted glass depth
-        tintView = NSView()
-        tintView.wantsLayer = true
-        tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.15).cgColor
-        tintView.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(tintView)
-
-        // Inner highlight edge - subtle white glow for liquid glass feel
-        innerGlow = NSView()
-        innerGlow.wantsLayer = true
-        innerGlow.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius - 1
-        innerGlow.layer?.borderColor = NSColor.white.withAlphaComponent(0.06).cgColor
-        innerGlow.layer?.borderWidth = 1.0
-        innerGlow.layer?.masksToBounds = true
-        innerGlow.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(innerGlow)
-
-        // Constraint Tint to Background
-        NSLayoutConstraint.activate([
-            tintView.topAnchor.constraint(equalTo: backgroundView.topAnchor),
-            tintView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
-            tintView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            tintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
-
-            innerGlow.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 1),
-            innerGlow.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor, constant: 1),
-            innerGlow.trailingAnchor.constraint(
-                equalTo: backgroundView.trailingAnchor, constant: -1),
-            innerGlow.bottomAnchor.constraint(
-                equalTo: backgroundView.bottomAnchor, constant: -1),
-        ])
+        let backgroundView = panelView.contentView
 
         // Icon Container
         iconContainer = NSStackView()
@@ -365,10 +323,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             constant: -LayoutMetrics.Separator.trailing)
 
         NSLayoutConstraint.activate([
-            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
-            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            panelView.topAnchor.constraint(equalTo: view.topAnchor),
+            panelView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            panelView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            panelView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             iconContainerLeadingConstraint,
             iconContainer.centerYAnchor.constraint(
@@ -438,10 +396,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func applyLayout() {
-        // Update Corner Radius
-        backgroundView.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius
-        innerGlow.layer?.cornerRadius = LayoutMetrics.Window.cornerRadius - 1
-
         // Update Frame (Width)
         view.frame.size.width = LayoutMetrics.Window.width
         // Notify delegate if window needs update
@@ -473,11 +427,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func applyTheming() {
         let config = ConfigManager.shared.config.uiConfig
 
-        // Background
-        if let bgHex = config?.mainBackgroundColor, let bgColor = NSColor(hex: bgHex) {
-            backgroundView.layer?.backgroundColor = bgColor.cgColor
-        }
-
         // Font & Text Color
         let fontSize = LayoutMetrics.SearchField.fontSize
         if let fontName = config?.font, let font = NSFont(name: fontName, size: fontSize) {
@@ -506,7 +455,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         isDebugMode.toggle()
 
         let views: [NSView?] = [
-            backgroundView, iconContainer, inputField, separatorView, scrollView,
+            panelView, iconContainer, inputField, separatorView, scrollView,
         ]
 
         for view in views.compactMap({ $0 }) {
@@ -732,18 +681,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func actionContextAnchorRect() -> NSRect {
-        let insetX = max(backgroundView.bounds.width - 8, 0)
+        let insetX = max(view.bounds.width - 8, 0)
 
         // Align to selected row if visible
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
             !scrollView.isHidden
         {
             let rowRect = resultsTableView.rect(ofRow: selectedIndex)
-            let rectInView = backgroundView.convert(rowRect, from: resultsTableView)
+            let rectInView = view.convert(rowRect, from: resultsTableView)
             return NSRect(x: insetX, y: rectInView.minY, width: 8, height: rectInView.height)
         }
 
-        return NSRect(x: insetX, y: 0, width: 8, height: backgroundView.bounds.height)
+        return NSRect(x: insetX, y: 0, width: 8, height: view.bounds.height)
     }
 
     private func currentContextAction() -> NerwAction? {
@@ -1143,14 +1092,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         let form = FormView(fields: fields)
         form.delegate = self
         form.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(form)
+        panelView.contentView.addSubview(form)
         formView = form
 
         NSLayoutConstraint.activate([
-            form.topAnchor.constraint(equalTo: backgroundView.topAnchor),
-            form.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
-            form.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            form.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
+            form.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+            form.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+            form.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+            form.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
         ])
 
         // Calculate required height based on fields

@@ -52,6 +52,19 @@ public enum Nerw {
         ])
     }
 
+    /// Show a themed panel using the host's UI framework.
+    /// The panel uses the same dimensions and position as the main Nerw panel.
+    /// - Parameters:
+    ///   - title: The title displayed at the top of the panel.
+    ///   - content: The body text displayed in the panel.
+    public static func showPanel(title: String, content: String) {
+        pendingCommands.append([
+            "type": "show_panel",
+            "title": title,
+            "value": content,
+        ])
+    }
+
     // MARK: - Bootstrap
 
     /// Run the extension. Call this at the end of your `main.swift`.

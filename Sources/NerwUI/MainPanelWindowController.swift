@@ -7,6 +7,7 @@ import NerwSearchBackend
 public class MainPanelWindowController: NSObject {
     private var panel: MainPanel!
     private var contentViewController: MainPanelContentViewController!
+    private var extensionPanelController: ExtensionPanelWindowController?
 
     public var isVisible: Bool { panel.isVisible }
 
@@ -28,22 +29,13 @@ public class MainPanelWindowController: NSObject {
             metrics.SearchField.top + metrics.SearchField.height + metrics.SearchField.bottom
 
         // Create panel
-        panel = MainPanel(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: initialHeight),
-            styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
+        panel = NerwPanelFactory.makePanel(
+            type: MainPanel.self,
+            contentRect: NSRect(x: 0, y: 0, width: width, height: initialHeight)
         )
 
         panel.contentViewController = contentViewController
         panel.setContentSize(NSSize(width: width, height: initialHeight))
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.isMovableByWindowBackground = false
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         // Click outside to dismiss
         panel.resignHandler = { [weak self] in
@@ -204,5 +196,14 @@ extension MainPanelWindowController: NerwUIApplication {
 
     public func dismissNotification(id: UUID) {
         NerwNotificationManager.shared.dismiss(id: id)
+    }
+
+    public func showExtensionPanel(title: String, content: String) {
+        hide(restoreFocus: false)
+
+        if extensionPanelController == nil {
+            extensionPanelController = ExtensionPanelWindowController()
+        }
+        extensionPanelController?.show(title: title, content: content)
     }
 }

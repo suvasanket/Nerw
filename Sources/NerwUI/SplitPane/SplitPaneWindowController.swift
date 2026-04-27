@@ -52,21 +52,12 @@ public class SplitPaneWindowController: NSObject {
         let metricsWidth = GlobalLayout.mainWidth
         let metricsHeight = GlobalLayout.mainHeight
 
-        panel = SplitPanel(
-            contentRect: NSRect(x: 0, y: 0, width: metricsWidth, height: metricsHeight),
-            styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
+        panel = NerwPanelFactory.makePanel(
+            type: SplitPanel.self,
+            contentRect: NSRect(x: 0, y: 0, width: metricsWidth, height: metricsHeight)
         )
 
         panel.contentViewController = contentViewController
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.isMovableByWindowBackground = false
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         panel.resignHandler = { [weak self] in
             if self?.panel.isVisible == true {

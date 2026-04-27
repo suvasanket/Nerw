@@ -4,12 +4,8 @@ import NerwCore
 public class NotificationItemView: NSView {
     public let id: UUID
     private var progressIndicator: NSProgressIndicator?
-    private var effectView: NSVisualEffectView!
-    private var tintView: NSView!
+    private var panelView: NerwPanelView!
     private var textField: NSTextField!
-
-    // The container that clips to bounds
-    private var containerView: NSView!
 
     public init(id: UUID, content: String, level: NerwNotificationLevel, progressive: Bool) {
         self.id = id
@@ -31,67 +27,53 @@ public class NotificationItemView: NSView {
         self.shadow?.shadowBlurRadius = 8
 
         // Container View handles the perfect pill masking
-        containerView = NSView()
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.wantsLayer = true
-        containerView.layer?.masksToBounds = true
-        containerView.layer?.cornerCurve = .continuous
-        containerView.layer?.borderWidth = 1
-        containerView.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        self.addSubview(containerView)
+        // 1. NerwPanelView (Frosted Glass Background)
+        panelView = NerwPanelView(style: .notification)
+        panelView.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(panelView)
 
-        // 1. Frosted Glass Background
-        effectView = NSVisualEffectView()
-        effectView.translatesAutoresizingMaskIntoConstraints = false
-        effectView.material = .popover
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        containerView.addSubview(effectView)
+        // Let it handle tint view from theme
+        if level == .warn || level == .error {
+            // Apply a slight colored tint on top if warn or error
+            let colorView = NSView()
+            colorView.translatesAutoresizingMaskIntoConstraints = false
+            colorView.wantsLayer = true
+            if level == .warn {
+                colorView.layer?.backgroundColor =
+                    NSColor.systemYellow.withAlphaComponent(0.15).cgColor
+            } else {
+                colorView.layer?.backgroundColor =
+                    NSColor.systemRed.withAlphaComponent(0.15).cgColor
+            }
+            panelView.contentView.addSubview(colorView)
 
-        // 2. Tint View based on level
-        tintView = NSView()
-        tintView.translatesAutoresizingMaskIntoConstraints = false
-        tintView.wantsLayer = true
-
-        switch level {
-        case .warn:
-            tintView.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.15).cgColor
-        case .error:
-            tintView.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.15).cgColor
-        case .info:
-            tintView.layer?.backgroundColor = NSColor.clear.cgColor
+            NSLayoutConstraint.activate([
+                colorView.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+                colorView.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+                colorView.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+                colorView.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
+            ])
         }
-        effectView.addSubview(tintView)
 
-        // 3. Content Stack
+        // 2. Content Stack
         let stackView = NSStackView()
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.orientation = .horizontal
         stackView.alignment = .centerY
         stackView.spacing = 10
         stackView.edgeInsets = NSEdgeInsets(top: 12, left: 18, bottom: 12, right: 18)
-        effectView.addSubview(stackView)
+        panelView.contentView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            containerView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            containerView.topAnchor.constraint(equalTo: self.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+            panelView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            panelView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            panelView.topAnchor.constraint(equalTo: self.topAnchor),
+            panelView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
 
-            effectView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            effectView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            effectView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            effectView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-
-            tintView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            tintView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-            tintView.topAnchor.constraint(equalTo: effectView.topAnchor),
-            tintView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
-
-            stackView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: effectView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+            stackView.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
         ])
 
         if progressive {
@@ -118,10 +100,12 @@ public class NotificationItemView: NSView {
         // Perfect pill shape calculation
         let radius = self.bounds.height / 2
 
-        // Only containerView clips the content
-        containerView.layer?.cornerRadius = radius
-        effectView.layer?.cornerRadius = radius
-        tintView.layer?.cornerRadius = radius
+        var style = NerwPanelView.Style.notification
+        style.cornerRadiusOverride = radius
+
+        // This is a bit of a hack but we want to re-init or apply corner radius
+        // For our simple case, directly setting corner radius is sufficient as the applyTheme() respects it
+        panelView.layer?.cornerRadius = radius
 
         // Removed self.shadow?.shadowPath = path.cgPath completely,
         // relying on Mac OS default NSShadow rendering over subviews

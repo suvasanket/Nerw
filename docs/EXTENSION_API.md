@@ -17,7 +17,7 @@ You have full access to all macOS frameworks (EventKit, Contacts, URLSession, Ap
 7. [NerwField Struct](#nerwfield-struct)
 8. [NerwPeek Struct](#nerwpeek-struct)
 9. [Nerw API (Host Commands)](#nerw-api-host-commands)
-10. [Extension Settings](#extension-settings)
+10. [Extension Settings & Theme](#extension-settings--theme)
 11. [Example Extensions](#example-extensions)
 
 ---
@@ -82,9 +82,11 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 
 ...
 
-## Extension Settings
+## Extension Settings & Theme
 
 Extensions can define persistent configuration options that users can modify in the Nerw settings UI. These values are automatically passed to your extension during `query()` and `perform()`.
+
+Additionally, the host app's UI configuration is automatically provided via the `_theme` key, exposing the current `NerwThemeConfig`.
 
 ### Defining Settings in `manifest.json`
 
@@ -131,6 +133,27 @@ func query(input: QueryInput) -> [NerwResult] {
     let isMetric = input.settings["isMetric"] as? Bool ?? true
     
     // Use the settings to fetch data...
+}
+```
+
+### Accessing Theme Configuration
+
+The Nerw host automatically injects its current UI configuration, enabling you to build native-looking components (like custom HTML views) that match the user's settings. Use `NerwThemeConfig` to easily parse the values:
+
+```swift
+func query(input: QueryInput) -> [NerwResult] {
+    let theme = NerwThemeConfig(from: input.settings)
+    
+    // Example: generate an HTML string using the host's styling
+    let html = """
+        <div style="background: \(theme.tintColorHex ?? "#000"); 
+                    color: \(theme.foregroundColorHex ?? "#FFF");
+                    border-radius: \(theme.cornerRadius)px;">
+            ...
+        </div>
+    """
+    
+    // ... return NerwResult with .peek(...)
 }
 ```
 
@@ -793,6 +816,7 @@ public enum Nerw {
     public static func log(_ message: String)
     public static func notify(_ content: String, level: String, progressive: Bool, id: String?)
     public static func dismissNotify(id: String)
+    public static func showPanel(title: String, content: String)
     public static func run(_ ext: NerwExtension)
 }
 ```
@@ -933,6 +957,38 @@ public static func dismissNotify(id: String) {
 Nerw.notify("Downloading...", progressive: true, id: "download-1")
 // ... later when done ...
 Nerw.dismissNotify(id: "download-1")
+```
+
+### Nerw.showPanel(title:content:)
+
+**What it does:** Shows a themed panel using the host application's UI framework. The panel uses the same dimensions and position as the main Nerw panel, and inherits the current theme (frosted glass, colors, corner radius, etc.).
+
+```swift
+public static func showPanel(title: String, content: String)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `title` | String | Title displayed at the top of the panel |
+| `content` | String | Body text displayed in the center of the panel |
+
+**Implementation:**
+```swift
+public static func showPanel(title: String, content: String) {
+    pendingCommands.append([
+        "type": "show_panel",
+        "title": title,
+        "value": content,
+    ])
+}
+```
+
+**Example:**
+```swift
+Nerw.showPanel(title: "My Extension", content: "Hello World")
+Nerw.showPanel(title: "Result", content: "Calculation: \(result)")
 ```
 
 ### Nerw.run(_:)

@@ -19,6 +19,7 @@ public protocol NerwUIApplication {
         content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?
     ) -> UUID
     func dismissNotification(id: UUID)
+    func showExtensionPanel(title: String, content: String)
 }
 
 // Singleton accessor for UI

@@ -20,6 +20,7 @@ func runTests() {
     testSplitPaneInitialization()
     runMainPanelTests()
     runActionContextTests()
+    runExtensionPanelTests()
 
     print("[Testing] All SearchService tests PASSED.")
 

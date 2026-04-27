@@ -22,6 +22,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     private let splitView = NoDividerSplitView()
     private let leftContainer = NSView()
     private let rightContainer = NSView()
+    private var panelView: NerwPanelView!
 
     private let tableView = NSTableView()
     private let previewView = SplitPanePreviewView()
@@ -57,30 +58,22 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func setupViews() {
-        // Blur background
-        let visualEffect = NSVisualEffectView(frame: view.bounds)
-        visualEffect.autoresizingMask = [.width, .height]
-        visualEffect.material = .fullScreenUI
-        visualEffect.state = .active
-        visualEffect.blendingMode = .behindWindow
-        view.addSubview(visualEffect)
+        panelView = NerwPanelView(style: .splitPane)
+        panelView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(panelView)
 
-        // Window styling
-        view.layer?.cornerRadius = GlobalLayout.cornerRadius  // Matched to main panel's
-        view.layer?.masksToBounds = true
-        view.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
-        view.layer?.borderWidth = 1.0
+        let contentView = panelView.contentView
 
-        let tint = NSView(frame: view.bounds)
-        tint.autoresizingMask = [.width, .height]
-        tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.15).cgColor
-        visualEffect.addSubview(tint)
+        NSLayoutConstraint.activate([
+            panelView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            panelView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            panelView.topAnchor.constraint(equalTo: view.topAnchor),
+            panelView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
 
-        // Split View
         splitView.isVertical = true
         splitView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(splitView)
+        contentView.addSubview(splitView)
 
         leftContainer.translatesAutoresizingMaskIntoConstraints = false
         leftContainer.widthAnchor.constraint(equalToConstant: 280).isActive = true
@@ -96,7 +89,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         searchIconView.contentTintColor = .secondaryLabelColor
         searchIconView.translatesAutoresizingMaskIntoConstraints = false
         searchIconView.imageScaling = .scaleProportionallyUpOrDown
-        view.addSubview(searchIconView)
+        contentView.addSubview(searchIconView)
 
         // Search field replacing title label
         searchField.placeholderString = titleContent
@@ -107,7 +100,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         searchField.textColor = .labelColor
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(searchField)
+        contentView.addSubview(searchField)
 
         // Config table view
         let scrollView = NSScrollView()
@@ -143,7 +136,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         let separatorView = NSBox()
         separatorView.boxType = .separator
         separatorView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(separatorView)
+        contentView.addSubview(separatorView)
 
         NSLayoutConstraint.activate([
             searchIconView.leadingAnchor.constraint(
@@ -166,9 +159,9 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
             splitView.topAnchor.constraint(
                 equalTo: separatorView.bottomAnchor, constant: 0),
-            splitView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            splitView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            splitView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            splitView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            splitView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            splitView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 
             scrollView.topAnchor.constraint(equalTo: leftContainer.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leftContainer.leadingAnchor),
@@ -197,7 +190,6 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func applyLayout() {
-        view.layer?.cornerRadius = GlobalLayout.cornerRadius
         searchField.font = .systemFont(ofSize: GlobalLayout.fontSizeSearch, weight: .light)
         view.frame.size = NSSize(width: GlobalLayout.mainWidth, height: GlobalLayout.mainHeight)
         view.layoutSubtreeIfNeeded()
