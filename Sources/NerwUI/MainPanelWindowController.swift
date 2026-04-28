@@ -7,7 +7,6 @@ import NerwSearchBackend
 public class MainPanelWindowController: NSObject {
     private var panel: MainPanel!
     private var contentViewController: MainPanelContentViewController!
-    private var extensionPanelController: ExtensionPanelWindowController?
 
     public var isVisible: Bool { panel.isVisible }
 
@@ -198,12 +197,4 @@ extension MainPanelWindowController: NerwUIApplication {
         NerwNotificationManager.shared.dismiss(id: id)
     }
 
-    public func showExtensionPanel(title: String, content: String) {
-        hide(restoreFocus: false)
-
-        if extensionPanelController == nil {
-            extensionPanelController = ExtensionPanelWindowController()
-        }
-        extensionPanelController?.show(title: title, content: content)
-    }
 }

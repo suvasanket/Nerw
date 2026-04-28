@@ -30,6 +30,8 @@ struct ExtensionCommand: Codable {
     let progressive: Bool?
     let id: String?
     let title: String?
+    let width: Double?
+    let height: Double?
 }
 
 /// Wrapper for command responses from action execution.
@@ -363,7 +365,14 @@ public class ExtensionEngine {
 
     private func getThemeDict() -> [String: Any] {
         let theme = NerwTheme.current()
+        let layout = ConfigManager.shared.config.layoutConfig
+        let panelFrame = NerwPanelContext.shared.mainPanelFrame
+
+        // Screen visible frame for positioning
+        let screenVisible = NSScreen.main?.visibleFrame ?? .zero
+
         var dict: [String: Any] = [
+            // Appearance
             "backgroundMaterial": theme.backgroundMaterial,
             "tintOpacity": theme.tintOpacity,
             "cornerRadius": theme.cornerRadius,
@@ -373,6 +382,45 @@ public class ExtensionEngine {
             "innerGlowEnabled": theme.innerGlowEnabled,
             "innerGlowColorHex": theme.innerGlowColorHex,
             "innerGlowOpacity": theme.innerGlowOpacity,
+
+            // Layout — Panel Dimensions
+            "mainPanelWidth": layout.mainWidth,
+            "mainPanelHeight": layout.mainHeight,
+
+            // Layout — Search Field
+            "searchFieldHeight": 32.0,
+            "searchFieldFontSize": layout.fontSizeSearch,
+            "searchFieldTopMargin": 12.0,
+            "searchFieldBottomMargin": 12.0,
+
+            // Layout — Margins & Spacing
+            "horizontalMargin": layout.horizontalMargin,
+            "iconSize": layout.iconSizeMain,
+
+            // Layout — Results
+            "resultRowHeight": 50.0,
+            "resultCellCornerRadius": layout.cornerRadius / 2,
+            "resultTitleFontSize": layout.fontSizeResultTitle,
+            "resultSubtitleFontSize": layout.fontSizeResultSubtitle,
+
+            // Layout — Separator
+            "separatorHeight": 1.0,
+            "separatorExpandedHeight": 14.0,
+
+            // Layout — Split Pane
+            "splitPaneItemFontSize": layout.fontSizeSplitPaneItem,
+
+            // Positioning — Main Panel
+            "mainPanelOriginX": Double(panelFrame.origin.x),
+            "mainPanelOriginY": Double(panelFrame.origin.y),
+            "mainPanelFrameWidth": Double(panelFrame.width),
+            "mainPanelFrameHeight": Double(panelFrame.height),
+
+            // Positioning — Screen
+            "screenVisibleX": Double(screenVisible.origin.x),
+            "screenVisibleY": Double(screenVisible.origin.y),
+            "screenVisibleWidth": Double(screenVisible.width),
+            "screenVisibleHeight": Double(screenVisible.height),
         ]
 
         if let tint = theme.tintColorHex { dict["tintColorHex"] = tint }
@@ -455,14 +503,14 @@ public class ExtensionEngine {
             }
             inputPipe.fileHandleForWriting.closeFile()
 
-            // Timeout: kill after 5 seconds
+            // Timeout: kill after 30 seconds (allows time for OS prompts)
             let timeoutItem = DispatchWorkItem {
                 if process.isRunning {
                     print("[ExtensionEngine] Killing process due to timeout")
                     process.terminate()
                 }
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: timeoutItem)
+            DispatchQueue.global().asyncAfter(deadline: .now() + 30, execute: timeoutItem)
 
             process.waitUntilExit()
             timeoutItem.cancel()
@@ -549,10 +597,7 @@ public class ExtensionEngine {
                 if let idStr = cmd.id, let uuid = UUID(uuidString: idStr) {
                     NerwSystem.shared.ui?.dismissNotification(id: uuid)
                 }
-            case "show_panel":
-                let panelTitle = cmd.title ?? "Extension"
-                let panelContent = cmd.value ?? ""
-                NerwSystem.shared.ui?.showExtensionPanel(title: panelTitle, content: panelContent)
+
             default:
                 print("[ExtensionEngine] Unknown command type: \(cmd.type)")
             }

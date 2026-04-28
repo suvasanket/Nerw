@@ -26,6 +26,10 @@
 	<string>Nerw needs location access to list available WiFi networks.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Nerw needs Bluetooth access to find and connect to devices.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Nerw needs access to your reminders to display them via extensions.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Nerw needs access to your reminders to display them via extensions.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

@@ -138,24 +138,107 @@ func query(input: QueryInput) -> [NerwResult] {
 
 ### Accessing Theme Configuration
 
-The Nerw host automatically injects its current UI configuration, enabling you to build native-looking components (like custom HTML views) that match the user's settings. Use `NerwThemeConfig` to easily parse the values:
+The Nerw host automatically injects its complete UI configuration via `NerwThemeConfig`. This includes **visual styling**, **layout dimensions**, and **screen positioning** — everything you need to build native-looking panels that match the host.
 
 ```swift
-func query(input: QueryInput) -> [NerwResult] {
-    let theme = NerwThemeConfig(from: input.settings)
+let theme = NerwThemeConfig(from: input.settings)
+```
+
+#### Appearance Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `backgroundMaterial` | String | "fullScreenUI" | `NSVisualEffectView` material name |
+| `tintColorHex` | String? | nil | Background tint overlay hex color |
+| `tintOpacity` | Double | 0.15 | Background tint opacity |
+| `cornerRadius` | Double | 28.0 | Panel corner radius |
+| `borderColorHex` | String | "#FFFFFF" | Panel border hex color |
+| `borderOpacity` | Double | 0.18 | Panel border opacity |
+| `borderWidth` | Double | 1.0 | Panel border width |
+| `innerGlowEnabled` | Bool | false | Whether inner glow is active |
+| `innerGlowColorHex` | String | "#FFFFFF" | Inner glow hex color |
+| `innerGlowOpacity` | Double | 0.06 | Inner glow opacity |
+| `fontName` | String? | nil | Custom font name (nil = system font) |
+| `foregroundColorHex` | String? | nil | Primary text hex color |
+| `selectionBackgroundColorHex` | String? | nil | Selection highlight hex color |
+| `selectionForegroundColorHex` | String? | nil | Selected text hex color |
+| `hintColorHex` | String? | nil | Secondary/hint text hex color |
+
+#### Layout Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `mainPanelWidth` | Double | 700.0 | Width of the main search panel |
+| `mainPanelHeight` | Double | 500.0 | Height of the main search panel (expanded) |
+| `searchFieldHeight` | Double | 32.0 | Height of the search input field |
+| `searchFieldFontSize` | Double | 25.0 | Search field font size |
+| `searchFieldTopMargin` | Double | 12.0 | Top margin above search field |
+| `searchFieldBottomMargin` | Double | 12.0 | Bottom margin below search field |
+| `horizontalMargin` | Double | 20.0 | Horizontal margins for content |
+| `iconSize` | Double | 26.0 | Main icon size |
+| `resultRowHeight` | Double | 50.0 | Height of each result row |
+| `resultCellCornerRadius` | Double | 14.0 | Corner radius for result cells |
+| `resultTitleFontSize` | Double | 14.0 | Result title font size |
+| `resultSubtitleFontSize` | Double | 11.0 | Result subtitle font size |
+| `separatorHeight` | Double | 1.0 | Collapsed separator height |
+| `separatorExpandedHeight` | Double | 14.0 | Expanded separator height |
+| `splitPaneItemFontSize` | Double | 15.0 | Split pane item font size |
+
+#### Positioning Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `mainPanelOriginX` | Double | X origin of the main panel on screen |
+| `mainPanelOriginY` | Double | Y origin of the main panel on screen |
+| `mainPanelFrameWidth` | Double | Current frame width of the main panel |
+| `mainPanelFrameHeight` | Double | Current frame height of the main panel |
+| `screenVisibleX` | Double | Screen visible area X origin |
+| `screenVisibleY` | Double | Screen visible area Y origin |
+| `screenVisibleWidth` | Double | Screen visible area width |
+| `screenVisibleHeight` | Double | Screen visible area height |
+
+### Building Custom Panels with `NerwPanel`
+
+Extensions can create their own native `NSPanel` windows that match the host's glassmorphic aesthetic using the `NerwPanel` helper. The panel runs entirely in your extension's process — no host IPC needed.
+
+```swift
+import NerwExtensionKit
+
+func perform(action: ActionInput) {
+    let theme = NerwThemeConfig(from: action.settings)
     
-    // Example: generate an HTML string using the host's styling
-    let html = """
-        <div style="background: \(theme.tintColorHex ?? "#000"); 
-                    color: \(theme.foregroundColorHex ?? "#FFF");
-                    border-radius: \(theme.cornerRadius)px;">
-            ...
-        </div>
-    """
+    // Create a panel matching the host's dimensions and style
+    let panel = NerwPanel(theme: theme)
     
-    // ... return NerwResult with .peek(...)
+    // Or with custom dimensions:
+    // let panel = NerwPanel(theme: theme, width: 500, height: 300)
+    
+    // Build your content
+    let label = NSTextField(labelWithString: "Hello from my extension!")
+    label.font = panel.bodyFont()
+    label.textColor = panel.foregroundColor
+    // ... add more views ...
+    
+    // Set the content and show
+    panel.setContent(myContentView)
+    panel.show()  // Blocks until dismissed (Esc or click-outside)
 }
 ```
+
+**`NerwPanel` API:**
+
+| Method / Property | Description |
+|-------------------|-------------|
+| `init(theme:width:height:)` | Create a themed panel. Width/height default to main panel dimensions. |
+| `setContent(_ view:)` | Replace the panel's content area with your custom view. |
+| `show()` | Show the panel and block until dismissed. |
+| `dismiss()` | Programmatically dismiss the panel. |
+| `contentArea` | The raw `NSView` you can add subviews to directly. |
+| `bodyFont(size:)` | Returns the themed font at the given size. |
+| `foregroundColor` | Primary text color from theme. |
+| `secondaryColor` | Hint/secondary text color from theme. |
+
+> **Note**: `NerwPanel.show()` starts an `NSApplication` run loop internally and blocks until the panel is dismissed. This is the recommended pattern for `perform(action:)` handlers that need to display UI.
 
 ---
 
@@ -816,7 +899,6 @@ public enum Nerw {
     public static func log(_ message: String)
     public static func notify(_ content: String, level: String, progressive: Bool, id: String?)
     public static func dismissNotify(id: String)
-    public static func showPanel(title: String, content: String)
     public static func run(_ ext: NerwExtension)
 }
 ```
@@ -959,37 +1041,8 @@ Nerw.notify("Downloading...", progressive: true, id: "download-1")
 Nerw.dismissNotify(id: "download-1")
 ```
 
-### Nerw.showPanel(title:content:)
 
-**What it does:** Shows a themed panel using the host application's UI framework. The panel uses the same dimensions and position as the main Nerw panel, and inherits the current theme (frosted glass, colors, corner radius, etc.).
 
-```swift
-public static func showPanel(title: String, content: String)
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `title` | String | Title displayed at the top of the panel |
-| `content` | String | Body text displayed in the center of the panel |
-
-**Implementation:**
-```swift
-public static func showPanel(title: String, content: String) {
-    pendingCommands.append([
-        "type": "show_panel",
-        "title": title,
-        "value": content,
-    ])
-}
-```
-
-**Example:**
-```swift
-Nerw.showPanel(title: "My Extension", content: "Hello World")
-Nerw.showPanel(title: "Result", content: "Calculation: \(result)")
-```
 
 ### Nerw.run(_:)
 

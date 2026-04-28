@@ -52,7 +52,10 @@ public struct ActionInput {
 // MARK: - Theme Configuration
 
 /// Resolved theme configuration provided by the host.
+/// Includes visual styling, layout dimensions, and positioning data
+/// so extensions can build their own native-looking panels.
 public struct NerwThemeConfig {
+    // MARK: - Appearance
     public let backgroundMaterial: String
     public let tintColorHex: String?
     public let tintOpacity: Double
@@ -69,9 +72,49 @@ public struct NerwThemeConfig {
     public let selectionForegroundColorHex: String?
     public let hintColorHex: String?
 
+    // MARK: - Layout — Panel Dimensions
+    public let mainPanelWidth: Double
+    public let mainPanelHeight: Double
+
+    // MARK: - Layout — Search Field
+    public let searchFieldHeight: Double
+    public let searchFieldFontSize: Double
+    public let searchFieldTopMargin: Double
+    public let searchFieldBottomMargin: Double
+
+    // MARK: - Layout — Margins & Spacing
+    public let horizontalMargin: Double
+    public let iconSize: Double
+
+    // MARK: - Layout — Results
+    public let resultRowHeight: Double
+    public let resultCellCornerRadius: Double
+    public let resultTitleFontSize: Double
+    public let resultSubtitleFontSize: Double
+
+    // MARK: - Layout — Separator
+    public let separatorHeight: Double
+    public let separatorExpandedHeight: Double
+
+    // MARK: - Layout — Split Pane
+    public let splitPaneItemFontSize: Double
+
+    // MARK: - Positioning — Main Panel
+    public let mainPanelOriginX: Double
+    public let mainPanelOriginY: Double
+    public let mainPanelFrameWidth: Double
+    public let mainPanelFrameHeight: Double
+
+    // MARK: - Positioning — Screen
+    public let screenVisibleX: Double
+    public let screenVisibleY: Double
+    public let screenVisibleWidth: Double
+    public let screenVisibleHeight: Double
+
     public init(from settings: [String: Any]) {
         let themeData = settings["_theme"] as? [String: Any] ?? [:]
 
+        // Appearance
         self.backgroundMaterial = themeData["backgroundMaterial"] as? String ?? "fullScreenUI"
         self.tintColorHex = themeData["tintColorHex"] as? String
         self.tintOpacity = themeData["tintOpacity"] as? Double ?? 0.15
@@ -87,5 +130,44 @@ public struct NerwThemeConfig {
         self.selectionBackgroundColorHex = themeData["selectionBackgroundColorHex"] as? String
         self.selectionForegroundColorHex = themeData["selectionForegroundColorHex"] as? String
         self.hintColorHex = themeData["hintColorHex"] as? String
+
+        // Layout — Panel
+        self.mainPanelWidth = themeData["mainPanelWidth"] as? Double ?? 700.0
+        self.mainPanelHeight = themeData["mainPanelHeight"] as? Double ?? 500.0
+
+        // Layout — Search Field
+        self.searchFieldHeight = themeData["searchFieldHeight"] as? Double ?? 32.0
+        self.searchFieldFontSize = themeData["searchFieldFontSize"] as? Double ?? 25.0
+        self.searchFieldTopMargin = themeData["searchFieldTopMargin"] as? Double ?? 12.0
+        self.searchFieldBottomMargin = themeData["searchFieldBottomMargin"] as? Double ?? 12.0
+
+        // Layout — Margins & Spacing
+        self.horizontalMargin = themeData["horizontalMargin"] as? Double ?? 20.0
+        self.iconSize = themeData["iconSize"] as? Double ?? 26.0
+
+        // Layout — Results
+        self.resultRowHeight = themeData["resultRowHeight"] as? Double ?? 50.0
+        self.resultCellCornerRadius = themeData["resultCellCornerRadius"] as? Double ?? 14.0
+        self.resultTitleFontSize = themeData["resultTitleFontSize"] as? Double ?? 14.0
+        self.resultSubtitleFontSize = themeData["resultSubtitleFontSize"] as? Double ?? 11.0
+
+        // Layout — Separator
+        self.separatorHeight = themeData["separatorHeight"] as? Double ?? 1.0
+        self.separatorExpandedHeight = themeData["separatorExpandedHeight"] as? Double ?? 14.0
+
+        // Layout — Split Pane
+        self.splitPaneItemFontSize = themeData["splitPaneItemFontSize"] as? Double ?? 15.0
+
+        // Positioning — Main Panel
+        self.mainPanelOriginX = themeData["mainPanelOriginX"] as? Double ?? 0.0
+        self.mainPanelOriginY = themeData["mainPanelOriginY"] as? Double ?? 0.0
+        self.mainPanelFrameWidth = themeData["mainPanelFrameWidth"] as? Double ?? 0.0
+        self.mainPanelFrameHeight = themeData["mainPanelFrameHeight"] as? Double ?? 0.0
+
+        // Positioning — Screen
+        self.screenVisibleX = themeData["screenVisibleX"] as? Double ?? 0.0
+        self.screenVisibleY = themeData["screenVisibleY"] as? Double ?? 0.0
+        self.screenVisibleWidth = themeData["screenVisibleWidth"] as? Double ?? 0.0
+        self.screenVisibleHeight = themeData["screenVisibleHeight"] as? Double ?? 0.0
     }
 }

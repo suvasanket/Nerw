@@ -43,7 +43,6 @@ The source code is organized into modular targets within `Sources/`:
     - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading and "Peek" support.
     - **Notification System**: `NotificationManager.swift`, `NotificationPanel.swift`, `NotificationItemView.swift`. Handles glassmorphic, stacked alerts.
     - **Specialized Views**: `ExtensionCardView.swift` (Settings list), `FormView.swift` (Multi-field inputs), `IconDropView.swift` (Drag & Drop support), `KeybindRecorder.swift` (Hotkey input).
-    - **Extension Panel**: `ExtensionPanelWindowController.swift`: Manages themed panels shown by extensions via `Nerw.showPanel()`. Uses `NerwPanelFactory` + `NerwPanelView` with the same dimensions and positioning as the main panel.
     - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `WebSearchSettingsViewController`, `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
     - `SettingsWindowController.swift`: Manages the tabbed settings interface.
     - `ExtensionInstallWindowController.swift`: Manages the `.nerw` extension installation flow and confirmation UI.
@@ -93,7 +92,8 @@ The source code is organized into modular targets within `Sources/`:
 ### `NerwExtensionKit` (Extension SDK)
 - **Role**: The Swift SDK (Static Library) supplied to extension developers to build native Swift extensions for Nerw.
 - **Key Components**:
-    - `NerwAPI.swift`: Host commands (`Nerw.open`, `Nerw.copy`, `Nerw.log`, `Nerw.showPanel`) and the JSON bootstrap sequence.
+    - `NerwAPI.swift`: Host commands (`Nerw.open`, `Nerw.copy`, `Nerw.log`) and the JSON bootstrap sequence.
+    - `NerwPanel.swift`: Convenience `NSPanel` subclass that builds a fully themed window inside the extension process, matching the host's styling, layout, and positioning data (via `NerwThemeConfig`).
     - `NerwResult.swift`: The fluent builder pattern API allowing easy construction of Complex, Hybrid, Arg, InlineArg, and Form actions.
 
 - **Role**: Shared helpers and core low-level utilities.
