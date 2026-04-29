@@ -18,3 +18,6 @@ Nerw also have Extension support, then what makes it different?
 
 ## Build
 iykyk(hint: makefile)
+
+## Acknowledement
+- [Ifrit](https://github.com/ukushu/Ifrit)
