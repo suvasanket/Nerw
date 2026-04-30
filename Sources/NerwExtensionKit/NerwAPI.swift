@@ -52,6 +52,16 @@ public enum Nerw {
         ])
     }
 
+    /// Hide the host application panel immediately.
+    public static func hideHost() {
+        let response: [String: Any] = ["commands": [["type": "hide_host"]]]
+        if let data = try? JSONSerialization.data(withJSONObject: response),
+            let output = String(data: data, encoding: .utf8)
+        {
+            print(output)
+        }
+    }
+
     // MARK: - Bootstrap
 
     /// Run the extension. Call this at the end of your `main.swift`.

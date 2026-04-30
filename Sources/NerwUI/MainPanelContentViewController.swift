@@ -887,7 +887,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .instant(let perform):
             perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            closeSession(restoreText: false)
+            if !result.isPersistent {
+                closeSession(restoreText: false)
+            }
             return true
 
         case .inlineArg:
@@ -901,7 +903,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .hybrid(let perform, _):
             perform(result)
             FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            closeSession(restoreText: false)
+            if !result.isPersistent {
+                closeSession(restoreText: false)
+            }
             return true
 
         case .arg, .args:

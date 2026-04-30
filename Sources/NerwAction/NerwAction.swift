@@ -132,6 +132,8 @@ public struct NerwAction {
 
     public let type: ActionType
 
+    public let isPersistent: Bool
+
     public init(
         id: String,
         title: String,
@@ -141,7 +143,8 @@ public struct NerwAction {
         category: QueryCategory? = nil,
         triggers: [String] = [],
         modifiers: [ModifierKey: ModifierAction] = [:],
-        type: ActionType
+        type: ActionType,
+        isPersistent: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -169,6 +172,7 @@ public struct NerwAction {
 
         self.modifiers = modifiers
         self.type = type
+        self.isPersistent = isPersistent
     }
 
     // MARK: - Compatibility / UI Helpers

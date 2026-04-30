@@ -24,7 +24,7 @@ struct ExtensionInput: Codable {
 
 /// Represents a command returned by the extension process via stdout for action execution.
 struct ExtensionCommand: Codable {
-    let type: String  // "open", "copy", "log", "notify", "dismiss_notify", "show_panel"
+    let type: String  // "open", "copy", "log", "notify", "dismiss_notify", "show_panel", "hide_host"
     let value: String?
     let level: String?
     let progressive: Bool?
@@ -120,7 +120,8 @@ public class ExtensionEngine {
                 }
             } ?? .system("puzzlepiece.extension"),
             triggers: triggers,
-            type: actionType
+            type: actionType,
+            isPersistent: actionManifest.longRunning ?? false
         )
     }
 
@@ -534,6 +535,28 @@ public class ExtensionEngine {
                 self.processLock.lock()
                 self.runningLongProcesses[process.processIdentifier] = process
                 self.processLock.unlock()
+
+                // Progressive output reading for long-running processes
+                let outHandle = outputPipe.fileHandleForReading
+                outHandle.readabilityHandler = { [weak self] handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+
+                    // Split data by lines and try to parse as commands
+                    if let str = String(data: data, encoding: .utf8) {
+                        let lines = str.components(separatedBy: "\n")
+                        for line in lines where !line.isEmpty {
+                            if let lineData = line.data(using: .utf8),
+                                let response = try? JSONDecoder().decode(
+                                    ExtensionActionResponse.self, from: lineData)
+                            {
+                                DispatchQueue.main.async {
+                                    self?.executeCommands(response.commands ?? [])
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 DispatchQueue.global().asyncAfter(deadline: .now() + 30, execute: timeoutItem)
             }
@@ -541,6 +564,7 @@ public class ExtensionEngine {
             process.waitUntilExit()
 
             if longRunning {
+                outputPipe.fileHandleForReading.readabilityHandler = nil
                 self.processLock.lock()
                 self.runningLongProcesses.removeValue(forKey: process.processIdentifier)
                 self.processLock.unlock()
@@ -660,6 +684,8 @@ public class ExtensionEngine {
                 if let idStr = cmd.id, let uuid = UUID(uuidString: idStr) {
                     NerwSystem.shared.ui?.dismissNotification(id: uuid)
                 }
+            case "hide_host":
+                NerwSystem.shared.ui?.hideWindow()
 
             default:
                 print("[ExtensionEngine] Unknown command type: \(cmd.type)")
@@ -918,7 +944,8 @@ public class ExtensionEngine {
             peek: peek,
             triggers: [],
             modifiers: modifiers,
-            type: type
+            type: type,
+            isPersistent: dict["persistent"] as? Bool ?? false
         )
     }
 }
