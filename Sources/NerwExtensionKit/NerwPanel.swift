@@ -109,6 +109,9 @@ public class NerwPanel: NSPanel {
     /// Runs `NSApplication.shared.run()` internally so the extension process
     /// stays alive while the panel is visible.
     public func show() {
+        NSLog("[NerwPanel] show() called. Current frame: \(frame)")
+        positionPanel(width: frame.width, height: frame.height)
+        NSLog("[NerwPanel] Repositioned to frame: \(frame)")
         makeKeyAndOrderFront(nil)
         runLoopActive = true
         NSApplication.shared.run()
@@ -245,21 +248,44 @@ public class NerwPanel: NSPanel {
     }
 
     private func positionPanel(width: CGFloat, height: CGFloat) {
-        // Position exactly where the main panel is (same as host's ExtensionPanelWindowController did).
-        let mainMidX = CGFloat(theme.mainPanelOriginX) + CGFloat(theme.mainPanelFrameWidth) / 2
-        let mainMaxY = CGFloat(theme.mainPanelOriginY) + CGFloat(theme.mainPanelFrameHeight)
-
-        let targetX = mainMidX - width / 2
-        let targetY = mainMaxY - height
-
-        // Fall back to screen center if panel frame is zero (e.g. host never opened)
-        if theme.mainPanelFrameWidth > 0 {
-            setFrameOrigin(NSPoint(x: targetX, y: targetY))
+        let screen: NSRect
+        if theme.screenVisibleWidth > 0 {
+            screen = NSRect(
+                x: theme.screenVisibleX, y: theme.screenVisibleY, width: theme.screenVisibleWidth,
+                height: theme.screenVisibleHeight)
         } else {
-            let screen = NSScreen.main?.visibleFrame ?? .zero
-            let cx = screen.origin.x + (screen.width - width) / 2
-            let cy = screen.origin.y + (screen.height - height) / 2
-            setFrameOrigin(NSPoint(x: cx, y: cy))
+            screen = NSScreen.main?.visibleFrame ?? .zero
         }
+
+        NSLog(
+            "[NerwPanel] Positioning. Screen: \(screen), theme.mainPanelFrameHeight: \(theme.mainPanelFrameHeight)"
+        )
+
+        let targetTopY: CGFloat
+        if theme.mainPanelFrameHeight > 0 {
+            // EXACT top edge of the main panel as reported by the host
+            targetTopY = CGFloat(theme.mainPanelOriginY + theme.mainPanelFrameHeight)
+            NSLog("[NerwPanel] Using host-provided top edge: \(targetTopY)")
+        } else {
+            // Fallback to visual center calculation
+            let visualCenterY = screen.origin.y + screen.height / 2 + screen.height * 0.30
+            let searchBarHeight = CGFloat(
+                theme.searchFieldTopMargin + theme.searchFieldHeight + theme.searchFieldBottomMargin
+            )
+            targetTopY = visualCenterY + searchBarHeight / 2
+            NSLog("[NerwPanel] Falling back to visual center: \(targetTopY)")
+        }
+
+        let targetY = targetTopY - height
+
+        var targetX = screen.origin.x + (screen.width - width) / 2
+        if theme.mainPanelFrameWidth > 0 {
+            let mainMidX = CGFloat(theme.mainPanelOriginX) + CGFloat(theme.mainPanelFrameWidth) / 2
+            targetX = mainMidX - width / 2
+            NSLog("[NerwPanel] Using host-provided X: \(targetX)")
+        }
+
+        NSLog("[NerwPanel] Setting frame origin: (\(targetX), \(targetY))")
+        setFrameOrigin(NSPoint(x: targetX, y: targetY))
     }
 }
