@@ -59,6 +59,7 @@ public enum Nerw {
             let output = String(data: data, encoding: .utf8)
         {
             print(output)
+            fflush(stdout)
         }
     }
 
@@ -106,8 +107,10 @@ public enum Nerw {
                 let output = String(data: data, encoding: .utf8)
             {
                 print(output)
+                fflush(stdout)
             } else {
                 print("[]")
+                fflush(stdout)
             }
 
         case "action":
@@ -126,8 +129,10 @@ public enum Nerw {
                 let output = String(data: data, encoding: .utf8)
             {
                 print(output)
+                fflush(stdout)
             } else {
                 print("{}")
+                fflush(stdout)
             }
 
         default:
