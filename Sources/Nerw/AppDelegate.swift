@@ -54,6 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        ExtensionEngine.shared.terminateAllLongRunning()
         Logger.shared.info("AppDelegate: applicationWillTerminate")
         Logger.shared.flush()
     }

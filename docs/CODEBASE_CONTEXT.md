@@ -74,9 +74,9 @@ The source code is organized into modular targets within `Sources/`:
     - `ConfigManager.swift`: Manages global application settings and `~/.nerw/config.json`.
     - `NerwTheme.swift`: Pure data struct representing a normalized snapshot of the UI state (e.g. colors, rounded corners) computed from `ConfigManager`.
     - `NerwPanelContext.swift`: Shared state for window positioning and font synchronization.
-    - `ExtensionEngine.swift`: Process-based Swift extension engine. Compiles `main.swift` via `swiftc` at install time, executes extensions as child processes communicating via JSON stdin/stdout. Supports multiple actions per extension and smart trigger resolution. Automatically injects current `NerwThemeConfig` into extension runtime.
+    - `ExtensionEngine.swift`: Process-based Swift extension engine. Compiles `main.swift` via `swiftc` at install time, executes extensions as child processes communicating via JSON stdin/stdout. Supports multiple actions per extension and smart trigger resolution. Automatically injects current `NerwThemeConfig` into extension runtime. Also tracks long-running extension processes and renames them using hardlinks for easy identification in Activity Monitor.
     - `ExtensionInstaller.swift`: Handles `.nerw` package installation, compilation, and lifecycle. No app restart required.
-    - `ExtensionModel.swift`: Extension manifest model with `ExtensionMode` (script/binary) and `ExtensionActionManifest` with explicit `type` support.
+    - `ExtensionModel.swift`: Extension manifest model with `ExtensionMode` (script/binary) and `ExtensionActionManifest` with explicit `type` support. Includes `longRunning` flag.
     - `NerwUIInterface.swift`: Defines the interface and contract between core logic and the UI layer.
 
 - **Role**: Pure search algorithms, ranking, and query classification.

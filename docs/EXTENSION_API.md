@@ -73,6 +73,7 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `type` | string | No | Action type: "inlineArg", "noArg" (instantly executes), or "args" (default) |
 | `function` | string | No | Function name called when type is "noArg". If absent, uses `name` |
 | `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
+| `longRunning` | boolean | No | If true, bypasses the 30s timeout for this action. Used for actions that show a panel and block indefinitely. |
 
 > **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.
 

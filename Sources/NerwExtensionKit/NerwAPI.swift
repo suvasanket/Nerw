@@ -67,6 +67,9 @@ public enum Nerw {
     /// Nerw.run(MyExtension())
     /// ```
     public static func run(_ ext: NerwExtension) {
+        // Safety: exit if parent process dies (prevents orphans)
+        startParentWatchdog()
+
         guard let inputLine = readLine(),
             let inputData = inputLine.data(using: .utf8),
             let input = try? JSONSerialization.jsonObject(with: inputData) as? [String: Any]
@@ -119,6 +122,18 @@ public enum Nerw {
 
         default:
             Nerw.log("Unknown message type: \(type)")
+        }
+    }
+
+    private static func startParentWatchdog() {
+        let parentPID = getppid()
+        DispatchQueue.global(qos: .utility).async {
+            while true {
+                sleep(2)
+                if getppid() != parentPID {
+                    exit(0)
+                }
+            }
         }
     }
 }

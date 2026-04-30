@@ -473,13 +473,31 @@ public class ExtensionEngine {
         }
     }
 
+    // Track long-running extension processes for cleanup
+    private var runningLongProcesses: [pid_t: Process] = [:]
+    private let processLock = NSLock()
+
     private func executeProcess(
         binaryPath: URL, input: ExtensionInput,
+        longRunning: Bool = false,
+        processName: String? = nil,
         completion: @escaping (Data?) -> Void
     ) {
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
-            process.executableURL = binaryPath
+            var execURL = binaryPath
+
+            if let customName = processName {
+                let newURL = binaryPath.deletingLastPathComponent().appendingPathComponent(
+                    customName)
+                // Remove existing if any, then hardlink
+                try? FileManager.default.removeItem(at: newURL)
+                if (try? FileManager.default.linkItem(at: binaryPath, to: newURL)) != nil {
+                    execURL = newURL
+                }
+            }
+
+            process.executableURL = execURL
 
             let inputPipe = Pipe()
             let outputPipe = Pipe()
@@ -510,10 +528,25 @@ public class ExtensionEngine {
                     process.terminate()
                 }
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 30, execute: timeoutItem)
+
+            if longRunning {
+                // Track process, no timeout
+                self.processLock.lock()
+                self.runningLongProcesses[process.processIdentifier] = process
+                self.processLock.unlock()
+            } else {
+                DispatchQueue.global().asyncAfter(deadline: .now() + 30, execute: timeoutItem)
+            }
 
             process.waitUntilExit()
-            timeoutItem.cancel()
+
+            if longRunning {
+                self.processLock.lock()
+                self.runningLongProcesses.removeValue(forKey: process.processIdentifier)
+                self.processLock.unlock()
+            } else {
+                timeoutItem.cancel()
+            }
 
             if process.terminationStatus != 0 {
                 let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
@@ -525,6 +558,22 @@ public class ExtensionEngine {
 
             let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
             completion(outputData.isEmpty ? nil : outputData)
+
+            // Cleanup hardlink
+            if let customName = processName, execURL != binaryPath {
+                try? FileManager.default.removeItem(at: execURL)
+            }
+        }
+    }
+
+    /// Gracefully terminate all tracked long-running extension processes.
+    public func terminateAllLongRunning() {
+        processLock.lock()
+        let processes = runningLongProcesses
+        runningLongProcesses.removeAll()
+        processLock.unlock()
+        for (_, proc) in processes where proc.isRunning {
+            proc.terminate()
         }
     }
 
@@ -550,7 +599,21 @@ public class ExtensionEngine {
             settings: getSettingsValues(for: extensionId, manifest: ext.manifest)
         )
 
-        executeProcess(binaryPath: binaryPath, input: input) { outputData in
+        let actionManifest = ext.manifest.actions.first {
+            ($0.function ?? $0.name) == functionName
+        }
+        let isLongRunning = actionManifest?.longRunning ?? false
+
+        // Safe name for process (alphanumeric)
+        let safeExtId = extensionId.replacingOccurrences(of: ".", with: "_")
+        let safeFunc = functionName.replacingOccurrences(
+            of: "[^a-zA-Z0-9_]", with: "", options: .regularExpression)
+        let processName = "nerw_ext_\(safeExtId)_\(safeFunc)"
+
+        executeProcess(
+            binaryPath: binaryPath, input: input, longRunning: isLongRunning,
+            processName: processName
+        ) { outputData in
             guard let data = outputData else { return }
 
             // Parse action response for host commands
