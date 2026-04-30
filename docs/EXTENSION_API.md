@@ -59,7 +59,7 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `id` | string | Yes | Unique identifier (reverse domain notation recommended) |
 | `name` | string | Yes | Display name for the extension package |
 | `description` | string | No | Brief description of the extension |
-| `icon` | string | No | SF Symbol name for the extension package |
+| `icon` | string | No | SF Symbol name or local image file (e.g. "icon.png") for the extension package |
 | `actions` | array | Yes | List of actions provided by this extension |
 | `settings` | array | No | List of configuration options for the extension |
 
@@ -72,7 +72,7 @@ When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/
 | `triggers` | array | Yes | Keyword triggers that activate this action |
 | `type` | string | No | Action type: "inlineArg", "noArg" (instantly executes), or "args" (default) |
 | `function` | string | No | Function name called when type is "noArg". If absent, uses `name` |
-| `icon` | string | No | SF Symbol name (e.g., "star", "gear") |
+| `icon` | string | No | SF Symbol name or local image file (e.g., "star", "gear", "add.png") |
 | `longRunning` | boolean | No | If true, bypasses the 30s timeout for this action. Used for actions that show a panel and block indefinitely. |
 
 > **Note**: For backward compatibility, if `actions` is missing, the top-level `name`, `description`, `trigger`/`triggers`, and `icon` will be used to create a single action.
@@ -747,7 +747,7 @@ public enum NerwIcon {
 | Case | Description |
 |------|-------------|
 | `.system(String)` | SF Symbol name (e.g., "star.fill", "magnifyingglass") |
-| `.file(String)` | Absolute path to an image file |
+| `.file(String)` | Path to an image file. Can be absolute or relative to extension package. |
 
 **Implementation:**
 ```swift

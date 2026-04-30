@@ -54,7 +54,8 @@ public class ExtensionEngine {
         for ext in loadedExtensions {
             let manifest = ext.manifest
             for actionManifest in manifest.actions {
-                let action = createAction(manifest: manifest, actionManifest: actionManifest)
+                let action = createAction(
+                    manifest: manifest, path: ext.path, actionManifest: actionManifest)
                 actions.append(action)
             }
         }
@@ -62,7 +63,7 @@ public class ExtensionEngine {
     }
 
     private func createAction(
-        manifest: ExtensionManifest, actionManifest: ExtensionActionManifest,
+        manifest: ExtensionManifest, path: URL, actionManifest: ExtensionActionManifest,
         overrideTrigger: String? = nil
     ) -> NerwAction {
         let triggers = actionManifest.triggers
@@ -108,17 +109,30 @@ public class ExtensionEngine {
             )
         }
 
+        let rawIconName = actionManifest.icon ?? manifest.icon
+        let resolvedIcon: NerwAction.IconType?
+        if let name = rawIconName {
+            if name.hasPrefix("/") {
+                resolvedIcon = NSImage(contentsOfFile: name).map { .image($0) }
+            } else {
+                let localUrl = path.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: localUrl.path),
+                    let img = NSImage(contentsOfFile: localUrl.path)
+                {
+                    resolvedIcon = .image(img)
+                } else {
+                    resolvedIcon = .system(name)
+                }
+            }
+        } else {
+            resolvedIcon = nil
+        }
+
         return NerwAction(
             id: "nerw.ext.\(manifest.id).\(actionManifest.name)",
             title: actionManifest.name,
             subtitle: actionManifest.description ?? "",
-            icon: actionManifest.icon.flatMap { name in
-                if name.hasPrefix("/") {
-                    return NSImage(contentsOfFile: name).map { .image($0) }
-                } else {
-                    return .system(name)
-                }
-            } ?? .system("puzzlepiece.extension"),
+            icon: resolvedIcon ?? .system("puzzlepiece.extension"),
             triggers: triggers,
             type: actionType,
             isPersistent: actionManifest.longRunning ?? false
@@ -320,6 +334,8 @@ public class ExtensionEngine {
                     }
                 }
 
+                manifest.path = item.path
+
                 let loaded = LoadedExtension(
                     manifest: manifest, path: item, binaryPath: binaryPath)
                 loadedExtensions.append(loaded)
@@ -467,7 +483,9 @@ public class ExtensionEngine {
                 return
             }
 
-            let results = self.parseResults(data, extensionId: id, functionName: functionName)
+            let results = self.parseResults(
+                data, extensionId: id, extensionPath: ext.path, fallbackIcon: ext.manifest.icon,
+                functionName: functionName)
             DispatchQueue.main.async {
                 completion(results)
             }
@@ -725,7 +743,10 @@ public class ExtensionEngine {
 
     // MARK: - Result Parsing
 
-    private func parseResults(_ data: Data, extensionId: String, functionName: String? = nil)
+    private func parseResults(
+        _ data: Data, extensionId: String, extensionPath: URL, fallbackIcon: String?,
+        functionName: String? = nil
+    )
         -> [NerwAction]
     {
         guard
@@ -736,25 +757,31 @@ public class ExtensionEngine {
 
         var results: [NerwAction] = []
         for dict in jsonArray {
-            if let action = parseItem(dict, extensionId: extensionId, functionName: functionName) {
+            if let action = parseItem(
+                dict, extensionId: extensionId, extensionPath: extensionPath,
+                fallbackIcon: fallbackIcon, functionName: functionName)
+            {
                 results.append(action)
             }
         }
         return results
     }
 
-    private func parseItem(_ dict: [String: Any], extensionId: String, functionName: String? = nil)
+    private func parseItem(
+        _ dict: [String: Any], extensionId: String, extensionPath: URL, fallbackIcon: String?,
+        functionName: String? = nil
+    )
         -> NerwAction?
     {
         let title = dict["title"] as? String ?? "No Title"
         let subtitle = dict["subtitle"] as? String ?? ""
-        let iconName = dict["icon"] as? String
         let actionValue = dict["action"] as? String
         let explicitType = dict["type"] as? String
 
         // Icon
+        let rawIconName = (dict["icon"] as? String) ?? fallbackIcon
         let icon: NerwAction.IconType?
-        if let name = iconName {
+        if let name = rawIconName {
             if name.hasPrefix("/") {
                 if let img = NSImage(contentsOfFile: name) {
                     icon = .image(img)
@@ -762,7 +789,14 @@ public class ExtensionEngine {
                     icon = nil
                 }
             } else {
-                icon = .system(name)
+                let localUrl = extensionPath.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: localUrl.path),
+                    let img = NSImage(contentsOfFile: localUrl.path)
+                {
+                    icon = .image(img)
+                } else {
+                    icon = .system(name)
+                }
             }
         } else {
             icon = .system("puzzlepiece.extension")
@@ -809,7 +843,8 @@ public class ExtensionEngine {
         if explicitType == "hybrid" {
             guard let quickActionDict = dict["quickAction"] as? [String: Any],
                 let qa = parseItem(
-                    quickActionDict, extensionId: extensionId, functionName: functionName)
+                    quickActionDict, extensionId: extensionId, extensionPath: extensionPath,
+                    fallbackIcon: fallbackIcon, functionName: functionName)
             else {
                 return nil
             }
@@ -889,7 +924,9 @@ public class ExtensionEngine {
         } else {
             // INFERENCE (Backwards Compatibility)
             if let quickActionDict = dict["quickAction"] as? [String: Any],
-                let qa = parseItem(quickActionDict, extensionId: extensionId)
+                let qa = parseItem(
+                    quickActionDict, extensionId: extensionId, extensionPath: extensionPath,
+                    fallbackIcon: fallbackIcon)
             {
                 type = .hybrid(
                     perform: { [weak self] _ in

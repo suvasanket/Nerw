@@ -216,7 +216,23 @@ class ExtensionCardView: NSView {
         }
 
         if let iconName = manifest.icon {
-            iconImageView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+            if iconName.contains(".") || iconName.contains("/") {
+                let path =
+                    iconName.hasPrefix("/")
+                    ? iconName
+                    : (manifest.path.flatMap {
+                        URL(fileURLWithPath: $0).appendingPathComponent(iconName).path
+                    } ?? iconName)
+                if let image = NSImage(contentsOfFile: path) {
+                    iconImageView.image = image
+                } else {
+                    iconImageView.image = NSImage(
+                        systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)
+                }
+            } else {
+                iconImageView.image = NSImage(
+                    systemSymbolName: iconName, accessibilityDescription: nil)
+            }
         } else {
             iconImageView.image = NSImage(
                 systemSymbolName: "puzzlepiece.extension", accessibilityDescription: nil)

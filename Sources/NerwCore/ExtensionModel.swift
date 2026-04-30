@@ -83,6 +83,9 @@ public struct ExtensionManifest: Codable {
     public let mode: String?
     public let settings: [ExtensionSetting]?
 
+    // Set by the engine to resolve local assets
+    public var path: String?
+
     // Set by the engine if the extension is symlinked for testing
     public var isSmokeTest: Bool = false
 
@@ -94,7 +97,7 @@ public struct ExtensionManifest: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, icon, actions, mode, settings
+        case id, name, description, icon, actions, mode, settings, path
         // Legacy keys
         case trigger, triggers
     }
@@ -142,6 +145,7 @@ public struct ExtensionManifest: Codable {
         try container.encode(actions, forKey: .actions)
         try container.encodeIfPresent(mode, forKey: .mode)
         try container.encodeIfPresent(settings, forKey: .settings)
+        try container.encodeIfPresent(path, forKey: .path)
     }
 }
 
