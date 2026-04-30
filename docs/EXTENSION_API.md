@@ -19,6 +19,7 @@ You have full access to all macOS frameworks (EventKit, Contacts, URLSession, Ap
 9. [Nerw API (Host Commands)](#nerw-api-host-commands)
 10. [Extension Settings & Theme](#extension-settings--theme)
 11. [Example Extensions](#example-extensions)
+12. [CLI Tools](#cli-tools)
 
 ---
 
@@ -29,6 +30,9 @@ An extension is a `.nerw` package (a renamed `.zip` file) containing:
 2. `main.swift`: Your Swift source code.
 
 When a user opens a `.nerw` file, the app automatically extracts it to `~/.nerw/extensions/` and compiles the `main.swift` file against the `NerwExtensionKit` SDK. **No app restart required.**
+
+**Development Workflow:**
+During development, you can use the `nerw` CLI to initialize, test, and bundle your extensions without manual copying.
 
 ### manifest.json
 
@@ -1253,6 +1257,27 @@ struct FullFeaturedExtension: NerwExtension {
 
 Nerw.run(FullFeaturedExtension())
 ```
+
+---
+
+## CLI Tools
+
+The `nerw` command-line tool provides built-in utilities for extension developers.
+
+### `nerw extension init`
+Interactively creates a new extension directory with a `manifest.json` and `main.swift` template.
+- **Asks for**: Name, ID, and Trigger keyword.
+
+### `nerw extension smoke-test [query]`
+Compiles and runs the extension in the current directory against a test input.
+- **`[query]`**: The text to send to the extension's `query()` method.
+- **`--install` / `-i`**: Symlinks the current directory to the app's extension folder and reloads the host. This allows you to test your extension live in the Nerw UI as you save changes.
+- **`--clean` / `-c`**: Removes the development symlink.
+
+### `nerw extension bundle`
+Packages the current directory into a distribution-ready `.nerw` file.
+- **Output**: `<id>.nerw` in the current folder.
+- **Includes**: `manifest.json`, `main.swift`, and any other assets (like `.png` icons) present in the directory.
 
 ---
 
