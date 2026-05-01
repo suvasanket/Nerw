@@ -126,12 +126,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
     private var userHasNavigated: Bool = false
+    private var currentExecutionId: UUID?
 
     // State Machine for Input
     enum InputState {
         case search
         case argument(action: NerwAction, step: Int, collectedArgs: [String])
         case form(action: NerwAction)
+        case executing(action: NerwAction)
     }
     private var inputState: InputState = .search {
         didSet {
@@ -146,6 +148,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputField.isHidden = false
         iconContainer.isHidden = false
         separatorView.isHidden = false
+        inputField.isEditable = true
+        inputField.isSelectable = true
+        resultsTableView.alphaValue = 1.0
+        scrollView.isHidden = actions.isEmpty
 
         switch inputState {
         case .search:
@@ -177,6 +183,36 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             iconContainer.isHidden = true
             separatorView.isHidden = true
             scrollView.isHidden = true
+
+        case .executing(let action):
+            inputField.placeholderString = action.title
+            inputField.isEditable = false
+            inputField.isSelectable = false
+            resultsTableView.alphaValue = 0.5
+
+            // Set spinner icon
+            for subview in iconContainer.arrangedSubviews {
+                subview.removeFromSuperview()
+            }
+            let spinner = NSProgressIndicator()
+            spinner.style = .spinning
+            spinner.controlSize = .small
+            spinner.translatesAutoresizingMaskIntoConstraints = false
+            spinner.startAnimation(nil)
+
+            // Maintain layout dimensions for the spinner
+            let spinnerWidth = spinner.widthAnchor.constraint(equalToConstant: 16)
+            spinnerWidth.isActive = true
+            let spinnerHeight = spinner.heightAnchor.constraint(equalToConstant: 16)
+            spinnerHeight.isActive = true
+
+            // We need to keep the iconContainerWidthConstraints up to date so it matches the padding
+            iconContainerWidthConstraints.removeAll()
+            iconContainerHeightConstraints.removeAll()
+            iconContainerWidthConstraints.append(spinnerWidth)
+            iconContainerHeightConstraints.append(spinnerHeight)
+
+            iconContainer.addArrangedSubview(spinner)
         }
     }
 
@@ -816,23 +852,32 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func submitActiveAction(_ action: NerwAction) -> Bool {
         switch action.type {
         case .instant(let perform):
-            perform(action)
-            resetToSearch()
+            dispatchActionExecution(action: action, query: inputField.stringValue) {
+                perform(action)
+            }
         case .inlineArg(let perform, _):
-            perform(action, inputField.stringValue)
-            resetToSearch()
+            dispatchActionExecution(action: action, query: inputField.stringValue) {
+                perform(action, self.inputField.stringValue)
+            }
         case .args(_, _, let perform):
-            perform?(action, inputField.stringValue)
-            resetToSearch()
+            if let perform {
+                dispatchActionExecution(action: action, query: inputField.stringValue) {
+                    perform(action, self.inputField.stringValue)
+                }
+            } else {
+                delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
+                closeSession(restoreText: false)
+            }
         default:
             delegate?.didSubmit(text: "\(action.title) \(inputField.stringValue)")
-            resetToSearch()
+            closeSession(restoreText: false)
         }
         return true
     }
 
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true, restoreFocus: Bool = true) {
+        currentExecutionId = nil
         dismissActionContext(restoreFocus: restoreFocus)
         activeAction = nil
         inputState = .search
@@ -857,6 +902,38 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         delegate?.didPressEscape()
     }
 
+    private func dispatchActionExecution(
+        action: NerwAction, query: String?, performBlock: @escaping () -> Void
+    ) {
+        if let q = query, !q.isEmpty {
+            FrecencyManager.shared.recordUsage(id: action.id, forQuery: q)
+        }
+
+        let executionId = UUID()
+        self.currentExecutionId = executionId
+
+        if action.isPersistent {
+            self.inputState = .executing(action: action)
+        } else {
+            // Delay visual feedback for non-persistent actions by 50ms to prevent flicker
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                guard let self = self, self.currentExecutionId == executionId else { return }
+                self.inputState = .executing(action: action)
+            }
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            performBlock()
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.currentExecutionId == executionId else { return }
+                if !action.isPersistent {
+                    self.closeSession(restoreText: false)
+                }
+            }
+        }
+    }
+
     private func executeResult(
         _ result: NerwAction, query: String, modifiers: NSEvent.ModifierFlags = []
     ) -> Bool {
@@ -876,19 +953,17 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
 
             if let key = key, let modAction = result.modifiers[key] {
-                modAction.perform(result)
-                FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-                closeSession(restoreText: false)
+                dispatchActionExecution(action: result, query: query) {
+                    modAction.perform(result)
+                }
                 return true
             }
         }
 
         switch result.type {
         case .instant(let perform):
-            perform(result)
-            FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            if !result.isPersistent {
-                closeSession(restoreText: false)
+            dispatchActionExecution(action: result, query: query) {
+                perform(result)
             }
             return true
 
@@ -901,10 +976,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             return true
 
         case .hybrid(let perform, _):
-            perform(result)
-            FrecencyManager.shared.recordUsage(id: result.id, forQuery: query)
-            if !result.isPersistent {
-                closeSession(restoreText: false)
+            dispatchActionExecution(action: result, query: query) {
+                perform(result)
             }
             return true
 
@@ -1024,7 +1097,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
             return false
 
-        case .form:
+        case .form, .executing:
             return false  // Form handles its own tab navigation
         }
     }
@@ -1201,6 +1274,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             return handleBacktab()
 
         case #selector(NSResponder.cancelOperation(_:)):
+            if case .executing = inputState {
+                ExtensionEngine.shared.terminateAllLongRunning()
+                resetToSearch()
+                return true
+            }
             if case .argument = inputState {
                 resetToSearch()
                 return true
@@ -1566,8 +1644,9 @@ extension MainPanelContentViewController: FormViewDelegate {
             case .form(_, _, let perform) = action.type
         else { return }
 
-        perform(action, values)
-        closeSession(restoreText: false)
+        dispatchActionExecution(action: action, query: nil) {
+            perform(action, values)
+        }
     }
 }
 
