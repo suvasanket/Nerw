@@ -336,7 +336,9 @@ public class ClipboardManager {
                         ?? NSImage()),
                 triggers: ["clipboard", "clip", "paste", "history"],
                 type: .instant(perform: { _ in
-                    ClipboardManager.shared.showWindowCallback?()
+                    DispatchQueue.main.async {
+                        ClipboardManager.shared.showWindowCallback?()
+                    }
                 })
             )
         ]
