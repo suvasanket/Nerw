@@ -11,6 +11,7 @@ func runExtensionPanelTests() {
     testThemeConfigPositioningFields()
     testThemeConfigDefaults()
     testShowPanelCommandRemoved()
+    testFallbackIconResolution()
 
     print("[Testing] All Extension Theme Config tests PASSED.")
 }
@@ -195,4 +196,69 @@ func testShowPanelCommandRemoved() {
     }
 
     print("  ✓ testShowPanelCommandRemoved passed.")
+}
+
+func testFallbackIconResolution() {
+    let dict: [String: Any] = [
+        "title": "Add Reminder Test",
+        "subtitle": "Create a new reminder",
+        "action": "testAction",
+        "icon": "puzzlepiece.extension",  // The default SDK placeholder
+        "type": "option",
+    ]
+
+    let engine = ExtensionEngine.shared
+
+    // Test case 1: Icon is placeholder, fallbackIcon is provided
+    guard
+        let action = engine.parseItem(
+            dict, extensionId: "test.ext", extensionPath: URL(fileURLWithPath: "/tmp"),
+            fallbackIcon: "star.fill")
+    else {
+        fatalError("FAIL: parseItem returned nil")
+    }
+
+    guard case .system(let symbolName) = action.icon else {
+        fatalError("FAIL: Expected action icon to be system star.fill. Got \(String(describing: action.icon))")
+    }
+    if symbolName != "star.fill" {
+        fatalError("FAIL: Expected star.fill, got \(symbolName)")
+    }
+
+    // Test case 2: Icon is placeholder, fallbackIcon is nil
+    guard
+        let action2 = engine.parseItem(
+            dict, extensionId: "test.ext", extensionPath: URL(fileURLWithPath: "/tmp"),
+            fallbackIcon: nil)
+    else {
+        fatalError("FAIL: parseItem returned nil")
+    }
+
+    guard case .system(let symbolName2) = action2.icon else {
+        fatalError(
+            "FAIL: Expected action icon to be system puzzlepiece.extension. Got \(String(describing: action2.icon))")
+    }
+    if symbolName2 != "puzzlepiece.extension" {
+        fatalError("FAIL: Expected puzzlepiece.extension, got \(symbolName2)")
+    }
+
+    // Test case 3: Icon is custom, overrides fallbackIcon
+    var dict2 = dict
+    dict2["icon"] = "heart.fill"
+    guard
+        let action3 = engine.parseItem(
+            dict2, extensionId: "test.ext", extensionPath: URL(fileURLWithPath: "/tmp"),
+            fallbackIcon: "star.fill")
+    else {
+        fatalError("FAIL: parseItem returned nil")
+    }
+
+    guard case .system(let symbolName3) = action3.icon else {
+        fatalError("FAIL: Expected action icon to be system heart.fill. Got \(String(describing: action3.icon))")
+    }
+    if symbolName3 != "heart.fill" {
+        fatalError("FAIL: Expected heart.fill, got \(symbolName3)")
+    }
+
+    print("  ✓ testFallbackIconResolution passed.")
 }

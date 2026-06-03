@@ -483,8 +483,18 @@ public class ExtensionEngine {
                 return
             }
 
+            let actionManifest = ext.manifest.actions.first { action in
+                if let functionName = functionName {
+                    return (action.function ?? action.name) == functionName
+                } else if let trigger = trigger {
+                    return action.triggers.contains(trigger)
+                }
+                return false
+            }
+            let resolvedFallbackIcon = actionManifest?.icon ?? ext.manifest.icon
+
             let results = self.parseResults(
-                data, extensionId: id, extensionPath: ext.path, fallbackIcon: ext.manifest.icon,
+                data, extensionId: id, extensionPath: ext.path, fallbackIcon: resolvedFallbackIcon,
                 functionName: functionName)
             DispatchQueue.main.async {
                 completion(results)
@@ -743,7 +753,7 @@ public class ExtensionEngine {
 
     // MARK: - Result Parsing
 
-    private func parseResults(
+    func parseResults(
         _ data: Data, extensionId: String, extensionPath: URL, fallbackIcon: String?,
         functionName: String? = nil
     )
@@ -767,7 +777,7 @@ public class ExtensionEngine {
         return results
     }
 
-    private func parseItem(
+    func parseItem(
         _ dict: [String: Any], extensionId: String, extensionPath: URL, fallbackIcon: String?,
         functionName: String? = nil
     )
@@ -779,9 +789,13 @@ public class ExtensionEngine {
         let explicitType = dict["type"] as? String
 
         // Icon
-        let rawIconName = (dict["icon"] as? String) ?? fallbackIcon
+        var rawIconName = dict["icon"] as? String
+        if rawIconName == "puzzlepiece.extension" {
+            rawIconName = nil
+        }
+        let resolvedIconName = rawIconName ?? fallbackIcon
         let icon: NerwAction.IconType?
-        if let name = rawIconName {
+        if let name = resolvedIconName {
             if name.hasPrefix("/") {
                 if let img = NSImage(contentsOfFile: name) {
                     icon = .image(img)

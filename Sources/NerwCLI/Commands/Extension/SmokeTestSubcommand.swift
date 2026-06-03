@@ -144,10 +144,21 @@ struct SmokeTestSubcommand: Subcommand {
         do {
             try runProcess.run()
 
+            var triggers: [String] = ["first"]
+            if let manifest = CLIUtils.readManifest(from: currentDir) {
+                if let actions = manifest["actions"] as? [[String: Any]] {
+                    triggers = actions.flatMap { ($0["triggers"] as? [String]) ?? [] }
+                } else if let trigs = manifest["triggers"] as? [String] {
+                    triggers = trigs
+                } else if let trig = manifest["trigger"] as? String {
+                    triggers = [trig]
+                }
+            }
+
             let input: [String: Any] = [
                 "type": "query",
                 "query": query,
-                "triggers": ["first"],
+                "triggers": triggers,
             ]
             let inputData = try JSONSerialization.data(withJSONObject: input)
             inputPipe.fileHandleForWriting.write(inputData)
