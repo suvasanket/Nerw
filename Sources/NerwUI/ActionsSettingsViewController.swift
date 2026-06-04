@@ -89,18 +89,35 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let apps = self.makeApplicationRows()
-            let builtinActions = self.makeRows(
-                from: Nerw.shared.getAllActions() + System.shared.getAllActions() + [
-                    FindFile.shared.getTriggerAction()
-                ] + ClipboardManager.builtinActions()
-            )
+
+            let clipboardActions = self.makeRows(from: ClipboardManager.builtinActions())
+
+            let systemActions = System.shared.getAllActions()
+            let finderSystemActions = systemActions.filter {
+                $0.id == "nerw.system.eject" || $0.id == "nerw.system.ejectall"
+                    || $0.id == "nerw.system.emptydownloads"
+            }
+            let finderRawActions: [NerwAction] =
+                [FindFile.shared.getTriggerAction()] + finderSystemActions
+            let finderActions = self.makeRows(from: finderRawActions)
+
+            let miscRawActions =
+                Nerw.shared.getAllActions()
+                + systemActions.filter {
+                    $0.id != "nerw.system.eject" && $0.id != "nerw.system.ejectall"
+                        && $0.id != "nerw.system.emptydownloads"
+                }
+            let miscActions = self.makeRows(from: miscRawActions)
+
             let shortcuts = self.makeRows(from: ShortcutsEngine.shared.getAllActions())
             let extensions = self.makeExtensionRows()
 
             DispatchQueue.main.async {
                 guard generation == self.reloadGeneration else { return }
                 self.addLazySection(title: "Applications", actions: apps)
-                self.addLazySection(title: "Builtin Actions", actions: builtinActions)
+                self.addLazySection(title: "Clipboard", actions: clipboardActions)
+                self.addLazySection(title: "Finder", actions: finderActions)
+                self.addLazySection(title: "Misc", actions: miscActions)
                 self.addLazySection(title: "Shortcuts", actions: shortcuts)
                 for ext in extensions {
                     self.addLazySection(title: ext.0, actions: ext.1)
@@ -158,7 +175,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                     let line = NSBox()
                     line.boxType = .separator
                     section.addContent(line)
-                    line.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
+                    line.widthAnchor.constraint(equalTo: row.widthAnchor, constant: -24).isActive =
+                        true
                 }
             }
 
@@ -178,6 +196,12 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         processBatch()
     }
 
+    private static let iconCache: NSCache<NSURL, NSImage> = {
+        let cache = NSCache<NSURL, NSImage>()
+        cache.countLimit = 300
+        return cache
+    }()
+
     private func createActionRow(
         title: String, triggers: [String], id: String, icon: NerwAction.IconType?,
         iconURL: URL? = nil
@@ -186,8 +210,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         row.orientation = .horizontal
         row.spacing = 10
         row.alignment = .centerY
-        row.edgeInsets = NSEdgeInsets(top: 4, left: 12, bottom: 4, right: 12)
-        row.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        row.edgeInsets = NSEdgeInsets(top: 2, left: 12, bottom: 2, right: 12)
+        row.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
         // Enable Toggle
         let toggle = NSButton(
@@ -202,6 +226,21 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         iconView.widthAnchor.constraint(equalToConstant: 20).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
+        func loadIconAsync(_ url: URL) {
+            if let cached = Self.iconCache.object(forKey: url as NSURL) {
+                iconView.image = cached
+                return
+            }
+            let capturedView = iconView
+            DispatchQueue.global(qos: .userInitiated).async {
+                let loadedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                Self.iconCache.setObject(loadedIcon, forKey: url as NSURL)
+                DispatchQueue.main.async {
+                    capturedView.image = loadedIcon
+                }
+            }
+        }
+
         if let icon = icon {
             switch icon {
             case .system(let name):
@@ -209,24 +248,10 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             case .image(let image):
                 iconView.image = image
             case .file(let url):
-                // Load icon asynchronously to avoid UI freeze
-                let capturedView = iconView
-                DispatchQueue.global(qos: .userInitiated).async {
-                    let loadedIcon = NSWorkspace.shared.icon(forFile: url.path)
-                    DispatchQueue.main.async {
-                        capturedView.image = loadedIcon
-                    }
-                }
+                loadIconAsync(url)
             }
         } else if let url = iconURL {
-            // Async icon loading for apps (no icon type provided)
-            let capturedView = iconView
-            DispatchQueue.global(qos: .userInitiated).async {
-                let loadedIcon = NSWorkspace.shared.icon(forFile: url.path)
-                DispatchQueue.main.async {
-                    capturedView.image = loadedIcon
-                }
-            }
+            loadIconAsync(url)
         }
         row.addArrangedSubview(iconView)
 
