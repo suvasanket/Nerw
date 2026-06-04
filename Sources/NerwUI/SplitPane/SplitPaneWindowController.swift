@@ -103,6 +103,7 @@ public class SplitPaneWindowController: NSObject {
         panel.setFrameOrigin(exactOrig)
 
         panel.makeKeyAndOrderFront(nil)
+        contentViewController.resetSelection()
         contentViewController.reloadData()
     }
 

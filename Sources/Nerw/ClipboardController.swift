@@ -103,6 +103,10 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
 
         let lowerQuery = currentQuery.lowercased()
         filteredEntries = entries.filter { entry in
+            let title = ClipboardManager.title(for: entry).lowercased()
+            if title.contains(lowerQuery) {
+                return true
+            }
             if let text = entry.text {
                 return text.lowercased().contains(lowerQuery)
             }

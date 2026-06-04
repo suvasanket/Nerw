@@ -197,6 +197,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     public override func viewWillAppear() {
         super.viewWillAppear()
+        selectedIndex = 0
         // Focus the search field initially
         view.window?.makeFirstResponder(searchField)
 
@@ -224,6 +225,10 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         tableView.reloadData()
         updateSelection(to: min(selectedIndex, max(0, (dataSource?.numberOfItems() ?? 0) - 1)))
         refreshActionContextIfNeeded()
+    }
+
+    public func resetSelection() {
+        selectedIndex = 0
     }
 
     private func updateSelection(to index: Int) {

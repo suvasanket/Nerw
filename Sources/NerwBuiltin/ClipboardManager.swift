@@ -16,16 +16,18 @@ public struct ClipboardEntry: Codable, Equatable {
     public let text: String?
     public let imagePath: String?
     public let isPinned: Bool
+    public let sourceApp: String?
 
     public init(
         id: String = UUID().uuidString, timestamp: Date = Date(), text: String? = nil,
-        imagePath: String? = nil, isPinned: Bool = false
+        imagePath: String? = nil, isPinned: Bool = false, sourceApp: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
         self.text = text
         self.imagePath = imagePath
         self.isPinned = isPinned
+        self.sourceApp = sourceApp
     }
 
     enum CodingKeys: String, CodingKey {
@@ -34,6 +36,7 @@ public struct ClipboardEntry: Codable, Equatable {
         case text
         case imagePath
         case isPinned
+        case sourceApp
     }
 
     public init(from decoder: Decoder) throws {
@@ -43,6 +46,7 @@ public struct ClipboardEntry: Codable, Equatable {
         text = try container.decodeIfPresent(String.self, forKey: .text)
         imagePath = try container.decodeIfPresent(String.self, forKey: .imagePath)
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        sourceApp = try container.decodeIfPresent(String.self, forKey: .sourceApp)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -52,6 +56,7 @@ public struct ClipboardEntry: Codable, Equatable {
         try container.encodeIfPresent(text, forKey: .text)
         try container.encodeIfPresent(imagePath, forKey: .imagePath)
         try container.encode(isPinned, forKey: .isPinned)
+        try container.encodeIfPresent(sourceApp, forKey: .sourceApp)
     }
 }
 
@@ -125,7 +130,8 @@ public class ClipboardManager {
             if latestUnpinned.imagePath == imagePath && imagePath != nil { return }
         }
 
-        let entry = ClipboardEntry(text: text, imagePath: imagePath)
+        let sourceApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        let entry = ClipboardEntry(text: text, imagePath: imagePath, sourceApp: sourceApp)
         entries.insert(entry, at: insertionIndex)
 
         while entries.count > maxEntries {
@@ -224,7 +230,8 @@ public class ClipboardManager {
             timestamp: existingEntry.timestamp,
             text: existingEntry.text,
             imagePath: existingEntry.imagePath,
-            isPinned: !existingEntry.isPinned
+            isPinned: !existingEntry.isPinned,
+            sourceApp: existingEntry.sourceApp
         )
 
         if updatedEntry.isPinned {
@@ -247,7 +254,14 @@ public class ClipboardManager {
         }
 
         if entry.imagePath != nil {
-            return "Image"
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d, h:mm a"
+            let dateStr = formatter.string(from: entry.timestamp)
+            if let appName = entry.sourceApp {
+                return "Image from \(appName) (\(dateStr))"
+            } else {
+                return "Image (\(dateStr))"
+            }
         }
 
         return "Unknown"
