@@ -53,7 +53,7 @@ The source code is organized into modular targets within `Sources/`:
 - **Key Components**:
     - `SearchService.swift`: The central orchestrator. Aggregates results from Apps, Built-ins, and Extensions while filtering out disabled actions. Handles fuzzy matching, ranking, and Web Search execution. Also handles pinning **inlineArg** triggers to the top.
     - `WebSearch.swift`: Manages web search sites and "trigger" (!g, !yt) matching (formerly Bang Search). Persists to `~/Library/Application Support/Nerw/WebSearch.json`.
-    - `FindFile.swift`: Native Spotlight integration using `NSMetadataQuery` for instant file search.
+    - `FindFile.swift`: Native Spotlight integration using `NSMetadataQuery` for instant file search. Requests permission for protected folders (Downloads, Documents, Desktop) on-demand upon first search.
     - `AppSearch.swift`: Fast application indexing and launching. Uses focused `NSMetadataQuery` scopes (`/Applications`, `/System/Applications`, `~/Applications`, CoreServices) to avoid scanning the entire user directory tree.
     - `System.swift`: System commands (Dictionary, Wikipedia, file cleanup, volume ejection, etc.), plus WiFi and Bluetooth integration.
     - `QuickAction.swift`: Real-time process management (Quit/Force Quit).

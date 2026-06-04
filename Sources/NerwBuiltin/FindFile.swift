@@ -16,6 +16,9 @@ public class FindFile {
     // Completion handler storage for live updates
     private var currentCompletion: (([NerwAction]) -> Void)?
 
+    // Tracks if folder permissions have been requested during this session
+    private var hasTriggeredPermissionRequest = false
+
     // MARK: - Exclusion Logic
 
     // Layer 1: Native Spotlight Exclusion (Performance)
@@ -77,6 +80,9 @@ public class FindFile {
 
     // MARK: - Live Search Engine
     public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
+        // Trigger folder permissions request if not done yet
+        requestFolderPermissionsIfNeeded()
+
         // 1. Cleanup previous query
         stopCurrentQuery()
 
@@ -150,6 +156,23 @@ public class FindFile {
             NotificationCenter.default.removeObserver(
                 self, name: NSNotification.Name(kMDQueryDidFinishNotification as String), object: q)
             currentQuery = nil
+        }
+    }
+
+    private func requestFolderPermissionsIfNeeded() {
+        guard !hasTriggeredPermissionRequest else { return }
+        hasTriggeredPermissionRequest = true
+
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let targetFolders = ["Downloads", "Documents", "Desktop"]
+
+        DispatchQueue.global(qos: .utility).async {
+            for folder in targetFolders {
+                let url = home.appendingPathComponent(folder)
+                // Access contents of the directory to trigger standard macOS TCC permission prompts
+                _ = try? FileManager.default.contentsOfDirectory(
+                    at: url, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+            }
         }
     }
 

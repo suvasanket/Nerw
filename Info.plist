@@ -30,6 +30,12 @@
 	<string>Nerw needs access to your reminders to display them via extensions.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Nerw needs access to your reminders to display them via extensions.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Nerw requires access to your Downloads folder to search and display files stored there.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Nerw requires access to your Documents folder to search and display files stored there.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Nerw requires access to your Desktop folder to search and display files stored there.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
