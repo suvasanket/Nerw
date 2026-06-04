@@ -229,6 +229,9 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     public func resetSelection() {
         selectedIndex = 0
+        if tableView.numberOfRows > 0 {
+            tableView.scrollRowToVisible(0)
+        }
     }
 
     private func updateSelection(to index: Int) {

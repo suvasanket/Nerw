@@ -158,6 +158,28 @@ public class ClipboardManager {
         }
     }
 
+    public func clearHistory(timeAgo: TimeInterval?) {
+        if let timeAgo = timeAgo {
+            let cutoff = Date().addingTimeInterval(-timeAgo)
+            let toRemove = entries.filter { $0.timestamp > cutoff && !$0.isPinned }
+            for entry in toRemove {
+                if let path = entry.imagePath {
+                    try? FileManager.default.removeItem(atPath: path)
+                }
+            }
+            entries.removeAll { $0.timestamp > cutoff && !$0.isPinned }
+        } else {
+            let toRemove = entries.filter { !$0.isPinned }
+            for entry in toRemove {
+                if let path = entry.imagePath {
+                    try? FileManager.default.removeItem(atPath: path)
+                }
+            }
+            entries.removeAll { !$0.isPinned }
+        }
+        save()
+    }
+
     @discardableResult
     public func togglePinned(id: String) -> Bool {
         let updatedEntries = Self.entriesByTogglingPin(for: id, in: entries)
@@ -245,14 +267,6 @@ public class ClipboardManager {
     }
 
     public static func title(for entry: ClipboardEntry) -> String {
-        if let text = entry.text {
-            let firstLine =
-                text.trimmingCharacters(in: .whitespacesAndNewlines).components(
-                    separatedBy: .newlines
-                ).first ?? text
-            return firstLine.isEmpty ? "Empty Text" : String(firstLine.prefix(50))
-        }
-
         if entry.imagePath != nil {
             let formatter = DateFormatter()
             formatter.dateFormat = "MMM d, h:mm a"
@@ -262,6 +276,14 @@ public class ClipboardManager {
             } else {
                 return "Image (\(dateStr))"
             }
+        }
+
+        if let text = entry.text {
+            let firstLine =
+                text.trimmingCharacters(in: .whitespacesAndNewlines).components(
+                    separatedBy: .newlines
+                ).first ?? text
+            return firstLine.isEmpty ? "Empty Text" : String(firstLine.prefix(50))
         }
 
         return "Unknown"
@@ -337,24 +359,128 @@ public class ClipboardManager {
     }
 
     public static func builtinActions() -> [NerwAction] {
+        let clipboardIcon =
+            NSImage(named: "clipboard") ?? NSImage(
+                systemSymbolName: "clipboard", accessibilityDescription: nil)
+            ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+            ?? NSImage()
+
         return [
             NerwAction(
                 id: "builtin.clipboard",
                 title: "Clipboard Manager",
                 subtitle: "View clipboard history",
-                icon: .image(
-                    NSImage(named: "clipboard") ?? NSImage(
-                        systemSymbolName: "clipboard", accessibilityDescription: nil)
-                        ?? NSImage(
-                            systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-                        ?? NSImage()),
-                triggers: ["clipboard", "clip", "paste", "history"],
+                icon: .image(clipboardIcon),
+                triggers: ["clipboard"],
                 type: .instant(perform: { _ in
                     DispatchQueue.main.async {
                         ClipboardManager.shared.showWindowCallback?()
                     }
                 })
-            )
+            ),
+            NerwAction(
+                id: "builtin.clipboard.clear",
+                title: "Clear Clipboard History",
+                subtitle: "Clear all or recent clipboard entries",
+                icon: .image(clipboardIcon),
+                triggers: ["clearclipboard"],
+                type: .args(
+                    placeholder: "Select time range to clear",
+                    searcher: { action, query, completion in
+                        let icon = action.icon
+                        let clearAll = NerwAction(
+                            id: "clear.all", title: "Clear All",
+                            subtitle: "Clear all stored clipboard content", icon: icon,
+                            type: .instant { _ in
+                                ClipboardManager.shared.clearHistory(timeAgo: nil)
+                            })
+
+                        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                            .lowercased()
+
+                        if trimmed.isEmpty {
+                            let defaultOptions = [
+                                NerwAction(
+                                    id: "clear.10m", title: "Last 10 minutes",
+                                    subtitle: "Clear entries from the last 10 minutes", icon: icon,
+                                    type: .instant { _ in
+                                        ClipboardManager.shared.clearHistory(timeAgo: 10 * 60)
+                                    }),
+                                NerwAction(
+                                    id: "clear.1h", title: "Last 1 hour",
+                                    subtitle: "Clear entries from the last 1 hour", icon: icon,
+                                    type: .instant { _ in
+                                        ClipboardManager.shared.clearHistory(timeAgo: 3600)
+                                    }),
+                                NerwAction(
+                                    id: "clear.1d", title: "Last 1 day",
+                                    subtitle: "Clear entries from the last 1 day", icon: icon,
+                                    type: .instant { _ in
+                                        ClipboardManager.shared.clearHistory(timeAgo: 24 * 3600)
+                                    }),
+                                clearAll,
+                            ]
+                            completion(defaultOptions)
+                            return
+                        }
+
+                        let scanner = Scanner(string: trimmed)
+                        if let number = scanner.scanDouble() {
+                            let remainingString = String(trimmed[scanner.currentIndex...])
+                                .trimmingCharacters(in: .whitespaces)
+
+                            var multiplier: TimeInterval = 60
+                            var unitName = "minutes"
+
+                            if remainingString.hasPrefix("d") {
+                                multiplier = 24 * 3600
+                                unitName = "days"
+                            } else if remainingString.hasPrefix("h") {
+                                multiplier = 3600
+                                unitName = "hours"
+                            } else if remainingString.hasPrefix("s") {
+                                multiplier = 1
+                                unitName = "seconds"
+                            } else if remainingString.hasPrefix("w") {
+                                multiplier = 7 * 24 * 3600
+                                unitName = "weeks"
+                            } else if remainingString.hasPrefix("m") {
+                                multiplier = 60
+                                unitName = "minutes"
+                            }
+
+                            let isSingular = number == 1.0
+                            if isSingular && unitName.hasSuffix("s") {
+                                unitName.removeLast()
+                            }
+
+                            let timeAgo = TimeInterval(number) * multiplier
+                            let numberStr =
+                                number.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int(number)) : String(number)
+
+                            let dynamicAction = NerwAction(
+                                id: "clear.dynamic",
+                                title: "Clear last \(numberStr) \(unitName)",
+                                subtitle:
+                                    "Clear clipboard entries from the last \(numberStr) \(unitName)",
+                                icon: icon,
+                                type: .instant { _ in
+                                    ClipboardManager.shared.clearHistory(timeAgo: timeAgo)
+                                }
+                            )
+
+                            completion([dynamicAction, clearAll])
+                        } else {
+                            if "clear all".contains(trimmed) || "all".contains(trimmed) {
+                                completion([clearAll])
+                            } else {
+                                completion([])
+                            }
+                        }
+                    }
+                )
+            ),
         ]
     }
 }
