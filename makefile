@@ -21,6 +21,7 @@ main:
 clean:
 	@swift package reset
 	@rm -rf .build
+	@rm -f Nerw.dmg
 
 open:
 	@pkill -x $(APP) || true; sleep 1; open $(BUNDLE_NAME)
@@ -77,3 +78,6 @@ bundle: main
 
 clean-bundle:
 	rm -rf $(BUNDLE_NAME)
+
+dmg: bundle
+	@./Scripts/create_dmg.sh

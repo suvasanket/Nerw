@@ -219,7 +219,9 @@ func testFallbackIconResolution() {
     }
 
     guard case .system(let symbolName) = action.icon else {
-        fatalError("FAIL: Expected action icon to be system star.fill. Got \(String(describing: action.icon))")
+        fatalError(
+            "FAIL: Expected action icon to be system star.fill. Got \(String(describing: action.icon))"
+        )
     }
     if symbolName != "star.fill" {
         fatalError("FAIL: Expected star.fill, got \(symbolName)")
@@ -236,7 +238,8 @@ func testFallbackIconResolution() {
 
     guard case .system(let symbolName2) = action2.icon else {
         fatalError(
-            "FAIL: Expected action icon to be system puzzlepiece.extension. Got \(String(describing: action2.icon))")
+            "FAIL: Expected action icon to be system puzzlepiece.extension. Got \(String(describing: action2.icon))"
+        )
     }
     if symbolName2 != "puzzlepiece.extension" {
         fatalError("FAIL: Expected puzzlepiece.extension, got \(symbolName2)")
@@ -254,7 +257,9 @@ func testFallbackIconResolution() {
     }
 
     guard case .system(let symbolName3) = action3.icon else {
-        fatalError("FAIL: Expected action icon to be system heart.fill. Got \(String(describing: action3.icon))")
+        fatalError(
+            "FAIL: Expected action icon to be system heart.fill. Got \(String(describing: action3.icon))"
+        )
     }
     if symbolName3 != "heart.fill" {
         fatalError("FAIL: Expected heart.fill, got \(symbolName3)")
