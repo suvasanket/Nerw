@@ -66,7 +66,8 @@ The source code is organized into modular targets within `Sources/`:
 - **Key Components**:
     - `NerwAction.swift`: The core result model. Defines icons, titles, and `ActionType` (`.instant`, `.arg`, `.inlineArg`, `.hybrid`, `.form`).
     - `NerwActionContext.swift`: Shared per-action context model and menu builder.
-    - `NerwActionPreferenceManager.swift`: Manages global assignment of aliases, hotkeys, and enabled/disabled states locally in `~/.nerw/actions.json`.
+    - `NerwActionPreferenceManager.swift`: Manages global assignment of aliases, hotkeys, disabled, and hidden states locally in `~/.nerw/actions.json`.
+    - `NerwActionHidden.swift` & `NerwActionEnabled.swift`: Interfaces for toggling action visibility.
 
 ### `NerwCore` (Core Logic & Extension System)
 - **Role**: Fundamental data models and the extension engine.

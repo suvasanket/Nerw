@@ -23,6 +23,7 @@ public struct NerwActionContext {
         case alias
         case hotkey
         case toggleEnabled
+        case toggleHidden
         case custom(String)
     }
 
@@ -183,9 +184,24 @@ public enum NerwActionContextBuilder {
                 kind: .toggleEnabled,
                 title: NerwActionEnabled.get(for: action.id) ? "Disable Action" : "Enable Action",
                 subtitle: NerwActionEnabled.get(for: action.id)
-                    ? "Hide this action from search results" : "Show this action in search results",
-                icon: .system(NerwActionEnabled.get(for: action.id) ? "eye.slash" : "eye"),
+                    ? "Disable this action completely" : "Enable this action",
+                icon: .system(
+                    NerwActionEnabled.get(for: action.id) ? "xmark.circle" : "checkmark.circle"),
                 interaction: .toggle(isOn: NerwActionEnabled.get(for: action.id))
+            ),
+            .init(
+                id: "toggleHidden",
+                kind: .toggleHidden,
+                title: NerwActionPreferenceManager.shared.isActionHidden(for: action.id)
+                    ? "Unhide Action" : "Hide Action",
+                subtitle: NerwActionPreferenceManager.shared.isActionHidden(for: action.id)
+                    ? "Show this action in search results"
+                    : "Hide this action from search results (Requires hotkey)",
+                icon: .system(
+                    NerwActionPreferenceManager.shared.isActionHidden(for: action.id)
+                        ? "eye" : "eye.slash"),
+                interaction: .toggle(
+                    isOn: NerwActionPreferenceManager.shared.isActionHidden(for: action.id))
             ),
         ]
     }

@@ -5,6 +5,7 @@ public struct ActionPreferences: Codable {
     public var actionAliases: [String: [String]] = [:]
     public var actionHotkeys: [String: String] = [:]
     public var disabledActions: [String] = []
+    public var hiddenActions: [String] = []
 
     public init() {}
 }
@@ -97,5 +98,13 @@ public class NerwActionPreferenceManager {
 
     public func updateActionEnabled(_ enabled: Bool, for actionID: String) {
         NerwActionEnabled.set(enabled, for: actionID)
+    }
+
+    public func isActionHidden(for actionID: String) -> Bool {
+        NerwActionHidden.get(for: actionID)
+    }
+
+    public func updateActionHidden(_ hidden: Bool, for actionID: String) {
+        NerwActionHidden.set(hidden, for: actionID)
     }
 }

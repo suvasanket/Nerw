@@ -121,6 +121,14 @@ Open a side popup for the currently selected action to inspect and trigger the o
     -   Hotkeys are recorded directly from the popup and registered as action-specific global shortcuts.
 7.  **Close**: Press `Esc` or execute/save an operation to close the popup.
 
+### Hide Actions
+You can hide actions from the main search results if you prefer to trigger them exclusively via hotkeys.
+1.  **Requirement**: An action can only be hidden if it has a custom hotkey assigned to it.
+2.  **Toggle**:
+    - You can hide/unhide an action using the **Hide Action** toggle in the Action Context popup (`Cmd + K`).
+    - Alternatively, you can use the **Eye** icon button in the **Settings > Actions** tab next to the enable toggle.
+3.  **Behavior**: Hidden actions will not appear in search results but can still be executed instantly using their assigned hotkey. If the hotkey is removed, the action will automatically unhide itself to remain accessible.
+
 ### UI Theming & Typography
 Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`. Core dimensions and typography are centralized in `GlobalLayout.swift`.
 You can customize:

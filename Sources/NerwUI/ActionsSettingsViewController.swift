@@ -220,6 +220,17 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         toggle.identifier = NSUserInterfaceItemIdentifier(id)
         row.addArrangedSubview(toggle)
 
+        // Hide Toggle
+        let isHidden = NerwActionPreferenceManager.shared.isActionHidden(for: id)
+        let hideToggle = NSButton(
+            image: NSImage(
+                systemSymbolName: isHidden ? "eye.slash" : "eye", accessibilityDescription: nil)!,
+            target: self, action: #selector(handleToggleHidden(_:)))
+        hideToggle.isBordered = false
+        hideToggle.identifier = NSUserInterfaceItemIdentifier(id + "_hide")
+        hideToggle.toolTip = "Hide from search (requires hotkey)"
+        row.addArrangedSubview(hideToggle)
+
         // Icon
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -450,6 +461,12 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let id = recorder.identifier?.rawValue else { return }
         NerwActionPreferenceManager.shared.updateHotkey(keybind, for: id)
+
+        if keybind.isEmpty && NerwActionPreferenceManager.shared.isActionHidden(for: id) {
+            NerwActionPreferenceManager.shared.updateActionHidden(false, for: id)
+            SearchService.shared.loadCache(asyncUpdate: true)
+            // The UI will update on next reload
+        }
     }
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField,
@@ -467,6 +484,37 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         SearchService.shared.loadCache(asyncUpdate: true)
 
         let status = enabled ? "enabled" : "disabled"
+        NerwNotificationManager.shared.show(
+            content: "Action \(status): \(id)",
+            level: .info
+        )
+    }
+
+    @objc private func handleToggleHidden(_ sender: NSButton) {
+        guard let idWithSuffix = sender.identifier?.rawValue,
+            idWithSuffix.hasSuffix("_hide")
+        else { return }
+        let id = String(idWithSuffix.dropLast(5))
+
+        let hasHotkey = !NerwActionPreferenceManager.shared.hotkey(for: id).isEmpty
+        let currentlyHidden = NerwActionPreferenceManager.shared.isActionHidden(for: id)
+
+        if !currentlyHidden && !hasHotkey {
+            NerwNotificationManager.shared.show(
+                content: "Cannot hide action without a hotkey",
+                level: .info
+            )
+            return
+        }
+
+        let nextHidden = !currentlyHidden
+        NerwActionPreferenceManager.shared.updateActionHidden(nextHidden, for: id)
+        sender.image = NSImage(
+            systemSymbolName: nextHidden ? "eye.slash" : "eye", accessibilityDescription: nil)
+
+        SearchService.shared.loadCache(asyncUpdate: true)
+
+        let status = nextHidden ? "hidden" : "unhidden"
         NerwNotificationManager.shared.show(
             content: "Action \(status): \(id)",
             level: .info

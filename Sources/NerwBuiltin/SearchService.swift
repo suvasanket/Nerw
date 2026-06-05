@@ -65,9 +65,7 @@ public class SearchService {
             switch action.type {
             case .instant(let perform):
                 perform(action)
-            case .inlineArg(let perform, _):
-                perform(action, "")
-            case .args, .arg, .form:
+            case .inlineArg, .args, .arg, .form:
                 DispatchQueue.main.async {
                     if let ui = NerwSystem.shared.ui {
                         ui.openAction(action)
@@ -127,7 +125,14 @@ public class SearchService {
 
         // 1. Unified Search Entry
         let lowerQuery = query.lowercased()
-        let allCandidates = self.getCandidates()
+        var allCandidates = self.getCandidates()
+
+        // Filter out hidden actions from search results
+        allCandidates = allCandidates.filter { action in
+            let isHidden = NerwActionHidden.get(for: action.id)
+            let hasHotkey = !NerwActionHotkey.get(for: action.id).isEmpty
+            return !(isHidden && hasHotkey)
+        }
 
         // 2. Check for "Locked" Inline Action (Trigger + Space)
         for action in allCandidates {

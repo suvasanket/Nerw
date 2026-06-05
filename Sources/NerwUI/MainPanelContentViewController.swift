@@ -584,10 +584,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .instant(let perform), .hybrid(let perform, _):
             perform(action)
         case .inlineArg(let perform, _):
-            // Default behavior for opening an inlineArg action is to show its title in field?
-            // Actually, we can just execute it with empty arg or do nothing.
-            // Let's just execute with empty for now.
-            perform(action, "")
+            if let trigger = action.triggers.first {
+                inputField.stringValue = trigger + " "
+                DispatchQueue.main.async { [weak self] in
+                    self?.inputField.currentEditor()?.moveToEndOfLine(nil)
+                }
+                search(query: inputField.stringValue)
+            } else {
+                perform(action, "")
+            }
         }
     }
 
@@ -1671,7 +1676,7 @@ extension MainPanelContentViewController: ActionContextViewControllerDelegate {
                 query: inputField.stringValue,
                 modifiers: modifierFlags(for: key)
             )
-        case .alias, .hotkey, .toggleEnabled, .custom:
+        case .alias, .hotkey, .toggleEnabled, .toggleHidden, .custom:
             break
         }
     }

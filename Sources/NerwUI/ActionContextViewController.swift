@@ -1,5 +1,6 @@
 import Cocoa
 import NerwAction
+import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
 
@@ -832,7 +833,11 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         case .hotkeyInput(let value):
             showHotkeyEditor(operation: operation, value: value)
         case .toggle:
-            commitToggleEnabled()
+            if operation.kind == .toggleEnabled {
+                commitToggleEnabled()
+            } else if operation.kind == .toggleHidden {
+                commitToggleHidden()
+            }
         }
     }
 
@@ -847,6 +852,38 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
         // Show feedback
         let status = nextEnabled ? "enabled" : "disabled"
+        NerwNotificationManager.shared.show(
+            content: "Action \(status): \(context.actionTitle)",
+            level: .info
+        )
+
+        // Refresh the context UI
+        delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
+        delegate?.actionContextDidRequestClose(self)
+    }
+
+    private func commitToggleHidden() {
+        guard let context, selectedIndex >= 0, selectedIndex < operations.count else { return }
+        let operation = operations[selectedIndex].operation
+        guard operation.kind == .toggleHidden else { return }
+
+        let hasHotkey = !NerwActionPreferenceManager.shared.hotkey(for: context.actionID).isEmpty
+        let currentlyHidden = NerwActionPreferenceManager.shared.isActionHidden(
+            for: context.actionID)
+
+        if !currentlyHidden && !hasHotkey {
+            NerwNotificationManager.shared.show(
+                content: "Cannot hide action without a hotkey",
+                level: .info
+            )
+            return
+        }
+
+        let nextHidden = !currentlyHidden
+        NerwActionPreferenceManager.shared.updateActionHidden(nextHidden, for: context.actionID)
+
+        // Show feedback
+        let status = nextHidden ? "hidden" : "unhidden"
         NerwNotificationManager.shared.show(
             content: "Action \(status): \(context.actionTitle)",
             level: .info
@@ -959,7 +996,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
                 return value
             }
             return nil
-        case .toggleEnabled, .custom:
+        case .toggleEnabled, .toggleHidden, .custom:
             return nil
         }
     }
@@ -1025,6 +1062,14 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         guard let context else { return }
         NerwActionPreferenceManager.shared.updateHotkey(keybind, for: context.actionID)
+
+        if keybind.isEmpty
+            && NerwActionPreferenceManager.shared.isActionHidden(for: context.actionID)
+        {
+            NerwActionPreferenceManager.shared.updateActionHidden(false, for: context.actionID)
+            SearchService.shared.loadCache(asyncUpdate: true)
+        }
+
         returnToContextList()
     }
 
