@@ -129,9 +129,9 @@ public class NerwNotificationManager {
                 context.duration = 0.3
                 context.timingFunction = CAMediaTimingFunction(name: .easeIn)
                 view.animator().alphaValue = 0
-                // Slide up to exit
+                // Slide up to exit off-stack
                 var exitFrame = view.frame
-                exitFrame.origin.y += 20
+                exitFrame.origin.y = 180
                 view.animator().frame = exitFrame
             },
             completionHandler: {

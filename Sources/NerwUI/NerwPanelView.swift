@@ -22,16 +22,22 @@ public class NerwPanelView: NSView {
         public static let splitPane = Style()
         public static let actionContext = Style()
         public static let notification = Style(
+            innerGlowEnabled: true,
             clipToBounds: true,
             backgroundMaterial: .popover,
-            shadowOffset: NSSize(width: 0, height: -4),
-            shadowRadius: 8,
-            shadowOpacity: 0.2
+            shadowOffset: NSSize(width: 0, height: 0),
+            shadowRadius: 12,
+            shadowOpacity: 0.25
         )
         public static let `default` = Style()
     }
 
     private let style: Style
+    public var cornerRadiusOverride: CGFloat? {
+        didSet {
+            applyTheme()
+        }
+    }
 
     public init(style: Style = .default) {
         self.style = style
@@ -152,7 +158,8 @@ public class NerwPanelView: NSView {
     public func applyTheme() {
         let theme = NerwTheme.current()
 
-        let radius = style.cornerRadiusOverride ?? CGFloat(theme.cornerRadius)
+        let radius =
+            cornerRadiusOverride ?? style.cornerRadiusOverride ?? CGFloat(theme.cornerRadius)
 
         let targetView = containerView ?? effectView
         targetView.layer?.cornerRadius = radius
@@ -162,7 +169,7 @@ public class NerwPanelView: NSView {
             .cgColor
         targetView.layer?.borderWidth = CGFloat(theme.borderWidth)
 
-        if let container = containerView {
+        if containerView != nil {
             effectView.layer?.cornerRadius = radius
             tintView.layer?.cornerRadius = radius
         }

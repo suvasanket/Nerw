@@ -22,9 +22,10 @@ public class NotificationItemView: NSView {
         // Shadow on the root view
         self.layer?.masksToBounds = false
         self.shadow = NSShadow()
-        self.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.2)
-        self.shadow?.shadowOffset = NSSize(width: 0, height: -4)
-        self.shadow?.shadowBlurRadius = 8
+        // Subtle outer glow
+        self.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.3)
+        self.shadow?.shadowOffset = NSSize(width: 0, height: 0)
+        self.shadow?.shadowBlurRadius = 12
 
         // Container View handles the perfect pill masking
         // 1. NerwPanelView (Frosted Glass Background)
@@ -100,14 +101,6 @@ public class NotificationItemView: NSView {
         // Perfect pill shape calculation
         let radius = self.bounds.height / 2
 
-        var style = NerwPanelView.Style.notification
-        style.cornerRadiusOverride = radius
-
-        // This is a bit of a hack but we want to re-init or apply corner radius
-        // For our simple case, directly setting corner radius is sufficient as the applyTheme() respects it
-        panelView.layer?.cornerRadius = radius
-
-        // Removed self.shadow?.shadowPath = path.cgPath completely,
-        // relying on Mac OS default NSShadow rendering over subviews
+        panelView.cornerRadiusOverride = radius
     }
 }
