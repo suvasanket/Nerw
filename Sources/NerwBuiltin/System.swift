@@ -86,11 +86,11 @@ public class System {
                 )
             ),
 
-            // Empty Downloads
+            // Clear Downloads
             NerwAction(
                 id: "nerw.system.emptydownloads",
-                title: "Empty Downloads",
-                subtitle: "Move all Downloads folder contents to Trash",
+                title: "Clear Downloads",
+                subtitle: "Move Downloads folder contents to Trash",
                 icon: .image(
                     NSImage(named: "download") ?? NSImage(
                         systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)
@@ -98,7 +98,7 @@ public class System {
                             systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil
                         )
                         ?? NSImage()),
-                triggers: ["empty downloads"],
+                triggers: ["cleardownloads"],
                 type: .instant(perform: { _ in self.emptyDownloads() })
             ),
 
@@ -112,7 +112,7 @@ public class System {
                         systemSymbolName: "eject", accessibilityDescription: nil)
                         ?? NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil)
                         ?? NSImage()),
-                triggers: ["eject all"],
+                triggers: ["ejectall"],
                 type: .instant(perform: { _ in self.ejectAll() })
             ),
 
