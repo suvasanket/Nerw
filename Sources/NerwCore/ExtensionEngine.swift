@@ -668,10 +668,18 @@ public class ExtensionEngine {
         ) { outputData in
             guard let data = outputData else { return }
 
-            // Parse action response for host commands
-            if let response = try? JSONDecoder().decode(ExtensionActionResponse.self, from: data) {
-                DispatchQueue.main.async {
-                    self.executeCommands(response.commands ?? [])
+            // Parse action response for host commands (handle multiple lines)
+            if let str = String(data: data, encoding: .utf8) {
+                let lines = str.components(separatedBy: "\n")
+                for line in lines where !line.isEmpty {
+                    if let lineData = line.data(using: .utf8),
+                        let response = try? JSONDecoder().decode(
+                            ExtensionActionResponse.self, from: lineData)
+                    {
+                        DispatchQueue.main.async {
+                            self.executeCommands(response.commands ?? [])
+                        }
+                    }
                 }
             }
         }

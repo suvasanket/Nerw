@@ -5,18 +5,29 @@ import Foundation
 /// inside their `perform(action:)` method, then call `Nerw.run()` to start.
 public enum Nerw {
     // MARK: - Command Accumulator (internal)
+    @available(*, deprecated, message: "Commands are now emitted instantly")
     static var pendingCommands: [[String: Any]] = []
+
+    private static func emitCommand(_ cmd: [String: Any]) {
+        let response: [String: Any] = ["commands": [cmd]]
+        if let data = try? JSONSerialization.data(withJSONObject: response),
+            let output = String(data: data, encoding: .utf8)
+        {
+            print(output)
+            fflush(stdout)
+        }
+    }
 
     // MARK: - Host Commands
 
     /// Open a URL in the default browser or a file path in Finder.
     public static func open(_ url: String) {
-        pendingCommands.append(["type": "open", "value": url])
+        emitCommand(["type": "open", "value": url])
     }
 
     /// Copy text to the system clipboard.
     public static func copy(_ text: String) {
-        pendingCommands.append(["type": "copy", "value": text])
+        emitCommand(["type": "copy", "value": text])
     }
 
     /// Log a debug message (written to stderr, visible in Nerw console).
@@ -41,12 +52,12 @@ public enum Nerw {
             "progressive": progressive,
         ]
         if let id = id { cmd["id"] = id }
-        pendingCommands.append(cmd)
+        emitCommand(cmd)
     }
 
     /// Dismisses a previously sent progressive notification using its assigned string ID.
     public static func dismissNotify(id: String) {
-        pendingCommands.append([
+        emitCommand([
             "type": "dismiss_notify",
             "id": id,
         ])
@@ -54,13 +65,7 @@ public enum Nerw {
 
     /// Hide the host application panel immediately.
     public static func hideHost() {
-        let response: [String: Any] = ["commands": [["type": "hide_host"]]]
-        if let data = try? JSONSerialization.data(withJSONObject: response),
-            let output = String(data: data, encoding: .utf8)
-        {
-            print(output)
-            fflush(stdout)
-        }
+        emitCommand(["type": "hide_host"])
     }
 
     // MARK: - Bootstrap
