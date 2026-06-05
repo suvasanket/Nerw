@@ -114,7 +114,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
 
             DispatchQueue.main.async {
                 guard generation == self.reloadGeneration else { return }
-                self.addLazySection(title: "Applications", actions: apps)
+                self.addLazySection(title: "Applications", actions: apps, isExpanded: false)
                 self.addLazySection(title: "Clipboard", actions: clipboardActions)
                 self.addLazySection(title: "Finder", actions: finderActions)
                 self.addLazySection(title: "Misc", actions: miscActions)
@@ -126,7 +126,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         }
     }
 
-    private func addLazySection(title: String, actions: [ActionRowModel]) {
+    private func addLazySection(title: String, actions: [ActionRowModel], isExpanded: Bool = false)
+    {
         guard !actions.isEmpty else { return }
 
         // Create the section without content initially
@@ -136,7 +137,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             title: title,
             contentViews: [],
             isCollapsable: true,
-            isExpanded: false,
+            isExpanded: isExpanded,
             onExpand: { [weak self] in
                 guard let self = self, let actualSection = sectionRef else { return }
                 self.populateSection(section: actualSection, actions: actions)
@@ -147,6 +148,10 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
         stackView.addArrangedSubview(section)
         section.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40).isActive =
             true
+
+        if isExpanded {
+            section.loadContentIfNeeded()
+        }
     }
 
     private func populateSection(section: SettingsSection, actions: [ActionRowModel]) {
@@ -361,19 +366,36 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
 
         for app in apps {
             let appURL = URL(fileURLWithPath: app.path)
+            let appId = "nerw.app.\(app.name)"
 
-            rows.append(
-                ActionRowModel(
-                    title: app.name,
-                    triggers: [app.name.lowercased()],
-                    id: "nerw.app.\(app.name)",
-                    icon: nil,
-                    iconURL: appURL
+            let isAppConfigured =
+                !NerwActionPreferenceManager.shared.hotkey(for: appId).isEmpty
+                || !NerwActionPreferenceManager.shared.aliases(for: appId).isEmpty
+                || NerwActionPreferenceManager.shared.isActionHidden(for: appId)
+                || !NerwActionPreferenceManager.shared.isActionEnabled(for: appId)
+
+            if isAppConfigured {
+                rows.append(
+                    ActionRowModel(
+                        title: app.name,
+                        triggers: [app.name.lowercased()],
+                        id: appId,
+                        icon: nil,
+                        iconURL: appURL
+                    )
                 )
-            )
+            }
 
             if let quickAction = quickActionRow(for: app, iconURL: appURL) {
-                rows.append(quickAction)
+                let isQuickConfigured =
+                    !NerwActionPreferenceManager.shared.hotkey(for: quickAction.id).isEmpty
+                    || !NerwActionPreferenceManager.shared.aliases(for: quickAction.id).isEmpty
+                    || NerwActionPreferenceManager.shared.isActionHidden(for: quickAction.id)
+                    || !NerwActionPreferenceManager.shared.isActionEnabled(for: quickAction.id)
+
+                if isQuickConfigured {
+                    rows.append(quickAction)
+                }
             }
         }
 

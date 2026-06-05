@@ -63,11 +63,6 @@ public class SearchEngine {
             Engine(
                 name: "DuckDuckGo", triggers: ["duckduckgo", "ddg"],
                 urlTemplate: "https://duckduckgo.com/?q=%@", icon: "se_duckduckgo"),
-            Engine(
-                name: "Duck.ai", triggers: ["duckai", "ai"],
-                urlTemplate:
-                    "https://duck.ai/chat?q=&handoff=%7B%22aiChatPrompt%22%3A%22%@%22%2C%22aiChatAutoPrompt%22%3Atrue%7D",
-                icon: "se_duckduckgo"),
         ]
     }
 

@@ -131,5 +131,8 @@ class SettingsTabViewController: NSTabViewController {
 
         // Set initial size
         self.preferredContentSize = Self.windowSize
+
+        // Select Actions tab by default
+        self.selectedTabViewItemIndex = 3
     }
 }

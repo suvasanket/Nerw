@@ -153,4 +153,12 @@ class SettingsSection: NSStackView {
         contentStack.addArrangedSubview(view)
         view.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
     }
+
+    /// Triggers the lazy loading of content if not loaded already
+    func loadContentIfNeeded() {
+        if !hasLoadedContent {
+            onExpand?()
+            hasLoadedContent = true
+        }
+    }
 }
