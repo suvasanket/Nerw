@@ -6,6 +6,7 @@ public class NotificationItemView: NSView {
     private var progressIndicator: NSProgressIndicator?
     private var panelView: NerwPanelView!
     private var textField: NSTextField!
+    private var badgeView: NSView?
 
     public init(id: UUID, content: String, level: NerwNotificationLevel, progressive: Bool) {
         self.id = id
@@ -94,6 +95,44 @@ public class NotificationItemView: NSView {
         textField.lineBreakMode = .byTruncatingTail
         textField.maximumNumberOfLines = 1  // Enforce single line for perfect pill shape
         stackView.addArrangedSubview(textField)
+
+        // Add icon for warnings and errors without background
+        if level == .warn || level == .error {
+            let imageView = NSImageView()
+            imageView.imageScaling = .scaleProportionallyUpOrDown
+            imageView.translatesAutoresizingMaskIntoConstraints = false
+
+            // Add subtle shadow to the icon itself so it stands out over the border
+            imageView.wantsLayer = true
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.4)
+            shadow.shadowOffset = NSSize(width: 0, height: -1)
+            shadow.shadowBlurRadius = 3
+            imageView.shadow = shadow
+
+            if level == .warn {
+                imageView.image = NSImage(
+                    systemSymbolName: "exclamationmark.triangle.fill",
+                    accessibilityDescription: "Warning")
+                imageView.contentTintColor = .systemYellow
+            } else {
+                imageView.image = NSImage(
+                    systemSymbolName: "exclamationmark.octagon.fill",
+                    accessibilityDescription: "Error")
+                imageView.contentTintColor = .systemRed
+            }
+
+            self.addSubview(imageView)
+            self.badgeView = imageView
+
+            NSLayoutConstraint.activate([
+                imageView.widthAnchor.constraint(equalToConstant: 24),
+                imageView.heightAnchor.constraint(equalToConstant: 24),
+                // Center the icon exactly on the corner curve (45 degrees on radius 25 is ~7.3 points from edges)
+                imageView.centerXAnchor.constraint(equalTo: self.trailingAnchor, constant: -7),
+                imageView.centerYAnchor.constraint(equalTo: self.bottomAnchor, constant: -7),
+            ])
+        }
     }
 
     public override func layout() {

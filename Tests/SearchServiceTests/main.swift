@@ -21,6 +21,7 @@ func runTests() {
     runMainPanelTests()
     runActionContextTests()
     runExtensionPanelTests()
+    runNotificationTests()
 
     print("[Testing] All SearchService tests PASSED.")
 
