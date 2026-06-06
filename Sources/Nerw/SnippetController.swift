@@ -170,7 +170,10 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
                         id: "trigger", title: "Trigger", placeholder: "e.g. ;sig",
                         defaultValue: snippet.trigger),
                     .init(
-                        id: "content", title: "Content", placeholder: "Your text here",
+                        id: "content", title: "Content",
+                        subtext:
+                            "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
+                        placeholder: "Your text here",
                         defaultValue: snippet.content, isMultiline: true),
                 ],
                 submitLabel: "Update Snippet",

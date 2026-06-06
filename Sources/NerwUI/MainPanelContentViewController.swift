@@ -183,6 +183,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             iconContainer.isHidden = true
             separatorView.isHidden = true
             scrollView.isHidden = true
+            accessoryStackView.isHidden = true
 
         case .executing(let action):
             inputField.placeholderString = action.title
@@ -1163,7 +1164,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func enterFormMode(action: NerwAction) {
-        guard case .form(let fields, _, _) = action.type else { return }
+        guard case .form(let fields, let submitLabel, _) = action.type else { return }
 
         dismissActionContext()
         inputState = .form(action: action)
@@ -1171,7 +1172,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
 
         // Setup Form View
-        let form = FormView(fields: fields)
+        let form = FormView(fields: fields, submitLabel: submitLabel)
         form.delegate = self
         form.translatesAutoresizingMaskIntoConstraints = false
         panelView.contentView.addSubview(form)
@@ -1442,9 +1443,16 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func updateActions() {
+        let isFormState: Bool
+        if case .form = inputState {
+            isFormState = true
+        } else {
+            isFormState = false
+        }
+
         let hasActions = !actions.isEmpty
-        accessoryStackView.isHidden = !hasActions
-        scrollView.isHidden = !hasActions
+        accessoryStackView.isHidden = isFormState ? true : !hasActions
+        scrollView.isHidden = isFormState ? true : !hasActions
         scrollView.hasVerticalScroller = actions.count > LayoutMetrics.Results.maxVisibleRows
 
         scrollViewBottomConstraint.constant =
@@ -1637,11 +1645,8 @@ extension MainPanelContentViewController: FormViewDelegate {
         formView?.removeFromSuperview()
         formView = nil
 
-        // 2. Then reset to search which triggers resize
-        resetToSearch()
-
-        // Restore focus
-        view.window?.makeFirstResponder(inputField)
+        // 2. Close the panel completely instead of returning to search
+        delegate?.didPressEscape()
     }
 
     func formDidSubmit(values: [String: String]) {

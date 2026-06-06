@@ -167,7 +167,9 @@ public class SnippetManager {
                         .init(id: "trigger", title: "Trigger", placeholder: "e.g. ;sig"),
                         .init(
                             id: "content", title: "Content",
-                            placeholder: "Your text here. Use {{clipboard}} or {{HH:mm}}",
+                            subtext:
+                                "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
+                            placeholder: "Your text here",
                             isMultiline: true),
                     ],
                     submitLabel: "Save Snippet",

@@ -788,14 +788,20 @@ NerwResult("Custom")
 public struct NerwField {
     public let id: String
     public let title: String
+    public let subtext: String?
     public let placeholder: String?
     public let isSecure: Bool
+    public let isMultiline: Bool
+    public let defaultValue: String?
 
     public init(
         _ id: String,
         title: String,
+        subtext: String? = nil,
         placeholder: String? = nil,
-        secure: Bool = false
+        secure: Bool = false,
+        multiline: Bool = false,
+        defaultValue: String? = nil
     )
 }
 ```
@@ -806,16 +812,30 @@ public struct NerwField {
 |----------|------|-------------|
 | `id` | String | Unique identifier for accessing the field value |
 | `title` | String | Label displayed above the field |
+| `subtext` | String? | Small descriptive text displayed below the title |
 | `placeholder` | String? | Placeholder text shown when empty |
 | `isSecure` | Bool | Whether the field is a password field |
+| `isMultiline` | Bool | Whether the field supports multiple lines of text |
+| `defaultValue` | String? | Initial value populated in the field |
 
 **Implementation:**
 ```swift
-public init(_ id: String, title: String, placeholder: String? = nil, secure: Bool = false) {
+public init(
+    _ id: String,
+    title: String,
+    subtext: String? = nil,
+    placeholder: String? = nil,
+    secure: Bool = false,
+    multiline: Bool = false,
+    defaultValue: String? = nil
+) {
     self.id = id
     self.title = title
+    self.subtext = subtext
     self.placeholder = placeholder
     self.isSecure = secure
+    self.isMultiline = multiline
+    self.defaultValue = defaultValue
 }
 ```
 

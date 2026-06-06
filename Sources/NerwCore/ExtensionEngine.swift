@@ -912,8 +912,11 @@ public class ExtensionEngine {
                 return NerwAction.Field(
                     id: id,
                     title: fdTitle,
+                    subtext: fd["subtext"] as? String,
                     placeholder: fd["placeholder"] as? String,
-                    isSecure: (fd["secure"] as? Bool) ?? false
+                    defaultValue: fd["defaultValue"] as? String,
+                    isSecure: (fd["secure"] as? Bool) ?? false,
+                    isMultiline: (fd["multiline"] as? Bool) ?? false
                 )
             }
             let submitLabel = formDict["submitLabel"] as? String
@@ -966,8 +969,11 @@ public class ExtensionEngine {
                     return NerwAction.Field(
                         id: id,
                         title: fdTitle,
+                        subtext: fd["subtext"] as? String,
                         placeholder: fd["placeholder"] as? String,
-                        isSecure: (fd["secure"] as? Bool) ?? false
+                        defaultValue: fd["defaultValue"] as? String,
+                        isSecure: (fd["secure"] as? Bool) ?? false,
+                        isMultiline: (fd["multiline"] as? Bool) ?? false
                     )
                 }
                 let submitLabel = formDict["submitLabel"] as? String

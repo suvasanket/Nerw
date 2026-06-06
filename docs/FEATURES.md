@@ -162,7 +162,7 @@ For actions requiring multiple inputs (like adding a search engine):
 
 ### Multi-Field Input (Forms)
 Some complex actions require structured input. Nerw renders these as native forms directly in the main panel.
-1.  **UI**: Displays multiple fields (e.g., Text, Secure Password) in a vertical stack.
+1.  **UI**: Displays multiple fields (e.g., Text, Secure Password, Multiline Text) in a vertical stack. Fields can include helpful subtext beneath their titles.
 2.  **Navigation**:
     -   `Tab`: Move focus to the next field.
     -   `Shift+Tab`: Move focus to the previous field.

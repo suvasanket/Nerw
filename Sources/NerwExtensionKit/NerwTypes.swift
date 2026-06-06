@@ -23,20 +23,37 @@ public enum NerwIcon {
 public struct NerwField {
     public let id: String
     public let title: String
+    public let subtext: String?
     public let placeholder: String?
     public let isSecure: Bool
+    public let isMultiline: Bool
+    public let defaultValue: String?
 
-    public init(_ id: String, title: String, placeholder: String? = nil, secure: Bool = false) {
+    public init(
+        _ id: String,
+        title: String,
+        subtext: String? = nil,
+        placeholder: String? = nil,
+        secure: Bool = false,
+        multiline: Bool = false,
+        defaultValue: String? = nil
+    ) {
         self.id = id
         self.title = title
+        self.subtext = subtext
         self.placeholder = placeholder
         self.isSecure = secure
+        self.isMultiline = multiline
+        self.defaultValue = defaultValue
     }
 
     func serialize() -> [String: Any] {
         var dict: [String: Any] = ["id": id, "title": title]
+        if let s = subtext { dict["subtext"] = s }
         if let p = placeholder { dict["placeholder"] = p }
         if isSecure { dict["secure"] = true }
+        if isMultiline { dict["multiline"] = true }
+        if let d = defaultValue { dict["defaultValue"] = d }
         return dict
     }
 }

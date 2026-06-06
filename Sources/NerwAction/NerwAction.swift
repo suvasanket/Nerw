@@ -42,17 +42,20 @@ public struct NerwAction {
     public struct Field {
         public let id: String
         public let title: String
+        public let subtext: String?
         public let placeholder: String?
         public let defaultValue: String?
         public let isSecure: Bool
         public let isMultiline: Bool
 
         public init(
-            id: String, title: String, placeholder: String? = nil, defaultValue: String? = nil,
+            id: String, title: String, subtext: String? = nil, placeholder: String? = nil,
+            defaultValue: String? = nil,
             isSecure: Bool = false, isMultiline: Bool = false
         ) {
             self.id = id
             self.title = title
+            self.subtext = subtext
             self.placeholder = placeholder
             self.defaultValue = defaultValue
             self.isSecure = isSecure
