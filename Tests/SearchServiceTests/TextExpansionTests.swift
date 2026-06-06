@@ -1,9 +1,24 @@
 import Foundation
 import NerwAction
 import NerwBuiltin
+import NerwUtils
 
 func runTextExpansionTests() {
     print("[Testing] Starting TextExpansion tests...")
+
+    // Redirect storage to a temporary file to avoid polluting/wiping user's database
+    let productionURL = NerwPaths.dataDirectory.appendingPathComponent("snippets.json")
+    let testURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+        "snippets_test_\(UUID().uuidString).json")
+
+    SnippetManager.shared.setStorageURL(testURL)
+    defer {
+        // Restore production URL
+        SnippetManager.shared.setStorageURL(productionURL)
+        // Clean up test file
+        try? FileManager.default.removeItem(at: testURL)
+    }
+
     testSnippetPlaceholderResolution()
     testSnippetMultiplePlaceholders()
     testSnippetEmojiContent()
@@ -79,6 +94,13 @@ func testTriggerMapUpdates() {
     }
     if SnippetManager.shared.triggerMap[";s2"] == nil {
         fatalError("FAIL: Expected triggerMap to contain ;s2")
+    }
+
+    let s2 = SnippetManager.shared.snippets.first { $0.name == "S2" }!
+    SnippetManager.shared.deleteSnippet(id: s2.id)
+
+    if SnippetManager.shared.triggerMap[";s2"] != nil {
+        fatalError("FAIL: Expected triggerMap to NOT contain ;s2")
     }
 }
 

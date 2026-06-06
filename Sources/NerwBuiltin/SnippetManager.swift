@@ -29,10 +29,15 @@ public class SnippetManager {
     public private(set) var triggerMap: [String: Snippet] = [:]
     public var showWindowCallback: (() -> Void)?
 
-    private let storageURL: URL
+    private var storageURL: URL
 
     private init() {
         storageURL = NerwPaths.dataDirectory.appendingPathComponent("snippets.json")
+        load()
+    }
+
+    public func setStorageURL(_ url: URL) {
+        self.storageURL = url
         load()
     }
 
@@ -78,6 +83,8 @@ public class SnippetManager {
             let saved = try? JSONDecoder().decode([Snippet].self, from: data)
         {
             snippets = saved
+        } else {
+            snippets = []
         }
         updateTriggerMap()
     }
@@ -128,15 +135,19 @@ public class SnippetManager {
     }
 
     public static func builtinActions() -> [NerwAction] {
-        let icon =
-            NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
+        let addIcon =
+            NSImage(named: "snippet_add") ?? NSImage(
+                systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
+        let manIcon =
+            NSImage(named: "snippet_man") ?? NSImage(
+                systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
 
         return [
             NerwAction(
                 id: "builtin.snippet.manager",
                 title: "Snippet Manager",
                 subtitle: "View and manage text snippets",
-                icon: .image(icon),
+                icon: .image(manIcon),
                 triggers: ["snippet"],
                 type: .instant(perform: { _ in
                     DispatchQueue.main.async {
@@ -148,7 +159,7 @@ public class SnippetManager {
                 id: "builtin.snippet.add",
                 title: "Add Snippet",
                 subtitle: "Create a new text expansion snippet",
-                icon: .image(icon),
+                icon: .image(addIcon),
                 triggers: ["addsnippet"],
                 type: .form(
                     fields: [
