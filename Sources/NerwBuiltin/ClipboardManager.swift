@@ -365,6 +365,11 @@ public class ClipboardManager {
             ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
             ?? NSImage()
 
+        let clipboardClearIcon =
+            NSImage(named: "clipboard_clear") ?? NSImage(
+                systemSymbolName: "trash", accessibilityDescription: nil)
+            ?? clipboardIcon
+
         return [
             NerwAction(
                 id: "builtin.clipboard",
@@ -382,7 +387,7 @@ public class ClipboardManager {
                 id: "builtin.clipboard.clear",
                 title: "Clear Clipboard History",
                 subtitle: "Clear all or recent clipboard entries",
-                icon: .image(clipboardIcon),
+                icon: .image(clipboardClearIcon),
                 triggers: ["clearclipboard"],
                 type: .args(
                     placeholder: "Select time range to clear",
