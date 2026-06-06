@@ -8,6 +8,7 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     private var recorder: KeybindRecorder!
     private var findFileSwitch: NSSwitch!
     private var shortcutsSwitch: NSSwitch!
+    private var snippetExpansionSwitch: NSSwitch!
 
     private let stackView: NSStackView = {
         let stack = NSStackView()
@@ -99,9 +100,31 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
         shortcutsStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
 
+        // Snippets Toggle
+        let snippetsStack = NSStackView()
+        snippetsStack.orientation = .horizontal
+        snippetsStack.spacing = 10
+        snippetsStack.alignment = .centerY
+
+        let snippetsLabel = NSTextField(labelWithString: "Enable Snippet Expansion")
+        snippetsLabel.font = .systemFont(ofSize: 13)
+
+        snippetExpansionSwitch = NSSwitch()
+        snippetExpansionSwitch.controlSize = .mini
+        snippetExpansionSwitch.state =
+            ConfigManager.shared.config.snippetExpansionEnabled ? .on : .off
+        snippetExpansionSwitch.target = self
+        snippetExpansionSwitch.action = #selector(snippetExpansionToggled(_:))
+
+        snippetsStack.addArrangedSubview(snippetsLabel)
+        snippetsStack.addArrangedSubview(NSView())
+        snippetsStack.addArrangedSubview(snippetExpansionSwitch)
+
+        snippetsStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
+
         let behaviorSection = SettingsSection(
             title: "Behavior",
-            contentViews: [findFileStack, shortcutsStack]
+            contentViews: [findFileStack, shortcutsStack, snippetsStack]
         )
         stackView.addArrangedSubview(behaviorSection)
         behaviorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
@@ -165,6 +188,11 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         ConfigManager.shared.save()
     }
 
+    @objc private func snippetExpansionToggled(_ sender: NSSwitch) {
+        ConfigManager.shared.config.snippetExpansionEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
     @objc private func resetClicked(_ sender: NSButton) {
         let alert = NSAlert()
         alert.messageText = "Reset Settings"
@@ -224,5 +252,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         recorder.setKeybind(config.globalKeybind)
         findFileSwitch.state = config.findFileOnSpace ? .on : .off
         shortcutsSwitch.state = config.showShortcutsInMain ? .on : .off
+        snippetExpansionSwitch.state = config.snippetExpansionEnabled ? .on : .off
     }
 }

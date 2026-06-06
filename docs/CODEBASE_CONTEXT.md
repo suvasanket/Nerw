@@ -235,3 +235,32 @@ Full-featured clipboard history manager.
 
 ### Trigger
 Search for `clipboard`, `clip`, or `paste` in the main panel.
+
+---
+
+## 10. Snippet Manager & Text Expansion Engine (`NerwBuiltin/SnippetManager.swift` & `NerwBuiltin/TextExpansionEngine.swift`)
+
+A system-wide text expansion utility allowing users to define triggers that expand into longer text.
+
+### Architecture
+
+**1. Data Layer (`SnippetManager.swift`)**
+- Manages `Snippet` models: `id`, `name`, `trigger`, `content`, `createdAt`.
+- Persists to `~/Library/Application Support/Nerw/Data/snippets.json`.
+- Exposes `addSnippet(name:trigger:content:)`, `updateSnippet(...)`, and `deleteSnippet(...)`.
+- Resolves dynamic placeholders (`{{time}}`, `{{clipboard}}`, `{{yyyy-MM-dd}}`) during expansion.
+- Registers `.instant` ("Snippet Manager") and `.form` ("Add Snippet") actions.
+
+**2. Core Engine (`TextExpansionEngine.swift`)**
+- Sets up a system-wide `CGEvent.tapCreate` for keystroke monitoring (requires Accessibility permissions).
+- Maintains a small sliding window buffer of recent keystrokes.
+- On trigger match:
+  1. Stops the buffer.
+  2. Synthesizes `CGEvent` backspaces to erase the typed trigger.
+  3. Synthesizes `CGEvent.keyboardSetUnicodeString` to type the expanded text character-by-character.
+- Respects the `snippetExpansionEnabled` config flag to toggle monitoring globally.
+
+**3. UI Bridge (`Nerw/SnippetController.swift`)**
+- Mirrors `ClipboardController` pattern.
+- Uses `SplitPaneViewController` to display a searchable list of snippets.
+- `Cmd+K` exposes Edit (re-opens form), Delete, and Type actions.

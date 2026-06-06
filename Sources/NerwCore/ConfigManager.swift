@@ -35,8 +35,31 @@ public struct Config: Codable {
     public var uiConfig: UIConfig?
     public var layoutConfig: LayoutConfig = LayoutConfig()
     public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
+    public var snippetExpansionEnabled: Bool = true
 
     public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        defaultSearchEngine =
+            try container.decodeIfPresent([String].self, forKey: .defaultSearchEngine) ?? [
+                "google", "g",
+            ]
+        globalKeybind =
+            try container.decodeIfPresent(String.self, forKey: .globalKeybind) ?? "Cmd+Shift+Space"
+        findFileOnSpace = try container.decodeIfPresent(Bool.self, forKey: .findFileOnSpace) ?? true
+        showShortcutsInMain =
+            try container.decodeIfPresent(Bool.self, forKey: .showShortcutsInMain) ?? false
+        uiConfig = try container.decodeIfPresent(UIConfig.self, forKey: .uiConfig)
+        layoutConfig =
+            try container.decodeIfPresent(LayoutConfig.self, forKey: .layoutConfig)
+            ?? LayoutConfig()
+        searchEngineModifiers =
+            try container.decodeIfPresent([String: [String]].self, forKey: .searchEngineModifiers)
+            ?? ["shift": ["lucky"]]
+        snippetExpansionEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .snippetExpansionEnabled) ?? true
+    }
 }
 
 public class ConfigManager {

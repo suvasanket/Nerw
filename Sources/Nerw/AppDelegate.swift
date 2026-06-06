@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsController: SettingsWindowController?
     private var extensionInstallController: ExtensionInstallWindowController?
     private var clipboardController = ClipboardController()
+    private var snippetController = SnippetController()
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,6 +33,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.popupController.hide(restoreFocus: false)
         }
         ClipboardManager.shared.start()
+
+        SnippetManager.shared.showWindowCallback = { [weak self] in
+            self?.snippetController.show()
+            self?.popupController.hide(restoreFocus: false)
+        }
+
+        if ConfigManager.shared.config.snippetExpansionEnabled {
+            TextExpansionEngine.shared.start()
+        }
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
@@ -75,6 +85,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func configDidUpdate() {
         registerGlobalHotkey()
+
+        if ConfigManager.shared.config.snippetExpansionEnabled {
+            TextExpansionEngine.shared.start()
+        } else {
+            TextExpansionEngine.shared.stop()
+        }
     }
 
     private func setupStatusItem() {
@@ -143,6 +159,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopup() {
         if clipboardController.isVisible {
             clipboardController.didCancel()
+            return
+        }
+        if snippetController.isVisible {
+            snippetController.didCancel()
             return
         }
         popupController.toggle()

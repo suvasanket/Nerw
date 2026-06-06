@@ -7,13 +7,13 @@ protocol FormViewDelegate: AnyObject {
     func formDidSubmit(values: [String: String])
 }
 
-class FormView: NSView, NSTextFieldDelegate {
+class FormView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     weak var delegate: FormViewDelegate?
 
     private let fields: [NerwAction.Field]
-    private var inputs: [String: NSTextField] = [:]
-    private var orderedInputs: [NSTextField] = []
+    private var inputs: [String: NSView] = [:]
+    private var orderedInputs: [NSView] = []
 
     init(fields: [NerwAction.Field]) {
         self.fields = fields
@@ -53,34 +53,62 @@ class FormView: NSView, NSTextFieldDelegate {
             fieldContainer.addArrangedSubview(label)
 
             // Input
-            let input: NSTextField
-            if field.isSecure {
-                input = NSSecureTextField()
+            let inputView: NSView
+            if field.isMultiline {
+                let scrollView = NSTextView.scrollableTextView()
+                scrollView.hasVerticalScroller = true
+                let textView = scrollView.documentView as! NSTextView
+                textView.font = .systemFont(ofSize: 15)
+                textView.textColor = .labelColor
+                textView.backgroundColor = .controlBackgroundColor
+                textView.isRichText = false
+                textView.allowsUndo = true
+                textView.delegate = self
+
+                if let dv = field.defaultValue {
+                    textView.string = dv
+                }
+
+                scrollView.translatesAutoresizingMaskIntoConstraints = false
+                scrollView.heightAnchor.constraint(equalToConstant: 80).isActive = true
+                inputView = scrollView
+
+                inputs[field.id] = textView
+                orderedInputs.append(textView)
             } else {
-                input = ThemedTextField()
+                let textField: NSTextField
+                if field.isSecure {
+                    textField = NSSecureTextField()
+                } else {
+                    textField = ThemedTextField()
+                }
+
+                textField.font = .systemFont(ofSize: 15)
+                if let ph = field.placeholder {
+                    textField.placeholderString = ph
+                }
+
+                textField.bezelStyle = .roundedBezel
+                textField.textColor = .labelColor
+                textField.delegate = self
+
+                if let dv = field.defaultValue {
+                    textField.stringValue = dv
+                }
+
+                inputView = textField
+                inputs[field.id] = textField
+                orderedInputs.append(textField)
             }
 
-            input.font = .systemFont(ofSize: 15)
-            if let ph = field.placeholder {
-                input.placeholderString = ph
-            }
-
-            input.bezelStyle = .roundedBezel
-            input.textColor = .labelColor
-
-            fieldContainer.addArrangedSubview(input)
+            fieldContainer.addArrangedSubview(inputView)
 
             // Constraints
-            input.translatesAutoresizingMaskIntoConstraints = false
-
-            input.widthAnchor.constraint(equalTo: fieldContainer.widthAnchor).isActive = true
+            inputView.translatesAutoresizingMaskIntoConstraints = false
+            inputView.widthAnchor.constraint(equalTo: fieldContainer.widthAnchor).isActive = true
 
             stackView.addArrangedSubview(fieldContainer)
             fieldContainer.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true
-
-            input.delegate = self
-            inputs[field.id] = input
-            orderedInputs.append(input)
         }
 
         // Setup Key View Loop
@@ -132,7 +160,7 @@ class FormView: NSView, NSTextFieldDelegate {
     {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
             // If it's the last field, submit. Else move to next.
-            if let index = orderedInputs.firstIndex(of: control as! NSTextField) {
+            if let index = orderedInputs.firstIndex(of: control) {
                 if index == orderedInputs.count - 1 {
                     submit()
                 } else {
@@ -147,10 +175,45 @@ class FormView: NSView, NSTextFieldDelegate {
         return false
     }
 
+    // MARK: - NSTextViewDelegate
+
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            if let event = NSApp.currentEvent, event.modifierFlags.contains(.shift) {
+                // Shift+Enter inserts newline in multiline text
+                return false
+            } else {
+                // Enter submits if last field, else moves focus
+                if let index = orderedInputs.firstIndex(of: textView) {
+                    if index == orderedInputs.count - 1 {
+                        submit()
+                    } else {
+                        window?.makeFirstResponder(orderedInputs[index + 1])
+                    }
+                    return true
+                }
+            }
+        } else if commandSelector == #selector(NSResponder.insertTab(_:)) {
+            // Tab moves to next field
+            if let index = orderedInputs.firstIndex(of: textView) {
+                window?.makeFirstResponder(orderedInputs[(index + 1) % orderedInputs.count])
+                return true
+            }
+        } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            delegate?.formDidCancel()
+            return true
+        }
+        return false
+    }
+
     private func submit() {
         var values: [String: String] = [:]
         for (id, input) in inputs {
-            values[id] = input.stringValue
+            if let textField = input as? NSTextField {
+                values[id] = textField.stringValue
+            } else if let textView = input as? NSTextView {
+                values[id] = textView.string
+            }
         }
         delegate?.formDidSubmit(values: values)
     }

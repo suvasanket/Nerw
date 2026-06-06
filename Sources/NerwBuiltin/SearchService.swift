@@ -97,6 +97,7 @@ public class SearchService {
             candidates.append(contentsOf: Nerw.shared.getAllActions())
             candidates.append(contentsOf: System.shared.getAllActions())
             candidates.append(contentsOf: ClipboardManager.builtinActions())
+            candidates.append(contentsOf: SnippetManager.builtinActions())
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts

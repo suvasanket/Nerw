@@ -129,6 +129,19 @@ You can hide actions from the main search results if you prefer to trigger them 
     - Alternatively, you can use the **Eye** icon button in the **Settings > Actions** tab next to the enable toggle.
 3.  **Behavior**: Hidden actions will not appear in search results but can still be executed instantly using their assigned hotkey. If the hotkey is removed, the action will automatically unhide itself to remain accessible.
 
+### Snippets & Text Expansion
+Nerw includes a powerful system-wide text expansion utility. Define snippets that automatically expand into larger blocks of text anywhere in macOS.
+1.  **Creation**: Search for `addsnippet` to create a new snippet. You must provide a **Name**, **Trigger**, and **Content**.
+2.  **Dynamic Placeholders**: You can use placeholders in your snippet content:
+    -   `{{clipboard}}`: Inserts the last copied text.
+    -   `{{time}}`: Inserts the current time in the default format (HH:mm).
+    -   `{{yyyy-MM-dd}}` (or any `DateFormatter` syntax): Inserts the current time in a custom format.
+3.  **Expansion**: Type your trigger word (e.g., `;sig`) in any app, and Nerw will automatically erase the trigger and type out the expanded content. (Requires Accessibility permissions).
+4.  **Management**: Search for `snippet` to open the Snippet Manager list view. From here you can search, preview, and manage your snippets.
+    -   `Enter`: Type the snippet directly into the frontmost app.
+    -   `Cmd + K`: Open the context menu to Edit or Delete the snippet.
+5.  **Toggle**: You can temporarily disable text expansion globally in **Settings > General > Enable Snippet Expansion**.
+
 ### UI Theming & Typography
 Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`. Core dimensions and typography are centralized in `GlobalLayout.swift`.
 You can customize:
