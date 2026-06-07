@@ -45,6 +45,12 @@ public class NerwActionPreferenceManager {
         } catch {
             print("NerwAction: Failed to load actions.json: \(error). Using defaults.")
         }
+
+        // Apply defaults if missing
+        if self.preferences.actionHotkeys["builtin.clipboard"] == nil {
+            self.preferences.actionHotkeys["builtin.clipboard"] = "Cmd+Opt+C"
+            save()
+        }
     }
 
     public func save() {

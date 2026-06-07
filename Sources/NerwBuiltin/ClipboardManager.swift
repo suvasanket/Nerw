@@ -82,12 +82,33 @@ public class ClipboardManager {
         try? FileManager.default.createDirectory(
             at: imagesDirURL, withIntermediateDirectories: true)
         load()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(configUpdated),
+            name: Notification.Name("NerwConfigDidUpdate"),
+            object: nil)
+    }
+
+    @objc private func configUpdated() {
+        if ConfigManager.shared.config.clipboardEnabled {
+            start()
+        } else {
+            stop()
+        }
     }
 
     public func start() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-            self?.poll()
+        guard ConfigManager.shared.config.clipboardEnabled else { return }
+        if timer == nil {
+            timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+                self?.poll()
+            }
         }
+    }
+
+    public func stop() {
+        timer?.invalidate()
+        timer = nil
     }
 
     private func poll() {

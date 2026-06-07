@@ -90,9 +90,16 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             guard let self = self else { return }
             let apps = self.makeApplicationRows()
 
-            let clipboardActions = self.makeRows(from: ClipboardManager.builtinActions())
-
             let systemActions = System.shared.getAllActions()
+
+            let featureSystemActions = systemActions.filter {
+                $0.id == "nerw.system.define" || $0.id == "nerw.system.wiki"
+            }
+            let featureRawActions =
+                ClipboardManager.builtinActions() + SnippetManager.builtinActions()
+                + featureSystemActions
+            let featureActions = self.makeRows(from: featureRawActions)
+
             let finderSystemActions = systemActions.filter {
                 $0.id == "nerw.system.eject" || $0.id == "nerw.system.ejectall"
                     || $0.id == "nerw.system.emptydownloads"
@@ -106,6 +113,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                 + systemActions.filter {
                     $0.id != "nerw.system.eject" && $0.id != "nerw.system.ejectall"
                         && $0.id != "nerw.system.emptydownloads"
+                        && $0.id != "nerw.system.define" && $0.id != "nerw.system.wiki"
                 }
             let miscActions = self.makeRows(from: miscRawActions)
 
@@ -115,7 +123,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             DispatchQueue.main.async {
                 guard generation == self.reloadGeneration else { return }
                 self.addLazySection(title: "Applications", actions: apps, isExpanded: false)
-                self.addLazySection(title: "Clipboard", actions: clipboardActions)
+                self.addLazySection(title: "Features", actions: featureActions)
                 self.addLazySection(title: "Finder", actions: finderActions)
                 self.addLazySection(title: "Misc", actions: miscActions)
                 self.addLazySection(title: "Shortcuts", actions: shortcuts)

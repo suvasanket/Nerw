@@ -16,7 +16,16 @@ public class SearchService {
     private let cacheLock = NSLock()
     private var cacheRefreshWorkItem: DispatchWorkItem?
 
-    private init() {}
+    private init() {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(configDidUpdate),
+            name: Notification.Name("NerwConfigDidUpdate"),
+            object: nil)
+    }
+
+    @objc private func configDidUpdate() {
+        clearCache()
+    }
 
     public func loadCache(asyncUpdate: Bool = true) {
         cacheLock.lock()
@@ -96,8 +105,12 @@ public class SearchService {
             // Builtin
             candidates.append(contentsOf: Nerw.shared.getAllActions())
             candidates.append(contentsOf: System.shared.getAllActions())
-            candidates.append(contentsOf: ClipboardManager.builtinActions())
-            candidates.append(contentsOf: SnippetManager.builtinActions())
+            if ConfigManager.shared.config.clipboardEnabled {
+                candidates.append(contentsOf: ClipboardManager.builtinActions())
+            }
+            if ConfigManager.shared.config.snippetExpansionEnabled {
+                candidates.append(contentsOf: SnippetManager.builtinActions())
+            }
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts

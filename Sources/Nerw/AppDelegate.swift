@@ -32,7 +32,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Then hide the main panel without aggressively restoring OS focus
             self?.popupController.hide(restoreFocus: false)
         }
-        ClipboardManager.shared.start()
+        if ConfigManager.shared.config.clipboardEnabled {
+            ClipboardManager.shared.start()
+        }
 
         SnippetManager.shared.showWindowCallback = { [weak self] in
             self?.snippetController.show()
@@ -90,6 +92,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             TextExpansionEngine.shared.start()
         } else {
             TextExpansionEngine.shared.stop()
+        }
+
+        if ConfigManager.shared.config.clipboardEnabled {
+            ClipboardManager.shared.start()
+        } else {
+            ClipboardManager.shared.stop()
         }
     }
 

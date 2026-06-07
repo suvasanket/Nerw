@@ -28,8 +28,8 @@ open:
 
 run: bundle open
 	@echo ""
-	@echo "Log file: ~/.nerw/logs/nerw-$$(date +%Y-%m-%d).log"
-	@echo "View logs with: tail -f ~/.nerw/logs/nerw-$$(date +%Y-%m-%d).log"
+	@echo "Log file: ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
+	@echo "View logs with: tail -f ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
 
 debug: bundle
 	@pkill -x Nerw || true

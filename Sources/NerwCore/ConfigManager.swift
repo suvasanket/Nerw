@@ -36,6 +36,7 @@ public struct Config: Codable {
     public var layoutConfig: LayoutConfig = LayoutConfig()
     public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
     public var snippetExpansionEnabled: Bool = true
+    public var clipboardEnabled: Bool = true
 
     public init() {}
 
@@ -59,6 +60,8 @@ public struct Config: Codable {
             ?? ["shift": ["lucky"]]
         snippetExpansionEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .snippetExpansionEnabled) ?? true
+        clipboardEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .clipboardEnabled) ?? true
     }
 }
 

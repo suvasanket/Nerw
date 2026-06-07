@@ -43,7 +43,7 @@ The source code is organized into modular targets within `Sources/`:
     - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading and "Peek" support.
     - **Notification System**: `NotificationManager.swift`, `NotificationPanel.swift`, `NotificationItemView.swift`. Handles glassmorphic, stacked alerts.
     - **Specialized Views**: `ExtensionCardView.swift` (Settings list), `FormView.swift` (Multi-field inputs), `IconDropView.swift` (Drag & Drop support), `KeybindRecorder.swift` (Hotkey input).
-    - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `WebSearchSettingsViewController`, `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
+    - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
     - `SettingsWindowController.swift`: Manages the tabbed settings interface.
     - `ExtensionInstallWindowController.swift`: Manages the `.nerw` extension installation flow and confirmation UI.
     - **UI Helpers**: `ColorExtensions.swift`, `NSColor+Hex.swift`, `SettingsSection.swift`, `GlobalLayout.swift` (Centralized UI Dimensions & Typography).
@@ -144,7 +144,7 @@ The source code is organized into modular targets within `Sources/`:
 - **Clipboard History**: `~/Library/Application Support/Nerw/Data/clipboard.json`.
 - **Clipboard Images**: `~/Library/Application Support/Nerw/Data/ClipboardImages/`.
 - **Icons**: `~/Library/Application Support/Nerw/Icons/`.
-- **Logs**: `~/Library/Application Support/Nerw/Logs/`.
+- **Logs**: `~/.nerw/log/`.
 
 ---
 

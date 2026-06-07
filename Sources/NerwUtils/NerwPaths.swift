@@ -38,9 +38,9 @@ public struct NerwPaths {
         appSupportDirectory.appendingPathComponent("Icons")
     }
 
-    /// Directory for application logs (`~/Library/Application Support/Nerw/Logs`)
+    /// Directory for application logs (`~/.nerw/log`)
     public static var logsDirectory: URL {
-        appSupportDirectory.appendingPathComponent("Logs")
+        configDirectory.appendingPathComponent("log")
     }
 
     /// Directory for clipboard history images (`~/Library/Application Support/Nerw/Data/ClipboardImages`)

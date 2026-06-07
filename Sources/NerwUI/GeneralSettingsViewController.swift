@@ -6,9 +6,6 @@ import NerwUtils
 class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
     private var recorder: KeybindRecorder!
-    private var findFileSwitch: NSSwitch!
-    private var shortcutsSwitch: NSSwitch!
-    private var snippetExpansionSwitch: NSSwitch!
 
     private let stackView: NSStackView = {
         let stack = NSStackView()
@@ -58,79 +55,7 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         shortcutSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
-        // 2. Behavior
-        let findFileStack = NSStackView()
-        findFileStack.orientation = .horizontal
-        findFileStack.spacing = 10
-        findFileStack.alignment = .centerY
-
-        let findFileLabel = NSTextField(labelWithString: "Find File on Space")
-        findFileLabel.font = .systemFont(ofSize: 13)
-
-        findFileSwitch = NSSwitch()
-        findFileSwitch.controlSize = .mini
-        findFileSwitch.state = ConfigManager.shared.config.findFileOnSpace ? .on : .off
-        findFileSwitch.target = self
-        findFileSwitch.action = #selector(findFileToggled(_:))
-
-        findFileStack.addArrangedSubview(findFileLabel)
-        findFileStack.addArrangedSubview(NSView())  // Spacer
-        findFileStack.addArrangedSubview(findFileSwitch)
-
-        findFileStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        // Shortcuts Toggle
-        let shortcutsStack = NSStackView()
-        shortcutsStack.orientation = .horizontal
-        shortcutsStack.spacing = 10
-        shortcutsStack.alignment = .centerY
-
-        let shortcutsLabel = NSTextField(labelWithString: "Show Shortcuts in Main Results")
-        shortcutsLabel.font = .systemFont(ofSize: 13)
-
-        shortcutsSwitch = NSSwitch()
-        shortcutsSwitch.controlSize = .mini
-        shortcutsSwitch.state = ConfigManager.shared.config.showShortcutsInMain ? .on : .off
-        shortcutsSwitch.target = self
-        shortcutsSwitch.action = #selector(shortcutsToggled(_:))
-
-        shortcutsStack.addArrangedSubview(shortcutsLabel)
-        shortcutsStack.addArrangedSubview(NSView())
-        shortcutsStack.addArrangedSubview(shortcutsSwitch)
-
-        shortcutsStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        // Snippets Toggle
-        let snippetsStack = NSStackView()
-        snippetsStack.orientation = .horizontal
-        snippetsStack.spacing = 10
-        snippetsStack.alignment = .centerY
-
-        let snippetsLabel = NSTextField(labelWithString: "Enable Snippet Expansion")
-        snippetsLabel.font = .systemFont(ofSize: 13)
-
-        snippetExpansionSwitch = NSSwitch()
-        snippetExpansionSwitch.controlSize = .mini
-        snippetExpansionSwitch.state =
-            ConfigManager.shared.config.snippetExpansionEnabled ? .on : .off
-        snippetExpansionSwitch.target = self
-        snippetExpansionSwitch.action = #selector(snippetExpansionToggled(_:))
-
-        snippetsStack.addArrangedSubview(snippetsLabel)
-        snippetsStack.addArrangedSubview(NSView())
-        snippetsStack.addArrangedSubview(snippetExpansionSwitch)
-
-        snippetsStack.arrangedSubviews[1].setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        let behaviorSection = SettingsSection(
-            title: "Behavior",
-            contentViews: [findFileStack, shortcutsStack, snippetsStack]
-        )
-        stackView.addArrangedSubview(behaviorSection)
-        behaviorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
-
-        // 3. Reset
+        // 2. Reset
         let resetBtn = NSButton(
             title: "Reset to Default", target: self, action: #selector(resetClicked(_:)))
         resetBtn.bezelStyle = .rounded
@@ -178,21 +103,6 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         ConfigManager.shared.reload()  // Triggers notification
     }
 
-    @objc private func findFileToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.findFileOnSpace = (sender.state == .on)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func shortcutsToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.showShortcutsInMain = (sender.state == .on)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func snippetExpansionToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.snippetExpansionEnabled = (sender.state == .on)
-        ConfigManager.shared.save()
-    }
-
     @objc private func resetClicked(_ sender: NSButton) {
         let alert = NSAlert()
         alert.messageText = "Reset Settings"
@@ -212,7 +122,7 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Delete Logs"
-        alert.informativeText = "Are you sure you want to delete all log files in ~/.nerw/logs/?"
+        alert.informativeText = "Are you sure you want to delete all log files in ~/.nerw/log/?"
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
 
@@ -250,8 +160,5 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config
         recorder.setKeybind(config.globalKeybind)
-        findFileSwitch.state = config.findFileOnSpace ? .on : .off
-        shortcutsSwitch.state = config.showShortcutsInMain ? .on : .off
-        snippetExpansionSwitch.state = config.snippetExpansionEnabled ? .on : .off
     }
 }

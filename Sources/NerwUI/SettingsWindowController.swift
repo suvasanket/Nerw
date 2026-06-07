@@ -98,6 +98,16 @@ class SettingsTabViewController: NSTabViewController {
             systemSymbolName: "paintbrush", accessibilityDescription: "Appearance Settings")
         self.addTabViewItem(appearanceItem)
 
+        // 2.5 Features Tab
+        let featuresVC = FeaturesSettingsViewController()
+        featuresVC.title = "Features"
+        featuresVC.preferredContentSize = Self.windowSize
+        let featuresItem = NSTabViewItem(viewController: featuresVC)
+        featuresItem.label = "Features"
+        featuresItem.image = NSImage(
+            systemSymbolName: "sparkles", accessibilityDescription: "Features Settings")
+        self.addTabViewItem(featuresItem)
+
         // 3. Search Tab
         let searchVC = SearchEnginesSettingsViewController()
         searchVC.title = "Search"
@@ -133,6 +143,6 @@ class SettingsTabViewController: NSTabViewController {
         self.preferredContentSize = Self.windowSize
 
         // Select Actions tab by default
-        self.selectedTabViewItemIndex = 3
+        self.selectedTabViewItemIndex = 4
     }
 }
