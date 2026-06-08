@@ -27,6 +27,10 @@ struct NerwCLI {
         commands["extension"] = extensionCmd
         CommandRegistry.shared.register(extensionCmd.metadata)
 
+        let daemonCmd = DaemonCommand()
+        commands["daemon"] = daemonCmd
+        CommandRegistry.shared.register(daemonCmd.metadata)
+
         let helpCmd = HelpCommand()
         commands["help"] = helpCmd
         CommandRegistry.shared.register(helpCmd.metadata)

@@ -63,9 +63,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.popupController.toggle()
         }
+
+        // Start daemon extensions (approved and enabled)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            DaemonManager.shared.startAllApproved()
+        }
+
+        // Listen for daemon approval requests from installer
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleDaemonApprovalRequired(_:)),
+            name: .nerwDaemonApprovalRequired, object: nil)
+
+        // Listen for daemon start/stop requests from CLI
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(handleDaemonStartRequest(_:)),
+            name: NSNotification.Name("com.nerw.daemon.start"), object: nil)
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(handleDaemonStopRequest(_:)),
+            name: NSNotification.Name("com.nerw.daemon.stop"), object: nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DaemonManager.shared.stopAll()
         ExtensionEngine.shared.terminateAllLongRunning()
         Logger.shared.info("AppDelegate: applicationWillTerminate")
         Logger.shared.flush()
@@ -99,6 +118,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             ClipboardManager.shared.stop()
         }
+    }
+
+    // MARK: - Daemon Handlers
+
+    @objc private func handleDaemonApprovalRequired(_ notification: Notification) {
+        guard let info = notification.userInfo,
+            let extensionId = info["extensionId"] as? String,
+            let description = info["daemonDescription"] as? String
+        else { return }
+
+        // Show a system alert asking the user to approve daemon mode
+        let alert = NSAlert()
+        alert.messageText = "Background Daemon Permission"
+        alert.informativeText =
+            "The extension '\(extensionId)' wants to run continuously in the background:\n\n\(description)\n\nAllow this extension to run as a background daemon?"
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Deny")
+        alert.alertStyle = .warning
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            DaemonRegistry.shared.approve(extensionId)
+            do {
+                try DaemonManager.shared.startDaemon(extensionId: extensionId)
+                NerwNotificationManager.shared.show(
+                    content: "Daemon started for '\(extensionId)'")
+            } catch {
+                NerwNotificationManager.shared.show(
+                    content: "Failed to start daemon for '\(extensionId)': \(error)",
+                    level: .error)
+            }
+        } else {
+            NerwNotificationManager.shared.show(
+                content: "Daemon permission denied for '\(extensionId)'.")
+        }
+    }
+
+    @objc private func handleDaemonStartRequest(_ notification: Notification) {
+        guard let extensionId = notification.object as? String else { return }
+        guard DaemonRegistry.shared.isApproved(extensionId) else {
+            print("[AppDelegate] Daemon start requested for '\(extensionId)' but not approved.")
+            return
+        }
+        do {
+            try DaemonManager.shared.startDaemon(extensionId: extensionId)
+        } catch {
+            print("[AppDelegate] Failed to start daemon '\(extensionId)': \(error)")
+        }
+    }
+
+    @objc private func handleDaemonStopRequest(_ notification: Notification) {
+        guard let extensionId = notification.object as? String else { return }
+        DaemonManager.shared.stopDaemon(extensionId: extensionId)
     }
 
     private func setupStatusItem() {

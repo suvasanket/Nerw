@@ -12,31 +12,31 @@ struct LoadedExtension {
 }
 
 /// Represents a message sent to the extension process via stdin.
-struct ExtensionInput: Codable {
-    let type: String  // "query" or "action"
-    let query: String?
-    let triggers: [String]?
-    let function: String?
-    let args: [String]?
-    let formValues: [String: String]?
-    let settings: [String: AnyCodable]?
+public struct ExtensionInput: Codable {
+    public let type: String  // "query" or "action"
+    public let query: String?
+    public let triggers: [String]?
+    public let function: String?
+    public let args: [String]?
+    public let formValues: [String: String]?
+    public let settings: [String: AnyCodable]?
 }
 
 /// Represents a command returned by the extension process via stdout for action execution.
-struct ExtensionCommand: Codable {
-    let type: String  // "open", "copy", "log", "notify", "dismiss_notify", "show_panel", "hide_host"
-    let value: String?
-    let level: String?
-    let progressive: Bool?
-    let id: String?
-    let title: String?
-    let width: Double?
-    let height: Double?
+public struct ExtensionCommand: Codable {
+    public let type: String  // "open", "copy", "log", "notify", "dismiss_notify", "show_panel", "hide_host"
+    public let value: String?
+    public let level: String?
+    public let progressive: Bool?
+    public let id: String?
+    public let title: String?
+    public let width: Double?
+    public let height: Double?
 }
 
 /// Wrapper for command responses from action execution.
-struct ExtensionActionResponse: Codable {
-    let commands: [ExtensionCommand]?
+public struct ExtensionActionResponse: Codable {
+    public let commands: [ExtensionCommand]?
 }
 
 public class ExtensionEngine {
@@ -471,34 +471,69 @@ public class ExtensionEngine {
             settings: getSettingsValues(for: id, manifest: ext.manifest)
         )
 
-        executeProcess(binaryPath: binaryPath, input: input) { [weak self] outputData in
+        // Route through daemon when running
+        if DaemonManager.shared.isRunning(id) {
+            DaemonManager.shared.sendQuery(extensionId: id, input: input) { [weak self] data in
+                guard let self = self else {
+                    completion([])
+                    return
+                }
+                guard let data = data else {
+                    // Daemon query failed — fall back to one-shot process
+                    self.runExtensionViaProcess(
+                        ext: ext, binaryPath: binaryPath, input: input,
+                        trigger: trigger, functionName: functionName, completion: completion)
+                    return
+                }
+                let actionManifest = ext.manifest.actions.first { action in
+                    if let fn = functionName {
+                        return (action.function ?? action.name) == fn
+                    } else if let tr = trigger {
+                        return action.triggers.contains(tr)
+                    }
+                    return false
+                }
+                let fallbackIcon = actionManifest?.icon ?? ext.manifest.icon
+                let results = self.parseResults(
+                    data, extensionId: id, extensionPath: ext.path,
+                    fallbackIcon: fallbackIcon, functionName: functionName)
+                DispatchQueue.main.async { completion(results) }
+            }
+            return
+        }
 
+        runExtensionViaProcess(
+            ext: ext, binaryPath: binaryPath, input: input,
+            trigger: trigger, functionName: functionName, completion: completion)
+    }
+
+    private func runExtensionViaProcess(
+        ext: LoadedExtension, binaryPath: URL, input: ExtensionInput,
+        trigger: String?, functionName: String?,
+        completion: @escaping ([NerwAction]) -> Void
+    ) {
+        executeProcess(binaryPath: binaryPath, input: input) { [weak self] outputData in
             guard let self = self else {
                 completion([])
                 return
             }
-
             guard let data = outputData else {
                 completion([])
                 return
             }
-
             let actionManifest = ext.manifest.actions.first { action in
-                if let functionName = functionName {
-                    return (action.function ?? action.name) == functionName
-                } else if let trigger = trigger {
-                    return action.triggers.contains(trigger)
+                if let fn = functionName {
+                    return (action.function ?? action.name) == fn
+                } else if let tr = trigger {
+                    return action.triggers.contains(tr)
                 }
                 return false
             }
-            let resolvedFallbackIcon = actionManifest?.icon ?? ext.manifest.icon
-
+            let fallbackIcon = actionManifest?.icon ?? ext.manifest.icon
             let results = self.parseResults(
-                data, extensionId: id, extensionPath: ext.path, fallbackIcon: resolvedFallbackIcon,
-                functionName: functionName)
-            DispatchQueue.main.async {
-                completion(results)
-            }
+                data, extensionId: ext.manifest.id, extensionPath: ext.path,
+                fallbackIcon: fallbackIcon, functionName: functionName)
+            DispatchQueue.main.async { completion(results) }
         }
     }
 
@@ -651,6 +686,12 @@ public class ExtensionEngine {
             settings: getSettingsValues(for: extensionId, manifest: ext.manifest)
         )
 
+        // Route through daemon when running
+        if DaemonManager.shared.isRunning(extensionId) {
+            DaemonManager.shared.sendAction(extensionId: extensionId, input: input)
+            return
+        }
+
         let actionManifest = ext.manifest.actions.first {
             ($0.function ?? $0.name) == functionName
         }
@@ -685,7 +726,9 @@ public class ExtensionEngine {
         }
     }
 
-    private func executeCommands(_ commands: [ExtensionCommand]) {
+    /// Executes host commands received from an extension (one-shot or daemon push).
+    /// Internal access allows DaemonConnection to forward unsolicited ext_command messages.
+    func executeCommands(_ commands: [ExtensionCommand]) {
         for cmd in commands {
             switch cmd.type {
             case "open":

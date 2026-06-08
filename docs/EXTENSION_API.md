@@ -1280,6 +1280,182 @@ Nerw.run(FullFeaturedExtension())
 
 ---
 
+## Daemon Mode
+
+Extensions can register as long-lived **background daemons** that stay running while Nerw is open. This enables:
+
+- **Instant queries**: Results served from in-memory indexes (file watcher, RSS feed, DB, etc.)
+- **Persistent connections**: Keep API sessions or sockets alive across queries
+- **Push notifications**: Daemons can proactively send commands (notify, copy, etc.) to the host
+
+> [!IMPORTANT]
+> Daemon mode requires explicit **user approval** every time a new extension is installed. By default, no extension can run as a daemon. Permission must be granted through the approval dialog or via `nerw daemon approve <id>`.
+
+### Declaring Daemon Mode in `manifest.json`
+
+```json
+{
+  "id": "com.example.watcher",
+  "name": "File Watcher",
+  "description": "Watches files in real-time",
+  "icon": "eye.fill",
+  "daemon": {
+    "enabled": true,
+    "description": "Runs a file-system watcher to provide instant search results without re-indexing.",
+    "memoryLimit": 64
+  },
+  "actions": [
+    {
+      "name": "Watch Results",
+      "triggers": ["watch"],
+      "description": "Search watched files"
+    }
+  ]
+}
+```
+
+**Daemon Config Properties:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `enabled` | boolean | Yes | Must be `true` to declare daemon capability |
+| `description` | string | Yes | Shown to the user in the approval dialog |
+| `memoryLimit` | number | No | RSS memory limit in MB (default: 128, max: 256) |
+
+---
+
+### NerwDaemon Protocol
+
+Implement `NerwDaemon` alongside your `NerwExtension` to add background processing.
+
+```swift
+public protocol NerwDaemon: AnyObject {
+    func onStart(context: DaemonContext)
+    func onQuery(input: QueryInput) -> [NerwResult]   // optional
+    func onAction(input: ActionInput)                  // optional
+    func onStop()                                      // optional
+}
+```
+
+| Method | Called When | Notes |
+|--------|-------------|-------|
+| `onStart(context:)` | Daemon first connects to host | Set up indexes, file watchers, timers |
+| `onQuery(input:)` | User query matches this extension's trigger | Return results from your in-memory index |
+| `onAction(input:)` | User executes an action | Use `Nerw.open()`, `Nerw.copy()`, etc. as normal |
+| `onStop()` | Graceful shutdown or host quit | Persist in-memory state to `context.dataDirectory` |
+
+### DaemonContext
+
+Provides startup information to your daemon via `onStart`.
+
+```swift
+public struct DaemonContext {
+    /// Absolute path to persistent storage directory for this extension.
+    /// Content survives daemon restarts; cleaned on extension uninstall.
+    public let dataDirectory: String
+
+    /// Extension settings as configured by the user in Nerw Settings.
+    public let settings: [String: Any]
+}
+```
+
+### Registering the Daemon
+
+Pass your daemon to `Nerw.run`:
+
+```swift
+import NerwExtensionKit
+import Foundation
+
+// MARK: - Extension (handles one-shot queries when daemon is unavailable)
+
+struct FileWatcherExtension: NerwExtension {
+    func query(input: QueryInput) -> [NerwResult] {
+        // Fallback: will only be called if daemon is not running
+        return [NerwResult("File Watcher").subtitle("Daemon not running")]
+    }
+}
+
+// MARK: - Daemon (long-lived background process)
+
+class FileWatcherDaemon: NerwDaemon {
+    private var index: [String] = []
+    private var watcher: DispatchSourceFileSystemObject?
+    private var dataDir: String = ""
+
+    func onStart(context: DaemonContext) {
+        dataDir = context.dataDirectory
+        loadIndex()          // restore previous state
+        startWatching()      // set up FSEvents or DispatchSource
+    }
+
+    func onQuery(input: QueryInput) -> [NerwResult] {
+        // Serve from in-memory index — instant response
+        return index
+            .filter { $0.localizedCaseInsensitiveContains(input.query) }
+            .prefix(10)
+            .map { NerwResult($0).icon(.system("doc")) }
+    }
+
+    func onAction(input: ActionInput) {
+        switch input.function {
+        case "openFile":
+            if let path = input.args.first {
+                Nerw.open(path)
+            }
+        default:
+            break
+        }
+    }
+
+    func onStop() {
+        watcher?.cancel()
+        saveIndex()          // persist to dataDirectory
+    }
+
+    private func loadIndex() {
+        let file = URL(fileURLWithPath: dataDir).appendingPathComponent("index.json")
+        if let data = try? Data(contentsOf: file),
+           let arr = try? JSONDecoder().decode([String].self, from: data) {
+            index = arr
+        }
+    }
+
+    private func saveIndex() {
+        let file = URL(fileURLWithPath: dataDir).appendingPathComponent("index.json")
+        if let data = try? JSONEncoder().encode(index) {
+            try? data.write(to: file)
+        }
+    }
+
+    private func startWatching() { /* FSEvents setup */ }
+}
+
+// MARK: - Entry Point
+
+Nerw.run(extension: FileWatcherExtension(), daemon: FileWatcherDaemon())
+```
+
+> [!NOTE]
+> When the daemon is **running**, `onQuery` is called instead of `NerwExtension.query`. When it is **not running** (e.g., not yet approved), Nerw falls back to spawning a one-shot process and calling `NerwExtension.query`.
+
+---
+
+### Resource Limits
+
+| Constraint | Default | Maximum |
+|-----------|---------|---------|
+| Memory (RSS) | 128 MB | 256 MB |
+| CPU (sustained) | — | 25% for 30s |
+
+If limits are exceeded, the daemon receives **SIGTERM** followed by **SIGKILL** after 5 seconds.
+
+After **5 crashes within 10 minutes**, the daemon is automatically disabled. It can be re-enabled via `nerw daemon approve <id>` or manually via the approval dialog.
+
+After 60 seconds of uptime, the crash counter resets.
+
+---
+
 ## CLI Tools
 
 The `nerw` command-line tool provides built-in utilities for extension developers.
@@ -1293,11 +1469,33 @@ Compiles and runs the extension in the current directory against a test input.
 - **`[query]`**: The text to send to the extension's `query()` method.
 - **`--install` / `-i`**: Symlinks the current directory to the app's extension folder and reloads the host. This allows you to test your extension live in the Nerw UI as you save changes.
 - **`--clean` / `-c`**: Removes the development symlink.
+- **`--daemon` / `-d`**: Compiles the extension and launches it in daemon mode with an interactive REPL. Commands: `q <query>`, `a <function>`, `h` (health check), `s` (stop).
 
 ### `nerw extension bundle`
 Packages the current directory into a distribution-ready `.nerw` file.
 - **Output**: `<id>.nerw` in the current folder.
 - **Includes**: `manifest.json`, `main.swift`, and any other assets (like `.png` icons) present in the directory.
+
+### `nerw daemon list`
+Lists all daemon-capable extensions with their approval and runtime status.
+
+```
+com.example.watcher       running      12345   uptime: 3h24m
+com.example.other         unapproved   -
+com.example.broken        disabled     -       (crash_limit)
+```
+
+### `nerw daemon approve <id>`
+Grants daemon permission for an extension and requests Nerw to start it immediately.
+
+### `nerw daemon revoke <id>`
+Revokes permission and stops the daemon if running.
+
+### `nerw daemon start <id>`
+Requests Nerw to start a previously approved daemon.
+
+### `nerw daemon stop <id>`
+Requests Nerw to gracefully stop a running daemon.
 
 ---
 

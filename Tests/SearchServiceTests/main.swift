@@ -23,6 +23,7 @@ func runTests() {
     runExtensionPanelTests()
     runNotificationTests()
     runTextExpansionTests()
+    runDaemonTests()
 
     print("[Testing] All SearchService tests PASSED.")
 

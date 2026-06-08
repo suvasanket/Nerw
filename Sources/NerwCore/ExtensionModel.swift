@@ -11,6 +11,22 @@ public enum SettingType: String, Codable {
     case number
 }
 
+/// Configuration for an extension's daemon capability, declared in manifest.json.
+public struct DaemonConfig: Codable {
+    /// Whether daemon mode is requested.
+    public let enabled: Bool
+    /// Human-readable explanation shown in the approval prompt.
+    public let description: String
+    /// Requested RSS memory limit in MB (default 128, max 256).
+    public let memoryLimit: Int?
+
+    public init(enabled: Bool, description: String, memoryLimit: Int? = nil) {
+        self.enabled = enabled
+        self.description = description
+        self.memoryLimit = memoryLimit
+    }
+}
+
 public struct ExtensionSetting: Codable {
     public let id: String
     public let title: String
@@ -82,6 +98,8 @@ public struct ExtensionManifest: Codable {
     public let actions: [ExtensionActionManifest]
     public let mode: String?
     public let settings: [ExtensionSetting]?
+    /// Daemon capability config. nil = not a daemon extension.
+    public let daemon: DaemonConfig?
 
     // Set by the engine to resolve local assets
     public var path: String?
@@ -97,7 +115,7 @@ public struct ExtensionManifest: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, icon, actions, mode, settings, path
+        case id, name, description, icon, actions, mode, settings, daemon, path
         // Legacy keys
         case trigger, triggers
     }
@@ -110,6 +128,7 @@ public struct ExtensionManifest: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         mode = try container.decodeIfPresent(String.self, forKey: .mode)
         settings = try container.decodeIfPresent([ExtensionSetting].self, forKey: .settings)
+        daemon = try container.decodeIfPresent(DaemonConfig.self, forKey: .daemon)
 
         if let actionsArray = try container.decodeIfPresent(
             [ExtensionActionManifest].self, forKey: .actions)
@@ -145,6 +164,7 @@ public struct ExtensionManifest: Codable {
         try container.encode(actions, forKey: .actions)
         try container.encodeIfPresent(mode, forKey: .mode)
         try container.encodeIfPresent(settings, forKey: .settings)
+        try container.encodeIfPresent(daemon, forKey: .daemon)
         try container.encodeIfPresent(path, forKey: .path)
     }
 }

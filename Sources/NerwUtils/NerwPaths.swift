@@ -48,6 +48,20 @@ public struct NerwPaths {
         dataDirectory.appendingPathComponent("ClipboardImages")
     }
 
+    // MARK: - Daemon Paths (~/.nerw/run, ~/.nerw/extensions/<id>/data)
+
+    /// Directory for daemon Unix domain socket files (`~/.nerw/run`).
+    /// Cleaned on app launch to remove stale sockets from prior sessions.
+    public static var daemonRunDirectory: URL {
+        configDirectory.appendingPathComponent("run")
+    }
+
+    /// Per-extension persistent data directory (`~/.nerw/extensions/<id>/data`).
+    /// Survives restarts; cleaned on extension uninstall.
+    public static func daemonDataDir(for extensionId: String) -> URL {
+        extensionsDirectory.appendingPathComponent(extensionId).appendingPathComponent("data")
+    }
+
     // MARK: - Helper
 
     /// Ensures that an essential directory exists, creating it if necessary.

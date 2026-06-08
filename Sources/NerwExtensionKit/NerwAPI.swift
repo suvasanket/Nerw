@@ -4,11 +4,17 @@ import Foundation
 /// Extension developers use `Nerw.open()`, `Nerw.copy()`, `Nerw.log()`
 /// inside their `perform(action:)` method, then call `Nerw.run()` to start.
 public enum Nerw {
-    // MARK: - Command Accumulator (internal)
-    @available(*, deprecated, message: "Commands are now emitted instantly")
-    static var pendingCommands: [[String: Any]] = []
 
     private static func emitCommand(_ cmd: [String: Any]) {
+        // In daemon mode, route commands through the socket as ext_command messages
+        if let socket = daemonSocket {
+            let response: [String: Any] = ["commands": [cmd]]
+            if let data = try? JSONSerialization.data(withJSONObject: response) {
+                socket.sendMessage(DaemonSocketMessage(type: "ext_command", payload: data))
+            }
+            return
+        }
+        // One-shot mode: write each command to stdout immediately
         let response: [String: Any] = ["commands": [cmd]]
         if let data = try? JSONSerialization.data(withJSONObject: response),
             let output = String(data: data, encoding: .utf8)
@@ -83,9 +89,29 @@ public enum Nerw {
     /// Nerw.run(MyExtension())
     /// ```
     public static func run(_ ext: NerwExtension) {
+        run(extension: ext, daemon: nil)
+    }
+
+    /// Run the extension, optionally with a daemon.
+    ///
+    /// When the binary is launched with `--daemon`, it enters daemon mode and
+    /// calls the daemon's lifecycle hooks. Otherwise it handles one query/action
+    /// via stdin/stdout (the existing one-shot model).
+    ///
+    /// ```swift
+    /// Nerw.run(extension: MyExtension(), daemon: MyDaemon())
+    /// ```
+    public static func run(extension ext: NerwExtension, daemon: NerwDaemon?) {
         // Safety: exit if parent process dies (prevents orphans)
         startParentWatchdog()
 
+        // Check for --daemon flag
+        if CommandLine.arguments.contains("--daemon"), let daemon = daemon {
+            runDaemonMode(daemon: daemon)
+            return
+        }
+
+        // ---- One-shot mode ----
         guard let inputLine = readLine(),
             let inputData = inputLine.data(using: .utf8),
             let input = try? JSONSerialization.jsonObject(with: inputData) as? [String: Any]
@@ -125,24 +151,107 @@ public enum Nerw {
                 formValues: input["formValues"] as? [String: String] ?? [:],
                 settings: settings
             )
-
-            pendingCommands = []
+            // Commands emitted inside perform(action:) via Nerw.open/copy/notify/etc.
+            // are written to stdout immediately by emitCommand(). No accumulator needed.
             ext.perform(action: actionInput)
-
-            let response: [String: Any] = ["commands": pendingCommands]
-            if let data = try? JSONSerialization.data(withJSONObject: response),
-                let output = String(data: data, encoding: .utf8)
-            {
-                print(output)
-                fflush(stdout)
-            } else {
-                print("{}")
-                fflush(stdout)
-            }
 
         default:
             Nerw.log("Unknown message type: \(type)")
         }
+    }
+
+    // MARK: - Daemon Mode
+
+    private static func runDaemonMode(daemon: NerwDaemon) {
+        guard let socketPath = argValue(for: "--socket"),
+            let dataDir = argValue(for: "--data-dir")
+        else {
+            Nerw.log("Daemon mode requires --socket and --data-dir arguments")
+            exit(1)
+        }
+
+        let server = DaemonSocketServer(socketPath: socketPath)
+        do {
+            try server.start()
+        } catch {
+            Nerw.log("Failed to start daemon socket: \(error)")
+            exit(1)
+        }
+
+        // Call onStart with context
+        let context = DaemonContext(dataDirectory: dataDir, settings: [:])
+        daemon.onStart(context: context)
+
+        // Message loop
+        while let msg = server.readMessage() {
+            switch msg.type {
+
+            case "query":
+                guard let data = msg.payloadData,
+                    let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else { continue }
+
+                let qSettings = raw["settings"] as? [String: Any] ?? [:]
+                let queryInput = QueryInput(
+                    query: raw["query"] as? String ?? "",
+                    triggers: raw["triggers"] as? [String] ?? [],
+                    settings: qSettings
+                )
+                let results = daemon.onQuery(input: queryInput)
+                let serialized = results.map { $0.serialize() }
+                if let respData = try? JSONSerialization.data(withJSONObject: serialized) {
+                    server.sendMessage(
+                        DaemonSocketMessage(id: msg.id, type: "response", payload: respData))
+                }
+
+            case "action":
+                guard let data = msg.payloadData,
+                    let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else { continue }
+
+                let aSettings = raw["settings"] as? [String: Any] ?? [:]
+                let actionInput = ActionInput(
+                    function: raw["function"] as? String ?? "",
+                    args: raw["args"] as? [String] ?? [],
+                    formValues: raw["formValues"] as? [String: String] ?? [:],
+                    settings: aSettings
+                )
+                // Set daemonSocket so emitCommand() routes all Nerw.open/copy/notify/etc.
+                // calls through the socket instead of stdout.
+                daemonSocket = server
+                daemon.onAction(input: actionInput)
+                daemonSocket = nil
+
+            case "health":
+                server.sendMessage(DaemonSocketMessage(id: msg.id, type: "health_response"))
+
+            case "stop":
+                daemon.onStop()
+                server.stop()
+                exit(0)
+
+            default:
+                Nerw.log("Unknown daemon message type: \(msg.type)")
+            }
+        }
+
+        // Connection dropped — daemon.onStop() and exit
+        daemon.onStop()
+        server.stop()
+        exit(0)
+    }
+
+    // MARK: - Daemon Socket
+
+    /// Non-nil during daemon action handling; routes emitCommand() calls to the socket.
+    static var daemonSocket: DaemonSocketServer?
+
+    // MARK: - Helpers
+
+    private static func argValue(for flag: String) -> String? {
+        let args = CommandLine.arguments
+        guard let idx = args.firstIndex(of: flag), idx + 1 < args.count else { return nil }
+        return args[idx + 1]
     }
 
     private static func startParentWatchdog() {

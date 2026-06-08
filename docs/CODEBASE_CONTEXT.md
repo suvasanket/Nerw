@@ -75,14 +75,19 @@ The source code is organized into modular targets within `Sources/`:
     - `ConfigManager.swift`: Manages global application settings and `~/.nerw/config.json`.
     - `NerwTheme.swift`: Pure data struct representing a normalized snapshot of the UI state (e.g. colors, rounded corners) computed from `ConfigManager`.
     - `NerwPanelContext.swift`: Shared state for window positioning and font synchronization.
-    - `ExtensionEngine.swift`: Process-based Swift extension engine. Compiles `main.swift` via `swiftc` at install time, executes extensions as child processes communicating via JSON stdin/stdout. Supports multiple actions per extension and smart trigger resolution. Automatically injects current `NerwThemeConfig` into extension runtime. Also tracks long-running extension processes and renames them using hardlinks for easy identification in Activity Monitor.
-    - `ExtensionInstaller.swift`: Handles `.nerw` package installation, compilation, and lifecycle. No app restart required.
-    - `ExtensionModel.swift`: Extension manifest model with `ExtensionMode` (script/binary) and `ExtensionActionManifest` with explicit `type` support. Includes `longRunning` flag.
+    - `ExtensionEngine.swift`: Process-based Swift extension engine. Compiles `main.swift` via `swiftc` at install time, executes extensions as child processes communicating via JSON stdin/stdout. Supports multiple actions per extension and smart trigger resolution. Automatically injects current `NerwThemeConfig` into extension runtime. Also tracks long-running extension processes and renames them using hardlinks for easy identification in Activity Monitor. **When a daemon is running, queries and actions are routed through `DaemonManager` instead of spawning a fresh process.**
+    - `ExtensionInstaller.swift`: Handles `.nerw` package installation, compilation, and lifecycle. No app restart required. Posts `nerwDaemonApprovalRequired` notification when a daemon-capable extension is installed.
+    - `ExtensionModel.swift`: Extension manifest model with `ExtensionMode` (script/binary), `ExtensionActionManifest` with explicit `type` support, and the new `DaemonConfig` struct (enables `daemon` field in `manifest.json`).
+    - `DaemonRegistry.swift`: **[NEW]** Persists daemon approval state and crash history to `~/.nerw/daemon_registry.json`. Key: one entry per extension that has ever requested daemon mode. Provides: `approve/revoke/enable/disable`, `recordCrash` (5-crash/10-min budget), `resetCrashCount` (after 60s uptime), `isRunnable`.
+    - `DaemonIPC.swift`: **[NEW]** Host-side Unix domain socket client (`DaemonConnection`). Uses NDJSON envelope (`DaemonMessage`) with Base64-encoded payloads and correlation IDs. Supports: `sendQuery` (with timeout + fallback), `sendAction` (fire-and-forget), `healthCheck`, `sendStop`. Forwards unsolicited `ext_command` pushes to `ExtensionEngine.executeCommands`.
+    - `DaemonResourceMonitor.swift`: **[NEW]** Polls running daemons every 5s via `proc_pid_rusage`. Memory over limit → immediate SIGTERM→SIGKILL. CPU >25% sustained for 30s (6 samples) → same. Calls `onViolation` and auto-disables the extension in the registry.
+    - `DaemonManager.swift`: **[NEW]** Central daemon lifecycle orchestrator. Starts all approved daemons on app launch, routes queries/actions, restarts crashes with exponential backoff (2→4→8→16→32s), stops all on app quit. Exposes `status()` for CLI.
+    - `DaemonNotifications.swift`: **[NEW]** `Notification.Name.nerwDaemonApprovalRequired` constant.
     - `NerwUIInterface.swift`: Defines the interface and contract between core logic and the UI layer.
 
 - **Role**: Pure search algorithms, ranking, and query classification.
 - **Key Components**:
-    - `Classes/Frecency/Frecency.swift`: "Frequency + Recency" scoring. Supports both Global and Query-Aware ranking.
+    - `Classes/Frecency/Frecency.swift`: \"Frequency + Recency\" scoring. Supports both Global and Query-Aware ranking.
     - `Fuse.swift`: Fuzzy search library integration.
     - `QueryCategory.swift`: Enum defining action categories (`webSearch`, `url`) for smart ranking.
     - `QueryCategorizer.swift`: NLP-based query classifier using Apple's NaturalLanguage framework. 
@@ -93,7 +98,9 @@ The source code is organized into modular targets within `Sources/`:
 ### `NerwExtensionKit` (Extension SDK)
 - **Role**: The Swift SDK (Static Library) supplied to extension developers to build native Swift extensions for Nerw.
 - **Key Components**:
-    - `NerwAPI.swift`: Host commands (`Nerw.open`, `Nerw.copy`, `Nerw.log`) and the JSON bootstrap sequence.
+    - `NerwAPI.swift`: Host commands (`Nerw.open`, `Nerw.copy`, `Nerw.log`) and the JSON bootstrap sequence. Now also contains `run(extension:daemon:)` overload and the daemon message loop (entered when the binary is launched with `--daemon --socket <path> --data-dir <path>`).
+    - `NerwDaemon.swift`: **[NEW]** `NerwDaemon` protocol (`onStart/onQuery/onAction/onStop`) and `DaemonContext` struct.
+    - `DaemonSocket.swift`: **[NEW]** Extension-side Unix domain socket server (`DaemonSocketServer`). Creates, binds, and accepts one connection; provides `readMessage/sendMessage` for NDJSON protocol.
     - `NerwPanel.swift`: Convenience `NSPanel` subclass that builds a fully themed window inside the extension process, matching the host's styling, layout, and positioning data (via `NerwThemeConfig`).
     - `NerwResult.swift`: The fluent builder pattern API allowing easy construction of Complex, Hybrid, Arg, InlineArg, and Form actions.
 
@@ -128,6 +135,17 @@ The source code is organized into modular targets within `Sources/`:
     - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
 9. **Execution**: `NerwAction.type` determines the next step (Execute instantly, ask for arguments, open a form, or drill into a hybrid secondary action).
 
+### Extension Daemon Flow (new)
+1. Manifest declares `"daemon": { "enabled": true, "description": "...", "memoryLimit": 128 }`.
+2. On install, `ExtensionInstaller` posts `nerwDaemonApprovalRequired` notification.
+3. `AppDelegate` shows a system alert. If approved, `DaemonRegistry.approve()` is called.
+4. `DaemonManager.startDaemon()` launches the binary with `--daemon --socket <path> --data-dir <path>`.
+5. Extension binary detects `--daemon` and enters `runDaemonMode()`, creating a Unix socket server.
+6. Host connects, performs health check, registers with `DaemonResourceMonitor`.
+7. Queries/actions are routed via `DaemonConnection` (bypassing process-spawn path).
+8. Crashes trigger exponential backoff restarts; 5 crashes in 10 minutes auto-disables.
+9. On app quit, `DaemonManager.stopAll()` sends `stop` message, waits 2s, then terminates.
+
 ### State Management
 - **InputState**:
     - `.search`: Filtering results.
@@ -138,6 +156,9 @@ The source code is organized into modular targets within `Sources/`:
 - **Config**: `~/.nerw/config.json`.
 - **Action Preferences**: `~/.nerw/actions.json`.
 - **Extensions**: `~/.nerw/extensions/`.
+- **Daemon Registry**: `~/.nerw/daemon_registry.json`. **[NEW]**
+- **Daemon Sockets**: `~/.nerw/run/<extension-id>.sock`. **[NEW]**
+- **Daemon Data Dir**: `~/.nerw/extensions/<id>/data/`. **[NEW]**
 - **Web Search Sites**: `~/Library/Application Support/Nerw/WebSearch.json`.
 - **Cache**: `~/Library/Application Support/Nerw/Data/cache.json`.
 - **Frecency**: `~/Library/Application Support/Nerw/Data/frecency.json`.
@@ -145,6 +166,9 @@ The source code is organized into modular targets within `Sources/`:
 - **Clipboard Images**: `~/Library/Application Support/Nerw/Data/ClipboardImages/`.
 - **Icons**: `~/Library/Application Support/Nerw/Icons/`.
 - **Logs**: `~/.nerw/log/`.
+
+---
+
 
 ---
 

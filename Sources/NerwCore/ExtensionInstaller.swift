@@ -82,7 +82,22 @@ public class ExtensionInstaller {
             }
         }
 
-        // 5. Reload Engine (no app restart needed)
+        // 5. If extension declares daemon capability, register it and notify for approval.
+        if let daemonCfg = manifest.daemon, daemonCfg.enabled {
+            DaemonRegistry.shared.register(manifest.id)
+            // Post notification so the host UI can present an approval prompt.
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: .nerwDaemonApprovalRequired,
+                    object: nil,
+                    userInfo: [
+                        "extensionId": manifest.id, "daemonDescription": daemonCfg.description,
+                    ]
+                )
+            }
+        }
+
+        // 6. Reload Engine (no app restart needed)
         ExtensionEngine.shared.reload()
     }
 
