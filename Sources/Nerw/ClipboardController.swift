@@ -4,29 +4,23 @@ import NerwBuiltin
 import NerwUI
 
 class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
-    private var windowController: SplitPaneWindowController?
     private var filteredEntries: [ClipboardEntry] = []
     private var currentQuery: String = ""
 
     var isVisible: Bool {
-        return windowController?.isVisible == true
+        return SplitPaneManager.shared.isVisible
     }
 
     func show() {
         currentQuery = ""
         refreshFilteredEntries()
-        if windowController == nil {
-            windowController = SplitPaneWindowController(
-                title: "Search Clipboard History...",
-                icon: NSImage(named: "clipboard") ?? NSImage(
-                    systemSymbolName: "clipboard", accessibilityDescription: nil) ?? NSImage(
-                        systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-                    ?? NSImage(),
-                dataSource: self,
-                delegate: self
-            )
-        }
-        windowController?.show()
+        let icon =
+            NSImage(named: "clipboard") ?? NSImage(
+                systemSymbolName: "clipboard", accessibilityDescription: nil) ?? NSImage(
+                systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+            ?? NSImage()
+        SplitPaneManager.shared.show(
+            title: "Search Clipboard History...", icon: icon, dataSource: self, delegate: self)
     }
 
     // MARK: - SplitPaneDataSource
@@ -58,7 +52,7 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
     func didSearch(query: String) {
         currentQuery = query
         refreshFilteredEntries()
-        windowController?.reloadData()
+        SplitPaneManager.shared.reloadData()
     }
 
     func actionContext(for item: SplitPaneItem) -> NerwActionContext? {
@@ -77,7 +71,7 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
         case ClipboardContextOperationID.pin.rawValue:
             ClipboardManager.shared.togglePinned(id: adapter.entry.id)
             refreshFilteredEntries()
-            windowController?.reloadData()
+            SplitPaneManager.shared.reloadData()
         default:
             break
         }
@@ -85,13 +79,13 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
 
     private func paste(_ entry: ClipboardEntry) {
         ClipboardManager.shared.paste(entry: entry)
-        windowController?.hide()
+        SplitPaneManager.shared.hide()
     }
 
     private func delete(_ entry: ClipboardEntry) {
         ClipboardManager.shared.deleteEntry(id: entry.id)
         refreshFilteredEntries()
-        windowController?.reloadData()
+        SplitPaneManager.shared.reloadData()
     }
 
     private func refreshFilteredEntries() {
@@ -115,7 +109,7 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
     }
 
     func didCancel() {
-        windowController?.hide()
+        SplitPaneManager.shared.hide()
     }
 }
 

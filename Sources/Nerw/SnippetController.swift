@@ -6,29 +6,20 @@ import NerwCore
 import NerwUI
 
 class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
-    private var windowController: SplitPaneWindowController?
     private var filteredSnippets: [Snippet] = []
     private var currentQuery: String = ""
 
     var isVisible: Bool {
-        return windowController?.isVisible == true
+        return SplitPaneManager.shared.isVisible
     }
 
     func show() {
         currentQuery = ""
         refreshFilteredSnippets()
-        if windowController == nil {
-            let icon =
-                NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
-                ?? NSImage()
-            windowController = SplitPaneWindowController(
-                title: "Search Snippets...",
-                icon: icon,
-                dataSource: self,
-                delegate: self
-            )
-        }
-        windowController?.show()
+        let icon =
+            NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
+        SplitPaneManager.shared.show(
+            title: "Search Snippets...", icon: icon, dataSource: self, delegate: self)
     }
 
     // MARK: - SplitPaneDataSource
@@ -60,7 +51,7 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
     func didSearch(query: String) {
         currentQuery = query
         refreshFilteredSnippets()
-        windowController?.reloadData()
+        SplitPaneManager.shared.reloadData()
     }
 
     func actionContext(for item: SplitPaneItem) -> NerwActionContext? {
@@ -124,7 +115,7 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
     }
 
     private func typeSnippet(_ snippet: Snippet) {
-        windowController?.hide()
+        SplitPaneManager.shared.hide()
 
         // Wait briefly for window to disappear
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -149,11 +140,11 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
     private func delete(_ snippet: Snippet) {
         SnippetManager.shared.deleteSnippet(id: snippet.id)
         refreshFilteredSnippets()
-        windowController?.reloadData()
+        SplitPaneManager.shared.reloadData()
     }
 
     private func edit(_ snippet: Snippet) {
-        windowController?.hide()
+        SplitPaneManager.shared.hide()
 
         let editAction = NerwAction(
             id: "builtin.snippet.edit",
@@ -221,7 +212,7 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
     }
 
     func didCancel() {
-        windowController?.hide()
+        SplitPaneManager.shared.hide()
     }
 }
 

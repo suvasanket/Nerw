@@ -90,8 +90,15 @@ public class SplitPaneWindowController: NSObject {
         }
     }
 
+    public func update(
+        title: String, icon: NSImage?, dataSource: SplitPaneDataSource, delegate: SplitPaneDelegate
+    ) {
+        contentViewController.configure(
+            title: title, icon: icon, dataSource: dataSource, delegate: delegate)
+    }
+
     public func show() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
         // Use a wider default size to better fit the side-by-side layout
         let width = GlobalLayout.mainWidth
@@ -122,5 +129,36 @@ public class SplitPaneWindowController: NSObject {
 
     public func reloadData() {
         contentViewController.reloadData()
+    }
+}
+
+public class SplitPaneManager {
+    public static let shared = SplitPaneManager()
+
+    private var windowController: SplitPaneWindowController?
+
+    public var isVisible: Bool {
+        return windowController?.isVisible == true
+    }
+
+    public func show(
+        title: String, icon: NSImage?, dataSource: SplitPaneDataSource, delegate: SplitPaneDelegate
+    ) {
+        if windowController == nil {
+            windowController = SplitPaneWindowController(
+                title: title, icon: icon, dataSource: dataSource, delegate: delegate)
+        } else {
+            windowController?.update(
+                title: title, icon: icon, dataSource: dataSource, delegate: delegate)
+        }
+        windowController?.show()
+    }
+
+    public func hide() {
+        windowController?.hide()
+    }
+
+    public func reloadData() {
+        windowController?.reloadData()
     }
 }

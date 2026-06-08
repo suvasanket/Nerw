@@ -15,7 +15,7 @@ private enum SplitPaneContextShortcut {
 public class SplitPaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
     NSTextFieldDelegate, ActionContextViewControllerDelegate
 {
-    private let titleContent: String
+    private var titleContent: String
     public weak var dataSource: SplitPaneDataSource?
     public weak var delegate: SplitPaneDelegate?
 
@@ -30,7 +30,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     private let searchIconView = NSImageView()
 
     private var selectedIndex: Int = 0
-    private let iconImage: NSImage?
+    private var iconImage: NSImage?
     private var actionContextWindow: ActionContextPanel?
     private var actionContextViewController: ActionContextViewController?
 
@@ -43,6 +43,23 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         self.dataSource = dataSource
         self.delegate = delegate
         super.init(nibName: nil, bundle: nil)
+    }
+
+    public func configure(
+        title: String, icon: NSImage?, dataSource: SplitPaneDataSource, delegate: SplitPaneDelegate
+    ) {
+        self.titleContent = title
+        self.iconImage = icon
+        self.dataSource = dataSource
+        self.delegate = delegate
+
+        if isViewLoaded {
+            searchField.placeholderString = title
+            searchIconView.image =
+                icon ?? NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+            searchField.stringValue = ""
+            reloadData()
+        }
     }
 
     required init?(coder: NSCoder) {

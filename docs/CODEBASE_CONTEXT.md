@@ -178,7 +178,8 @@ A reusable **Raycast-style split-pane layout** exposed as a public API for any c
 
 ### Usage
 ```swift
-let vc = SplitPaneViewController(title: "My Feature", dataSource: ds, delegate: del)
+SplitPaneManager.shared.show(title: "My Feature", icon: myIcon, dataSource: ds, delegate: del)
+SplitPaneManager.shared.hide()
 ```
 
 ### Memory Design
