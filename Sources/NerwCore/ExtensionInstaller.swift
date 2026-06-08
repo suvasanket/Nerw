@@ -1,3 +1,4 @@
+import Cocoa
 import Foundation
 
 public enum ExtensionInstallError: Error {
@@ -138,5 +139,29 @@ public class ExtensionInstaller {
             try fileManager.removeItem(at: installPath)
         }
         ExtensionEngine.shared.reload()
+    }
+
+    /// Extracts a specific icon file from the package to an NSImage
+    public func extractIcon(from packageURL: URL, iconName: String) -> NSImage? {
+        let tempDir = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? fileManager.removeItem(at: tempDir)
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-j", packageURL.path, iconName, "-d", tempDir.path]
+
+        try? process.run()
+        process.waitUntilExit()
+
+        let iconPath = tempDir.appendingPathComponent(iconName)
+        if fileManager.fileExists(atPath: iconPath.path),
+            let image = NSImage(contentsOfFile: iconPath.path)
+        {
+            return image
+        }
+        return nil
     }
 }

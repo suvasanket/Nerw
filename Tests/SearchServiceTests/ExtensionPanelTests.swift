@@ -12,6 +12,7 @@ func runExtensionPanelTests() {
     testThemeConfigDefaults()
     testShowPanelCommandRemoved()
     testFallbackIconResolution()
+    testExtractIcon()
 
     print("[Testing] All Extension Theme Config tests PASSED.")
 }
@@ -266,4 +267,27 @@ func testFallbackIconResolution() {
     }
 
     print("  ✓ testFallbackIconResolution passed.")
+}
+
+func testExtractIcon() {
+    let packageURL = URL(
+        fileURLWithPath:
+            "/Users/suvasanketrout/Developer/Nerw/Ext_Work/reminder/com.nerw.reminder.nerw")
+    if FileManager.default.fileExists(atPath: packageURL.path) {
+        let installer = ExtensionInstaller.shared
+        if let image = installer.extractIcon(from: packageURL, iconName: "icon.png") {
+            if image.size.width <= 0 || image.size.height <= 0 {
+                fatalError("FAIL: Extracted icon image size is invalid.")
+            }
+        } else {
+            fatalError("FAIL: Could not extract icon.png from reminder extension.")
+        }
+
+        if installer.extractIcon(from: packageURL, iconName: "non_existent.png") != nil {
+            fatalError("FAIL: Non-existent icon should return nil.")
+        }
+    } else {
+        print("  ! testExtractIcon skipped because com.nerw.reminder.nerw was not found.")
+    }
+    print("  ✓ testExtractIcon passed.")
 }

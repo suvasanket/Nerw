@@ -173,6 +173,27 @@ public class ExtensionInstallWindowController: NSWindowController {
         idLabel.stringValue = manifest.id
         descriptionLabel.stringValue = manifest.description
 
+        if let iconName = manifest.icon {
+            if let image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) {
+                iconView.image = image
+                iconView.contentTintColor = .white
+            } else if let image = ExtensionInstaller.shared.extractIcon(
+                from: url, iconName: iconName)
+            {
+                iconView.image = image
+                iconView.contentTintColor = nil
+            } else {
+                iconView.image = NSImage(
+                    systemSymbolName: "puzzlepiece.extension", accessibilityDescription: "Extension"
+                )
+                iconView.contentTintColor = .white
+            }
+        } else {
+            iconView.image = NSImage(
+                systemSymbolName: "puzzlepiece.extension", accessibilityDescription: "Extension")
+            iconView.contentTintColor = .white
+        }
+
         if let win = self.window as? InstallWindow {
             win.installAction = { [weak self] in self?.installClicked() }
             win.cancelAction = { [weak self] in self?.cancelClicked() }

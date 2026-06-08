@@ -90,6 +90,22 @@ public class DaemonManager {
         }
     }
 
+    /// Synchronizes daemon state with the current loaded extensions.
+    /// Stops any running daemons that were uninstalled, and cleans up the registry.
+    func syncWithLoadedExtensions(_ extensions: [LoadedExtension]) {
+        let validIds = Set(extensions.map { $0.manifest.id })
+
+        let runningIds = lock.withLock { Array(runningDaemons.keys) }
+        for id in runningIds {
+            if !validIds.contains(id) {
+                print("[DaemonManager] Stopping daemon '\(id)' because extension was uninstalled.")
+                stopDaemon(extensionId: id)
+            }
+        }
+
+        DaemonRegistry.shared.cleanup(validExtensionIds: Array(validIds))
+    }
+
     // MARK: - Start / Stop
 
     /// Launches a daemon process and connects to it. Throws on hard failure.

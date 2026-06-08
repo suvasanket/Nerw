@@ -179,6 +179,24 @@ public class DaemonRegistry {
         // Don't save — no meaningful state change yet.
     }
 
+    /// Removes entries for extensions that are no longer installed, and deletes their persistent data.
+    public func cleanup(validExtensionIds: [String]) {
+        let validSet = Set(validExtensionIds)
+        lock.withLock {
+            let existingIds = Array(entries.keys)
+            for id in existingIds {
+                if !validSet.contains(id) {
+                    print("[DaemonRegistry] Cleaning up uninstalled extension: \(id)")
+                    entries.removeValue(forKey: id)
+                    // Delete the persistent data directory for this daemon
+                    let dataDir = NerwPaths.daemonDataDir(for: id)
+                    try? FileManager.default.removeItem(at: dataDir)
+                }
+            }
+        }
+        save()
+    }
+
     // MARK: - Persistence
 
     private func load() {

@@ -84,6 +84,33 @@ struct BundleSubcommand: Subcommand {
                 at: manifestPath, to: tempDir.appendingPathComponent("manifest.json"))
             try FileManager.default.copyItem(
                 at: mainSwiftPath, to: tempDir.appendingPathComponent("main.swift"))
+
+            // Gather all icon files from manifest
+            var iconFiles = Set<String>()
+            if let globalIcon = manifest["icon"] as? String {
+                iconFiles.insert(globalIcon)
+            }
+            if let actions = manifest["actions"] as? [[String: Any]] {
+                for action in actions {
+                    if let actionIcon = action["icon"] as? String {
+                        iconFiles.insert(actionIcon)
+                    }
+                }
+            }
+
+            // Copy icon files if they exist locally in the extension source directory
+            for iconFile in iconFiles {
+                guard !iconFile.hasPrefix("/") else { continue }
+                let srcIconURL = sourceDir.appendingPathComponent(iconFile)
+                if FileManager.default.fileExists(atPath: srcIconURL.path) {
+                    let destIconURL = tempDir.appendingPathComponent(iconFile)
+                    let destDir = destIconURL.deletingLastPathComponent()
+                    try? FileManager.default.createDirectory(
+                        at: destDir, withIntermediateDirectories: true)
+                    try FileManager.default.copyItem(at: srcIconURL, to: destIconURL)
+                    print("Bundled icon: \(iconFile)")
+                }
+            }
         } catch {
             print("Error: Failed to copy extension files: \(error)")
             try? FileManager.default.removeItem(at: tempDir)

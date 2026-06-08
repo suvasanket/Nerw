@@ -282,6 +282,9 @@ public class ExtensionEngine {
                 loadExtensions(from: path)
             }
         }
+
+        // Sync daemons with the newly loaded list (stops removed daemons and cleans registry)
+        DaemonManager.shared.syncWithLoadedExtensions(loadedExtensions)
     }
 
     private func loadExtensions(from directory: URL) {
