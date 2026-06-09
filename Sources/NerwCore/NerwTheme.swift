@@ -17,6 +17,9 @@ public struct NerwTheme: Codable {
     public let innerGlowColorHex: String
     public let innerGlowOpacity: Double
 
+    // Liquid Glass
+    public let liquidGlassEnabled: Bool
+
     // Text
     public let fontName: String?
     public let foregroundColorHex: String?
@@ -39,7 +42,8 @@ public struct NerwTheme: Codable {
         foregroundColorHex: String? = nil,
         selectionBackgroundColorHex: String? = nil,
         selectionForegroundColorHex: String? = nil,
-        hintColorHex: String? = nil
+        hintColorHex: String? = nil,
+        liquidGlassEnabled: Bool = true
     ) {
         self.backgroundMaterial = backgroundMaterial
         self.tintColorHex = tintColorHex
@@ -56,6 +60,7 @@ public struct NerwTheme: Codable {
         self.selectionBackgroundColorHex = selectionBackgroundColorHex
         self.selectionForegroundColorHex = selectionForegroundColorHex
         self.hintColorHex = hintColorHex
+        self.liquidGlassEnabled = liquidGlassEnabled
     }
 
     public static func current() -> NerwTheme {
@@ -78,7 +83,8 @@ public struct NerwTheme: Codable {
             foregroundColorHex: ui?.mainForegroundColor,
             selectionBackgroundColorHex: ui?.selectionBackgroundColor,
             selectionForegroundColorHex: ui?.selectionForegroundColor,
-            hintColorHex: ui?.hintColor
+            hintColorHex: ui?.hintColor,
+            liquidGlassEnabled: true
         )
     }
 }

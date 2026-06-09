@@ -369,7 +369,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
     weak var delegate: ActionContextViewControllerDelegate?
 
-    private let backgroundView = NSVisualEffectView()
+    private let backgroundContainer = NSView()
+    private var isUsingGlassEffect = false
     private let backgroundTintView = NSView()
     private let connectorLineView = NSView()
     private let strokesLayer = CAShapeLayer()
@@ -490,17 +491,43 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
 
-        backgroundView.material = .fullScreenUI
-        backgroundView.appearance = NSAppearance(named: .vibrantDark)
-        backgroundView.blendingMode = .behindWindow
-        backgroundView.state = .active
-        backgroundView.wantsLayer = true
-        backgroundView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(backgroundView)
+        backgroundContainer.wantsLayer = true
+        backgroundContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(backgroundContainer)
+
+        let activeBackground: NSView
+        if #available(macOS 26.0, *), NerwTheme.current().liquidGlassEnabled {
+            isUsingGlassEffect = true
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.appearance = NSAppearance(named: .vibrantDark)
+            glass.cornerRadius = LayoutMetrics.cornerRadius
+            glass.translatesAutoresizingMaskIntoConstraints = false
+            backgroundContainer.addSubview(glass)
+            activeBackground = glass
+            strokesLayer.isHidden = true
+        } else {
+            let legacy = NSVisualEffectView()
+            legacy.material = .fullScreenUI
+            legacy.appearance = NSAppearance(named: .vibrantDark)
+            legacy.blendingMode = .behindWindow
+            legacy.state = .active
+            legacy.wantsLayer = true
+            legacy.translatesAutoresizingMaskIntoConstraints = false
+            backgroundContainer.addSubview(legacy)
+            activeBackground = legacy
+        }
+
+        NSLayoutConstraint.activate([
+            activeBackground.leadingAnchor.constraint(equalTo: backgroundContainer.leadingAnchor),
+            activeBackground.trailingAnchor.constraint(equalTo: backgroundContainer.trailingAnchor),
+            activeBackground.topAnchor.constraint(equalTo: backgroundContainer.topAnchor),
+            activeBackground.bottomAnchor.constraint(equalTo: backgroundContainer.bottomAnchor),
+        ])
 
         backgroundTintView.wantsLayer = true
         backgroundTintView.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(backgroundTintView)
+        backgroundContainer.addSubview(backgroundTintView)
 
         connectorLineView.wantsLayer = true
         connectorLineView.translatesAutoresizingMaskIntoConstraints = false
@@ -509,7 +536,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
         strokesLayer.fillColor = NSColor.clear.cgColor
         strokesLayer.lineWidth = 1
-        backgroundView.layer?.addSublayer(strokesLayer)
+        backgroundContainer.layer?.addSublayer(strokesLayer)
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("operation"))
         column.resizingMask = .autoresizingMask
@@ -531,12 +558,12 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         scrollView.documentView = tableView
         scrollView.borderType = .noBorder
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(scrollView)
+        backgroundContainer.addSubview(scrollView)
 
         editorContainer.wantsLayer = true
         editorContainer.isHidden = true
         editorContainer.translatesAutoresizingMaskIntoConstraints = false
-        backgroundView.addSubview(editorContainer)
+        backgroundContainer.addSubview(editorContainer)
 
         let editorStack = NSStackView()
         editorStack.orientation = .vertical
@@ -575,16 +602,17 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         self.connectorHeightConstraint = connectorHeightConstraint
 
         NSLayoutConstraint.activate([
-            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
-            backgroundView.leadingAnchor.constraint(
+            backgroundContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundContainer.leadingAnchor.constraint(
                 equalTo: view.leadingAnchor, constant: LayoutMetrics.connectorGapWidth),
-            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            backgroundContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            backgroundTintView.topAnchor.constraint(equalTo: backgroundView.topAnchor),
-            backgroundTintView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
-            backgroundTintView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            backgroundTintView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor),
+            backgroundTintView.topAnchor.constraint(equalTo: backgroundContainer.topAnchor),
+            backgroundTintView.leadingAnchor.constraint(equalTo: backgroundContainer.leadingAnchor),
+            backgroundTintView.trailingAnchor.constraint(
+                equalTo: backgroundContainer.trailingAnchor),
+            backgroundTintView.bottomAnchor.constraint(equalTo: backgroundContainer.bottomAnchor),
 
             connectorLineView.centerXAnchor.constraint(
                 equalTo: view.leadingAnchor,
@@ -596,24 +624,28 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             connectorHeightConstraint,
 
             scrollView.topAnchor.constraint(
-                equalTo: backgroundView.topAnchor, constant: LayoutMetrics.popupVerticalInset),
+                equalTo: backgroundContainer.topAnchor, constant: LayoutMetrics.popupVerticalInset),
             scrollView.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.popupHorizontalInset),
+                equalTo: backgroundContainer.leadingAnchor,
+                constant: LayoutMetrics.popupHorizontalInset),
             scrollView.trailingAnchor.constraint(
-                equalTo: backgroundView.trailingAnchor,
+                equalTo: backgroundContainer.trailingAnchor,
                 constant: -LayoutMetrics.popupHorizontalInset),
             scrollView.bottomAnchor.constraint(
-                equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.popupVerticalInset),
+                equalTo: backgroundContainer.bottomAnchor,
+                constant: -LayoutMetrics.popupVerticalInset),
 
             editorContainer.topAnchor.constraint(
-                equalTo: backgroundView.topAnchor, constant: LayoutMetrics.popupVerticalInset),
+                equalTo: backgroundContainer.topAnchor, constant: LayoutMetrics.popupVerticalInset),
             editorContainer.leadingAnchor.constraint(
-                equalTo: backgroundView.leadingAnchor, constant: LayoutMetrics.popupHorizontalInset),
+                equalTo: backgroundContainer.leadingAnchor,
+                constant: LayoutMetrics.popupHorizontalInset),
             editorContainer.trailingAnchor.constraint(
-                equalTo: backgroundView.trailingAnchor,
+                equalTo: backgroundContainer.trailingAnchor,
                 constant: -LayoutMetrics.popupHorizontalInset),
             editorContainer.bottomAnchor.constraint(
-                equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.popupVerticalInset),
+                equalTo: backgroundContainer.bottomAnchor,
+                constant: -LayoutMetrics.popupVerticalInset),
 
             editorStack.topAnchor.constraint(
                 equalTo: editorContainer.topAnchor, constant: LayoutMetrics.editorPadding),
@@ -637,14 +669,16 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             NSColor(hex: config?.mainBackgroundColor ?? "")?.withAlphaComponent(0.22)
             ?? NSColor.black.withAlphaComponent(0.18)
 
-        strokesLayer.strokeColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        strokesLayer.strokeColor =
+            isUsingGlassEffect
+            ? NSColor.clear.cgColor : NSColor.white.withAlphaComponent(0.12).cgColor
         backgroundTintView.layer?.backgroundColor = tintColor.cgColor
         connectorLineView.layer?.cornerRadius = LayoutMetrics.connectorLineWidth / 2
         connectorLineView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.45).cgColor
     }
 
     private func updateShapeMask() {
-        let bounds = backgroundView.bounds
+        let bounds = backgroundContainer.bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
 
         let path = CGPath(
@@ -656,7 +690,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
 
         let maskLayer = CAShapeLayer()
         maskLayer.path = path
-        backgroundView.layer?.mask = maskLayer
+        backgroundContainer.layer?.mask = maskLayer
 
         strokesLayer.path = path
         strokesLayer.frame = bounds

@@ -71,12 +71,14 @@ class FormView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             // Input
             let inputView: NSView
             if field.isMultiline {
-                let container = NSView()
+                let container: NSView
+                container = NSView()
                 container.wantsLayer = true
                 container.layer?.cornerRadius = 10
                 container.layer?.borderWidth = 1.0
                 container.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-                container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+                container.layer?.backgroundColor =
+                    NSColor.white.withAlphaComponent(0.06).cgColor
                 container.translatesAutoresizingMaskIntoConstraints = false
                 container.heightAnchor.constraint(equalToConstant: 120).isActive = true
 
@@ -146,12 +148,36 @@ class FormView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                     textField.stringValue = dv
                 }
 
-                inputView = textField
                 inputs[field.id] = textField
                 orderedInputs.append(textField)
 
+                let container = NSView()
+                container.wantsLayer = true
+                container.layer?.cornerRadius = 10
+                container.layer?.borderWidth = 1.0
+                container.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+                container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+                container.translatesAutoresizingMaskIntoConstraints = false
+                container.heightAnchor.constraint(equalToConstant: 44).isActive = true
+
+                textField.wantsLayer = false
+                textField.drawsBackground = false
+                textField.backgroundColor = .clear
+                textField.isBezeled = false
+                textField.isBordered = false
                 textField.translatesAutoresizingMaskIntoConstraints = false
-                textField.heightAnchor.constraint(equalToConstant: 44).isActive = true
+                container.addSubview(textField)
+
+                NSLayoutConstraint.activate([
+                    textField.leadingAnchor.constraint(
+                        equalTo: container.leadingAnchor, constant: 8),
+                    textField.trailingAnchor.constraint(
+                        equalTo: container.trailingAnchor, constant: -8),
+                    textField.topAnchor.constraint(equalTo: container.topAnchor),
+                    textField.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                ])
+
+                inputView = container
             }
 
             fieldContainer.addArrangedSubview(inputView)
@@ -471,12 +497,9 @@ class FormTextField: ThemedTextField {
         self.isBezeled = false
         self.isBordered = false
         self.drawsBackground = false
+        self.backgroundColor = .clear
         self.focusRingType = .none
-        self.wantsLayer = true
-        self.layer?.cornerRadius = 10
-        self.layer?.borderWidth = 1.0
-        self.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        self.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        self.wantsLayer = false
     }
 }
 
@@ -505,18 +528,15 @@ class FormSecureTextField: NSSecureTextField {
         self.isBezeled = false
         self.isBordered = false
         self.drawsBackground = false
+        self.backgroundColor = .clear
         self.focusRingType = .none
-        self.wantsLayer = true
-        self.layer?.cornerRadius = 10
-        self.layer?.borderWidth = 1.0
-        self.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        self.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        self.wantsLayer = false
     }
 }
 
 class FormButton: NSButton {
     private var trackingArea: NSTrackingArea?
-    var normalBackgroundColor: NSColor = .white.withAlphaComponent(0.08)
+    var normalBackgroundColor: NSColor = .white.withAlphaComponent(0.06)
     var hoverBackgroundColor: NSColor = .white.withAlphaComponent(0.15)
     var normalBorderColor: NSColor = .white.withAlphaComponent(0.12)
     var hoverBorderColor: NSColor = .white.withAlphaComponent(0.25)

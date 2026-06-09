@@ -4,7 +4,8 @@ import NerwCore
 public class NerwPanelView: NSView {
     public let contentView: NSView
 
-    private let effectView: NSVisualEffectView
+    private var legacyEffectView: NSVisualEffectView?
+    private var glassEffectView: NSView?
     private let tintView: NSView
     private let innerGlowView: NSView?
     private let containerView: NSView?  // Only used if clipToBounds is true
@@ -17,6 +18,7 @@ public class NerwPanelView: NSView {
         public var shadowOffset: NSSize? = nil
         public var shadowRadius: CGFloat? = nil
         public var shadowOpacity: Float? = nil
+        public var useGlassEffect: Bool = true
 
         public static let main = Style(innerGlowEnabled: true)
         public static let splitPane = Style()
@@ -42,7 +44,6 @@ public class NerwPanelView: NSView {
     public init(style: Style = .default) {
         self.style = style
         self.contentView = NSView()
-        self.effectView = NSVisualEffectView()
         self.tintView = NSView()
         self.innerGlowView = style.innerGlowEnabled ? NSView() : nil
         self.containerView = style.clipToBounds ? NSView() : nil
@@ -96,30 +97,46 @@ public class NerwPanelView: NSView {
         }
 
         // Effect View
-        effectView.translatesAutoresizingMaskIntoConstraints = false
-        effectView.material = style.backgroundMaterial
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        effectView.wantsLayer = true
-        baseView.addSubview(effectView)
+        let activeEffectView: NSView
+
+        if #available(macOS 26.0, *), style.useGlassEffect, NerwTheme.current().liquidGlassEnabled {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.appearance = NSAppearance(named: .vibrantDark)
+            glass.translatesAutoresizingMaskIntoConstraints = false
+            baseView.addSubview(glass)
+            self.glassEffectView = glass
+            activeEffectView = glass
+        } else {
+            let legacy = NSVisualEffectView()
+            legacy.material = style.backgroundMaterial
+            legacy.appearance = NSAppearance(named: .vibrantDark)
+            legacy.blendingMode = .behindWindow
+            legacy.state = .active
+            legacy.wantsLayer = true
+            legacy.translatesAutoresizingMaskIntoConstraints = false
+            baseView.addSubview(legacy)
+            self.legacyEffectView = legacy
+            activeEffectView = legacy
+        }
 
         NSLayoutConstraint.activate([
-            effectView.leadingAnchor.constraint(equalTo: baseView.leadingAnchor),
-            effectView.trailingAnchor.constraint(equalTo: baseView.trailingAnchor),
-            effectView.topAnchor.constraint(equalTo: baseView.topAnchor),
-            effectView.bottomAnchor.constraint(equalTo: baseView.bottomAnchor),
+            activeEffectView.leadingAnchor.constraint(equalTo: baseView.leadingAnchor),
+            activeEffectView.trailingAnchor.constraint(equalTo: baseView.trailingAnchor),
+            activeEffectView.topAnchor.constraint(equalTo: baseView.topAnchor),
+            activeEffectView.bottomAnchor.constraint(equalTo: baseView.bottomAnchor),
         ])
 
         // Tint View
         tintView.translatesAutoresizingMaskIntoConstraints = false
         tintView.wantsLayer = true
-        effectView.addSubview(tintView)
+        activeEffectView.addSubview(tintView)
 
         NSLayoutConstraint.activate([
-            tintView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            tintView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-            tintView.topAnchor.constraint(equalTo: effectView.topAnchor),
-            tintView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+            tintView.leadingAnchor.constraint(equalTo: activeEffectView.leadingAnchor),
+            tintView.trailingAnchor.constraint(equalTo: activeEffectView.trailingAnchor),
+            tintView.topAnchor.constraint(equalTo: activeEffectView.topAnchor),
+            tintView.bottomAnchor.constraint(equalTo: activeEffectView.bottomAnchor),
         ])
 
         // Inner Glow
@@ -127,25 +144,26 @@ public class NerwPanelView: NSView {
             glow.wantsLayer = true
             glow.layer?.masksToBounds = true
             glow.translatesAutoresizingMaskIntoConstraints = false
-            effectView.addSubview(glow)
+            activeEffectView.addSubview(glow)
 
             NSLayoutConstraint.activate([
-                glow.topAnchor.constraint(equalTo: effectView.topAnchor, constant: 1),
-                glow.leadingAnchor.constraint(equalTo: effectView.leadingAnchor, constant: 1),
-                glow.trailingAnchor.constraint(equalTo: effectView.trailingAnchor, constant: -1),
-                glow.bottomAnchor.constraint(equalTo: effectView.bottomAnchor, constant: -1),
+                glow.topAnchor.constraint(equalTo: activeEffectView.topAnchor, constant: 1),
+                glow.leadingAnchor.constraint(equalTo: activeEffectView.leadingAnchor, constant: 1),
+                glow.trailingAnchor.constraint(
+                    equalTo: activeEffectView.trailingAnchor, constant: -1),
+                glow.bottomAnchor.constraint(equalTo: activeEffectView.bottomAnchor, constant: -1),
             ])
         }
 
         // Content View
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        effectView.addSubview(contentView)
+        activeEffectView.addSubview(contentView)
 
         NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: effectView.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+            contentView.leadingAnchor.constraint(equalTo: activeEffectView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: activeEffectView.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: activeEffectView.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: activeEffectView.bottomAnchor),
         ])
     }
 
@@ -161,17 +179,36 @@ public class NerwPanelView: NSView {
         let radius =
             cornerRadiusOverride ?? style.cornerRadiusOverride ?? CGFloat(theme.cornerRadius)
 
-        let targetView = containerView ?? effectView
-        targetView.layer?.cornerRadius = radius
-        targetView.layer?.masksToBounds = true
-        targetView.layer?.borderColor =
-            NSColor(hex: theme.borderColorHex)?.withAlphaComponent(CGFloat(theme.borderOpacity))
-            .cgColor
-        targetView.layer?.borderWidth = CGFloat(theme.borderWidth)
+        let targetView = containerView ?? legacyEffectView ?? self
 
-        if containerView != nil {
-            effectView.layer?.cornerRadius = radius
-            tintView.layer?.cornerRadius = radius
+        let isGlass = glassEffectView != nil
+
+        if isGlass {
+            if #available(macOS 26.0, *) {
+                if let glass = glassEffectView as? NSGlassEffectView {
+                    glass.cornerRadius = radius
+                }
+            }
+            targetView.layer?.cornerRadius = radius
+            targetView.layer?.masksToBounds = true
+            targetView.layer?.borderColor = NSColor.clear.cgColor
+            targetView.layer?.borderWidth = 0
+
+            if containerView != nil {
+                tintView.layer?.cornerRadius = radius
+            }
+        } else {
+            targetView.layer?.cornerRadius = radius
+            targetView.layer?.masksToBounds = true
+            targetView.layer?.borderColor =
+                NSColor(hex: theme.borderColorHex)?.withAlphaComponent(CGFloat(theme.borderOpacity))
+                .cgColor
+            targetView.layer?.borderWidth = CGFloat(theme.borderWidth)
+
+            if containerView != nil {
+                legacyEffectView?.layer?.cornerRadius = radius
+                tintView.layer?.cornerRadius = radius
+            }
         }
 
         let tintColor: NSColor
@@ -183,11 +220,14 @@ public class NerwPanelView: NSView {
         tintView.layer?.backgroundColor = tintColor.cgColor
 
         if let glow = innerGlowView {
-            glow.layer?.cornerRadius = max(0, radius - 1)
-            let glowColor = NSColor(hex: theme.innerGlowColorHex)?.withAlphaComponent(
-                CGFloat(theme.innerGlowOpacity))
-            glow.layer?.borderColor = glowColor?.cgColor
-            glow.layer?.borderWidth = 1.0
+            glow.isHidden = isGlass
+            if !isGlass {
+                glow.layer?.cornerRadius = max(0, radius - 1)
+                let glowColor = NSColor(hex: theme.innerGlowColorHex)?.withAlphaComponent(
+                    CGFloat(theme.innerGlowOpacity))
+                glow.layer?.borderColor = glowColor?.cgColor
+                glow.layer?.borderWidth = 1.0
+            }
         }
     }
 

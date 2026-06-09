@@ -1,4 +1,5 @@
 import Cocoa
+import NerwCore
 
 class SplitPanePreviewView: NSView {
     private let scrollView = NSScrollView()
@@ -22,12 +23,29 @@ class SplitPanePreviewView: NSView {
 
     private func setupViews() {
         wantsLayer = true
-        // Match the slight bright background of Peek
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
         layer?.cornerRadius = 16
         layer?.masksToBounds = true
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        layer?.borderWidth = 0.5
+
+        if #available(macOS 26.0, *), NerwTheme.current().liquidGlassEnabled {
+            let glass = NSGlassEffectView()
+            glass.style = .clear
+            glass.appearance = NSAppearance(named: .vibrantDark)
+            glass.cornerRadius = 16
+            glass.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(glass)
+
+            NSLayoutConstraint.activate([
+                glass.topAnchor.constraint(equalTo: topAnchor),
+                glass.leadingAnchor.constraint(equalTo: leadingAnchor),
+                glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+                glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        } else {
+            // Match the slight bright background of Peek
+            layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+            layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+            layer?.borderWidth = 0.5
+        }
 
         // Setup empty label
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
