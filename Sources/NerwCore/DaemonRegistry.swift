@@ -168,17 +168,19 @@ public class DaemonRegistry {
     public func entry(for extensionId: String) -> DaemonEntry? {
         lock.withLock { entries[extensionId] }
     }
-
     /// Ensures an entry exists for the extension (call on first discovery).
     public func register(_ extensionId: String) {
+        var didRegister = false
         lock.withLock {
             if entries[extensionId] == nil {
                 entries[extensionId] = DaemonEntry(extensionId: extensionId)
+                didRegister = true
             }
         }
-        // Don't save — no meaningful state change yet.
+        if didRegister {
+            save()
+        }
     }
-
     /// Removes entries for extensions that are no longer installed, and deletes their persistent data.
     public func cleanup(validExtensionIds: [String]) {
         let validSet = Set(validExtensionIds)
@@ -199,14 +201,16 @@ public class DaemonRegistry {
 
     // MARK: - Persistence
 
-    private func load() {
-        NerwPaths.ensureDirectoryExists(at: NerwPaths.configDirectory)
-        guard let data = try? Data(contentsOf: registryPath),
-            let decoded = try? JSONDecoder().decode([String: DaemonEntry].self, from: data)
-        else {
-            return
+    public func load() {
+        lock.withLock {
+            NerwPaths.ensureDirectoryExists(at: NerwPaths.configDirectory)
+            guard let data = try? Data(contentsOf: registryPath),
+                let decoded = try? JSONDecoder().decode([String: DaemonEntry].self, from: data)
+            else {
+                return
+            }
+            entries = decoded
         }
-        entries = decoded
     }
 
     private func save() {

@@ -78,6 +78,7 @@ public class NerwPanel: NSPanel {
     public override var canBecomeMain: Bool { true }
 
     public override func resignKey() {
+        NSLog("[NerwPanel] resignKey() called")
         super.resignKey()
         DispatchQueue.main.async { [weak self] in
             self?.dismiss()
@@ -85,6 +86,7 @@ public class NerwPanel: NSPanel {
     }
 
     public override func cancelOperation(_ sender: Any?) {
+        NSLog("[NerwPanel] cancelOperation() called")
         dismiss()
     }
 
@@ -119,8 +121,10 @@ public class NerwPanel: NSPanel {
 
     /// Dismiss the panel and stop the run loop.
     public func dismiss() {
+        NSLog("[NerwPanel] dismiss() called. isVisible: \(isVisible)")
         guard isVisible else { return }
         orderOut(nil)
+        NSLog("[NerwPanel] ordered out. runLoopActive: \(runLoopActive)")
         if runLoopActive {
             runLoopActive = false
             NSApplication.shared.stop(nil)

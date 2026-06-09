@@ -154,9 +154,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 content: "Daemon permission denied for '\(extensionId)'.")
         }
     }
-
     @objc private func handleDaemonStartRequest(_ notification: Notification) {
         guard let extensionId = notification.object as? String else { return }
+        DaemonRegistry.shared.load()
         guard DaemonRegistry.shared.isApproved(extensionId) else {
             print("[AppDelegate] Daemon start requested for '\(extensionId)' but not approved.")
             return
@@ -170,9 +170,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleDaemonStopRequest(_ notification: Notification) {
         guard let extensionId = notification.object as? String else { return }
+        DaemonRegistry.shared.load()
         DaemonManager.shared.stopDaemon(extensionId: extensionId)
     }
-
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {

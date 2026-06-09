@@ -338,11 +338,14 @@ public class ExtensionEngine {
                 }
 
                 manifest.path = item.path
-
                 let loaded = LoadedExtension(
                     manifest: manifest, path: item, binaryPath: binaryPath)
                 loadedExtensions.append(loaded)
                 let allTriggers = manifest.actions.flatMap { $0.triggers }
+
+                if let daemonCfg = manifest.daemon, daemonCfg.enabled {
+                    DaemonRegistry.shared.register(manifest.id)
+                }
                 print(
                     "[ExtensionEngine] Loaded extension: \(manifest.id) (Triggers: \(allTriggers.joined(separator: ", "))) [binary: \(binaryPath != nil ? "yes" : "no")]"
                 )

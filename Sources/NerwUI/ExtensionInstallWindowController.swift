@@ -90,6 +90,7 @@ public class ExtensionInstallWindowController: NSWindowController {
             systemSymbolName: "puzzlepiece.extension", accessibilityDescription: "Extension")
         iconView.symbolConfiguration = .init(pointSize: 48, weight: .regular)
         iconView.contentTintColor = .white
+        iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(iconView)
 
@@ -139,6 +140,8 @@ public class ExtensionInstallWindowController: NSWindowController {
         NSLayoutConstraint.activate([
             iconView.centerXAnchor.constraint(equalTo: backgroundView.centerXAnchor),
             iconView.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 36),
+            iconView.widthAnchor.constraint(equalToConstant: 64),
+            iconView.heightAnchor.constraint(equalToConstant: 64),
 
             titleLabel.centerXAnchor.constraint(equalTo: backgroundView.centerXAnchor),
             titleLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 16),
@@ -274,9 +277,9 @@ private class CustomActionButton: NSControl {
     ) {
         self.isPrimary = isPrimary
         if isPrimary {
-            self.baseColor = NSColor.systemBlue.withAlphaComponent(0.4)
-            self.hoverColor = NSColor.systemBlue.withAlphaComponent(0.6)
-            self.clickColor = NSColor.systemBlue.withAlphaComponent(0.8)
+            self.baseColor = NSColor.white.withAlphaComponent(0.15)
+            self.hoverColor = NSColor.white.withAlphaComponent(0.25)
+            self.clickColor = NSColor.white.withAlphaComponent(0.35)
         } else {
             self.baseColor = .clear
             self.hoverColor = NSColor.white.withAlphaComponent(0.1)
