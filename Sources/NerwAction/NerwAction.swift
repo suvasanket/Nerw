@@ -216,7 +216,7 @@ public struct NerwAction {
             return nil
         case .arguments: return "arrow.right.to.line"
         case .form: return "pencil"
-        case .quickAction: return "bolt.fill"
+        case .quickAction: return "diamond.fill"
         }
     }
 

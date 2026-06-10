@@ -507,50 +507,63 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func setIcons(_ icons: [NSImage]) {
-        iconContainerWidthConstraints.removeAll()
-        iconContainerHeightConstraints.removeAll()
-        iconContainerWidthConstraints.append(
-            contentsOf: [
-                defaultSearchIcon.constraints.first {
-                    $0.firstAttribute == .width
-                }
-            ].compactMap { $0 })  // This is a bit hacky, better keep references
+        let displayIcons =
+            icons.isEmpty
+            ? [NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)!] : icons
+        let existingViews = iconContainer.arrangedSubviews.compactMap { $0 as? NSImageView }
 
-        // Actually let's just clear and rebuild properly
-        for subview in iconContainer.arrangedSubviews {
-            subview.removeFromSuperview()
+        // Remove excess views
+        if existingViews.count > displayIcons.count {
+            for i in displayIcons.count..<existingViews.count {
+                let viewToRemove = existingViews[i]
+                viewToRemove.removeFromSuperview()
+                iconContainerWidthConstraints.removeAll { $0.firstItem === viewToRemove }
+                iconContainerHeightConstraints.removeAll { $0.firstItem === viewToRemove }
+            }
         }
 
-        if icons.isEmpty {
-            let iv = defaultSearchIcon!
-            iconContainer.addArrangedSubview(iv)
-            // Re-store constraints
-            let width = iv.widthAnchor.constraint(
-                equalToConstant: LayoutMetrics.IconContainer.iconSize)
-            width.isActive = true
-            let height = iv.heightAnchor.constraint(
-                equalToConstant: LayoutMetrics.IconContainer.iconSize)
-            height.isActive = true
-            iconContainerWidthConstraints.append(width)
-            iconContainerHeightConstraints.append(height)
-        } else {
-            for image in icons {
-                let iv = NSImageView()
-                iv.image = image
+        // Update or add views
+        for (index, image) in displayIcons.enumerated() {
+            let iv: NSImageView
+            if index < existingViews.count {
+                iv = existingViews[index]
+            } else {
+                iv = NSImageView()
                 iv.contentTintColor = .secondaryLabelColor
                 iv.translatesAutoresizingMaskIntoConstraints = false
-                let iconWidth = iv.widthAnchor.constraint(
-                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
-                iconWidth.isActive = true
-                let iconHeight = iv.heightAnchor.constraint(
-                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
-                iconHeight.isActive = true
-
-                iconContainerWidthConstraints.append(iconWidth)
-                iconContainerHeightConstraints.append(iconHeight)
-
                 iv.imageScaling = .scaleProportionallyUpOrDown
                 iconContainer.addArrangedSubview(iv)
+
+                let width = iv.widthAnchor.constraint(
+                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                width.isActive = true
+                let height = iv.heightAnchor.constraint(
+                    equalToConstant: LayoutMetrics.IconContainer.iconSize)
+                height.isActive = true
+
+                iconContainerWidthConstraints.append(width)
+                iconContainerHeightConstraints.append(height)
+            }
+
+            let changed: Bool
+            if let current = iv.image {
+                if current === image {
+                    changed = false
+                } else if current.tiffRepresentation == image.tiffRepresentation {
+                    changed = false
+                } else {
+                    changed = true
+                }
+            } else {
+                changed = true
+            }
+
+            if changed {
+                if #available(macOS 14.0, *) {
+                    iv.setSymbolImage(image, contentTransition: .replace)
+                } else {
+                    iv.image = image
+                }
             }
         }
     }
