@@ -91,13 +91,7 @@ public class System {
                 id: "nerw.system.emptydownloads",
                 title: "Clear Downloads",
                 subtitle: "Move Downloads folder contents to Trash",
-                icon: .image(
-                    NSImage(named: "download") ?? NSImage(
-                        systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)
-                        ?? NSImage(
-                            systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil
-                        )
-                        ?? NSImage()),
+                icon: .system("arrow.down.circle.badge.xmark.fill"),
                 triggers: ["cleardownloads"],
                 type: .instant(perform: { _ in self.emptyDownloads() })
             ),
@@ -107,11 +101,7 @@ public class System {
                 id: "nerw.system.ejectall",
                 title: "Eject All",
                 subtitle: "Eject all external volumes",
-                icon: .image(
-                    NSImage(named: "eject") ?? NSImage(
-                        systemSymbolName: "eject", accessibilityDescription: nil)
-                        ?? NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil)
-                        ?? NSImage()),
+                icon: .system("eject.circle.fill"),
                 triggers: ["ejectall"],
                 type: .instant(perform: { _ in self.ejectAll() })
             ),
@@ -121,11 +111,7 @@ public class System {
                 id: "nerw.system.eject",
                 title: "Eject",
                 subtitle: "Eject a specific volume",
-                icon: .image(
-                    NSImage(named: "eject") ?? NSImage(
-                        systemSymbolName: "eject", accessibilityDescription: nil)
-                        ?? NSImage(systemSymbolName: "eject.fill", accessibilityDescription: nil)
-                        ?? NSImage()),
+                icon: .system("eject.circle.fill"),
                 triggers: ["eject"],
                 type: .args(
                     placeholder: "Volume Name",

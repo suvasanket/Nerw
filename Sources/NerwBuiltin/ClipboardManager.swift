@@ -380,23 +380,12 @@ public class ClipboardManager {
     }
 
     public static func builtinActions() -> [NerwAction] {
-        let clipboardIcon =
-            NSImage(named: "clipboard") ?? NSImage(
-                systemSymbolName: "clipboard", accessibilityDescription: nil)
-            ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
-            ?? NSImage()
-
-        let clipboardClearIcon =
-            NSImage(named: "clipboard_clear") ?? NSImage(
-                systemSymbolName: "trash", accessibilityDescription: nil)
-            ?? clipboardIcon
-
         return [
             NerwAction(
                 id: "builtin.clipboard",
                 title: "Clipboard Manager",
                 subtitle: "View clipboard history",
-                icon: .image(clipboardIcon),
+                icon: .system("document.on.document.fill"),
                 triggers: ["clipboard"],
                 type: .instant(perform: { _ in
                     DispatchQueue.main.async {
@@ -408,7 +397,7 @@ public class ClipboardManager {
                 id: "builtin.clipboard.clear",
                 title: "Clear Clipboard History",
                 subtitle: "Clear all or recent clipboard entries",
-                icon: .image(clipboardClearIcon),
+                icon: .system("document.on.trash.fill"),
                 triggers: ["clearclipboard"],
                 type: .args(
                     placeholder: "Select time range to clear",

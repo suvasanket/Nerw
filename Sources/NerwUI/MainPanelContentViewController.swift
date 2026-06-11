@@ -506,10 +506,18 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
     }
 
+    private static var symbolIconCache: [String: NSImage] = [:]
+    private static func getSymbolImage(for name: String) -> NSImage {
+        if let cached = symbolIconCache[name] { return cached }
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
+        symbolIconCache[name] = image
+        return image
+    }
+
     func setIcons(_ icons: [NSImage]) {
         let displayIcons =
             icons.isEmpty
-            ? [NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)!] : icons
+            ? [MainPanelContentViewController.getSymbolImage(for: "magnifyingglass")] : icons
         let existingViews = iconContainer.arrangedSubviews.compactMap { $0 as? NSImageView }
 
         // Remove excess views
@@ -530,6 +538,10 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             } else {
                 iv = NSImageView()
                 iv.contentTintColor = .secondaryLabelColor
+                if #available(macOS 12.0, *) {
+                    iv.symbolConfiguration = NSImage.SymbolConfiguration(
+                        hierarchicalColor: .secondaryLabelColor)
+                }
                 iv.translatesAutoresizingMaskIntoConstraints = false
                 iv.imageScaling = .scaleProportionallyUpOrDown
                 iconContainer.addArrangedSubview(iv)
@@ -548,8 +560,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let changed: Bool
             if let current = iv.image {
                 if current === image {
-                    changed = false
-                } else if current.tiffRepresentation == image.tiffRepresentation {
                     changed = false
                 } else {
                     changed = true
@@ -1022,8 +1032,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
             // UI Automation: Use Model-provided Icon
             if let iconName = action.modeIconName {
-                let icon =
-                    NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage()
+                let icon = MainPanelContentViewController.getSymbolImage(for: iconName)
                 setIcons([icon])
                 return
             }
@@ -1162,7 +1171,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             switch icon {
             case .system(let name):
                 setIcons([
-                    NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
+                    MainPanelContentViewController.getSymbolImage(for: name)
                 ])
             case .image(let img):
                 setIcons([img])
@@ -1521,8 +1530,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Render if we have an active icon
         if let iconName = activeIcon {
             let iv = NSImageView()
-            iv.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+            iv.image = MainPanelContentViewController.getSymbolImage(for: iconName)
             iv.contentTintColor = activeColor
+            if #available(macOS 12.0, *) {
+                iv.symbolConfiguration = NSImage.SymbolConfiguration(hierarchicalColor: activeColor)
+            }
             iv.translatesAutoresizingMaskIntoConstraints = false
             iv.heightAnchor.constraint(equalToConstant: 14).isActive = true
             iv.widthAnchor.constraint(equalToConstant: 14).isActive = true

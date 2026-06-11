@@ -135,19 +135,12 @@ public class SnippetManager {
     }
 
     public static func builtinActions() -> [NerwAction] {
-        let addIcon =
-            NSImage(named: "snippet_add") ?? NSImage(
-                systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
-        let manIcon =
-            NSImage(named: "snippet_man") ?? NSImage(
-                systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
-
         return [
             NerwAction(
                 id: "builtin.snippet.manager",
                 title: "Snippet Manager",
                 subtitle: "View and manage text snippets",
-                icon: .image(manIcon),
+                icon: .system("text.pad.header"),
                 triggers: ["snippet"],
                 type: .instant(perform: { _ in
                     DispatchQueue.main.async {
@@ -159,7 +152,7 @@ public class SnippetManager {
                 id: "builtin.snippet.add",
                 title: "Add Snippet",
                 subtitle: "Create a new text expansion snippet",
-                icon: .image(addIcon),
+                icon: .system("text.pad.header.badge.plus"),
                 triggers: ["addsnippet"],
                 type: .form(
                     fields: [

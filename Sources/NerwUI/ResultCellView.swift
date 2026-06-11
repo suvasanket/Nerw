@@ -285,7 +285,11 @@ class ResultCellView: NSTableCellView {
             iconView.image = nil
         }
 
-        iconView.contentTintColor = isSelected ? selectedTextColor : mainTextColor
+        let tintColor = isSelected ? selectedTextColor : mainTextColor
+        iconView.contentTintColor = tintColor
+        if #available(macOS 12.0, *) {
+            iconView.symbolConfiguration = NSImage.SymbolConfiguration(hierarchicalColor: tintColor)
+        }
 
         titleLabel.stringValue = displayTitle
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
