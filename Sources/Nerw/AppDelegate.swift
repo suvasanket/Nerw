@@ -27,18 +27,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         registerGlobalHotkey()
 
         ClipboardManager.shared.showWindowCallback = { [weak self] in
-            // Show the new window first so the app doesn't lose the key window
-            self?.clipboardController.show()
-            // Then hide the main panel without aggressively restoring OS focus
+            // Hide the main panel first without aggressively restoring OS focus
             self?.popupController.hide(restoreFocus: false)
+            // Show the new window after so it steals focus properly
+            self?.clipboardController.show()
         }
         if ConfigManager.shared.config.clipboardEnabled {
             ClipboardManager.shared.start()
         }
 
         SnippetManager.shared.showWindowCallback = { [weak self] in
-            self?.snippetController.show()
             self?.popupController.hide(restoreFocus: false)
+            self?.snippetController.show()
         }
 
         if ConfigManager.shared.config.snippetExpansionEnabled {
