@@ -1697,7 +1697,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // 1. Scroll Indicator (Only icon shown now)
         if actions.count > LayoutMetrics.Results.maxVisibleRows {
             activeIcon = "arrow.down"
-            activeColor = .tertiaryLabelColor
+            activeColor = .secondaryLabelColor
         }
 
         // Render if we have an active icon
