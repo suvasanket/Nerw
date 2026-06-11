@@ -392,6 +392,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private var lastTypeSelectTimestamp: TimeInterval = 0
     private var connectorSelectionHeight: CGFloat = 0
     private var connectorHeightConstraint: NSLayoutConstraint?
+    private var backgroundLeadingConstraint: NSLayoutConstraint?
+    var isInlineMode: Bool = false
 
     private let typeSelectResetInterval: TimeInterval = 0.85
     private let genericPrimaryTitles: Set<String> = [
@@ -466,6 +468,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         syncSelection()
         updatePreferredContentSize()
         updateConnectorLineHeight()
+        applyInlineMode()
 
         DispatchQueue.main.async { [weak self] in
             self?.focusCurrentMode()
@@ -601,10 +604,13 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             equalToConstant: 0)
         self.connectorHeightConstraint = connectorHeightConstraint
 
+        let bgLeading = backgroundContainer.leadingAnchor.constraint(
+            equalTo: view.leadingAnchor, constant: LayoutMetrics.connectorGapWidth)
+        self.backgroundLeadingConstraint = bgLeading
+
         NSLayoutConstraint.activate([
             backgroundContainer.topAnchor.constraint(equalTo: view.topAnchor),
-            backgroundContainer.leadingAnchor.constraint(
-                equalTo: view.leadingAnchor, constant: LayoutMetrics.connectorGapWidth),
+            bgLeading,
             backgroundContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             backgroundContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
@@ -677,6 +683,12 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         connectorLineView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.45).cgColor
     }
 
+    func applyInlineMode() {
+        guard isInlineMode else { return }
+        backgroundLeadingConstraint?.constant = 0
+        connectorLineView.isHidden = true
+    }
+
     private func updateShapeMask() {
         let bounds = backgroundContainer.bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
@@ -731,7 +743,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     }
 
     private func updatePreferredContentSize() {
-        let width: CGFloat = 332 + LayoutMetrics.connectorGapWidth
+        let width: CGFloat = 332 + (isInlineMode ? 0 : LayoutMetrics.connectorGapWidth)
 
         if editingOperation != nil {
             preferredContentSize = NSSize(width: width, height: 140)

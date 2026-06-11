@@ -16,9 +16,6 @@ class SplitPanel: NSPanel {
             if let nextKey = NSApp.keyWindow, self.childWindows?.contains(nextKey) == true {
                 return
             }
-            if NSApp.keyWindow is ActionContextPanel {
-                return
-            }
             self.resignHandler?()
         }
     }

@@ -17,7 +17,7 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
         currentQuery = ""
         refreshFilteredSnippets()
         let icon =
-            NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil) ?? NSImage()
+            NSImage(systemSymbolName: "text.pad.header", accessibilityDescription: nil) ?? NSImage()
         SplitPaneManager.shared.show(
             title: "Search Snippets...", icon: icon, dataSource: self, delegate: self)
     }

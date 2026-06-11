@@ -32,7 +32,9 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     private var selectedIndex: Int = 0
     private var iconImage: NSImage?
     private var actionContextWindow: ActionContextPanel?
+    private var actionContextOverlay: ActionContextOverlayView?
     private var actionContextViewController: ActionContextViewController?
+    private var actionContextContainerView: NSView?
 
     public init(
         title: String, icon: NSImage? = nil, dataSource: SplitPaneDataSource,
@@ -94,7 +96,6 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
         leftContainer.translatesAutoresizingMaskIntoConstraints = false
         leftContainer.widthAnchor.constraint(equalToConstant: 280).isActive = true
-        rightContainer.translatesAutoresizingMaskIntoConstraints = false
         rightContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
 
         splitView.addArrangedSubview(leftContainer)
@@ -104,6 +105,10 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         searchIconView.image =
             iconImage ?? NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
         searchIconView.contentTintColor = .secondaryLabelColor
+        if #available(macOS 12.0, *) {
+            searchIconView.symbolConfiguration = NSImage.SymbolConfiguration(
+                hierarchicalColor: .secondaryLabelColor)
+        }
         searchIconView.translatesAutoresizingMaskIntoConstraints = false
         searchIconView.imageScaling = .scaleProportionallyUpOrDown
         contentView.addSubview(searchIconView)
@@ -230,7 +235,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     public override func viewWillDisappear() {
         super.viewWillDisappear()
-        dismissActionContext(restoreFocus: false)
+        dismissActionContext(animated: false, restoreFocus: false)
     }
 
     // Required to receive key events directly on view (fallback if searchfield doesn't focus)
@@ -253,7 +258,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     private func updateSelection(to index: Int) {
         guard let ds = dataSource, ds.numberOfItems() > 0 else {
-            dismissActionContext(restoreFocus: false)
+            dismissActionContext(animated: false, restoreFocus: false)
             previewView.configure(with: nil)
             delegate?.didSelect(item: nil)
             return
@@ -283,7 +288,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
         // Esc
         if event.keyCode == 53 {
-            if actionContextWindow?.isVisible == true {
+            if actionContextWindow != nil {
                 dismissActionContext()
                 return
             }
@@ -337,13 +342,13 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func handleActivate() {
-        dismissActionContext(restoreFocus: false)
+        dismissActionContext(animated: false, restoreFocus: false)
         guard let item = selectedItem() else { return }
         delegate?.didActivate(item: item)
     }
 
     private func handleDelete() {
-        dismissActionContext(restoreFocus: false)
+        dismissActionContext(animated: false, restoreFocus: false)
         guard let item = selectedItem() else { return }
         delegate?.didDelete(item: item)
     }
@@ -354,7 +359,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func toggleActionContext() {
-        if actionContextWindow?.isVisible == true {
+        if actionContextWindow != nil {
             dismissActionContext()
             return
         }
@@ -367,119 +372,171 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             let context = delegate?.actionContext(for: item)
         else { return }
 
-        let anchorRect = actionContextAnchorRect()
         let controller = actionContextViewController ?? ActionContextViewController()
         controller.delegate = self
-        controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+        controller.isInlineMode = true
+        controller.setConnectorSelectionHeight(0)
         controller.render(context: context)
         actionContextViewController = controller
 
-        let panel: ActionContextPanel
-        if let existing = actionContextWindow {
-            panel = existing
-        } else {
-            panel = ActionContextPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 343, height: 200),
-                styleMask: [.nonactivatingPanel, .borderless],
-                backing: .buffered,
-                defer: false
-            )
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.level = .floating
-            panel.hidesOnDeactivate = false
-            panel.contentView = controller.view
-            actionContextWindow = panel
+        // Create overlay
+        let overlay = ActionContextOverlayView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.onBackgroundClick = { [weak self] in
+            self?.dismissActionContext()
+        }
+        panelView.contentView.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
+        ])
+        actionContextOverlay = overlay
+
+        overlay.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1.0)
+            overlay.animator().alphaValue = 1.0
         }
 
         controller.view.layoutSubtreeIfNeeded()
         let contentSize = controller.preferredContentSize
-        panel.setFrame(
-            NSRect(origin: panel.frame.origin, size: contentSize), display: true)
 
-        if let parentWindow = view.window {
-            let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NerwPanelContext.shared.sideOrigin(
-                forSize: contentSize,
-                anchorRect: screenRect
-            )
-            panel.setFrameOrigin(windowOrigin)
-            parentWindow.addChildWindow(panel, ordered: .above)
-            panel.orderFront(nil)
-        }
+        let panel = ActionContextPanel(
+            contentRect: NSRect(origin: .zero, size: contentSize),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.contentViewController = controller
+        actionContextWindow = panel
+
+        let anchorPoint = contextButtonAnchorPoint()
+        guard let window = view.window else { return }
+
+        let pointInWindow = panelView.contentView.convert(anchorPoint, to: nil)
+        var screenPoint = window.convertPoint(toScreen: pointInWindow)
+        screenPoint.x += 8
+        screenPoint.y -= contentSize.height / 2
+
+        panel.setFrameOrigin(screenPoint)
+
+        window.addChildWindow(panel, ordered: .above)
+        panel.makeKeyAndOrderFront(nil)
+
+        let contextView = controller.view
+        contextView.wantsLayer = true
+        contextView.alphaValue = 1.0
+        contextView.layer?.removeAllAnimations()
+
+        let scaleAnim = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 0.82
+        scaleAnim.toValue = 1.0
+        scaleAnim.damping = 14
+        scaleAnim.stiffness = 280
+        scaleAnim.mass = 0.75
+        scaleAnim.duration = scaleAnim.settlingDuration
+        contextView.layer?.add(scaleAnim, forKey: "popIn")
+        contextView.layer?.transform = CATransform3DIdentity
 
         DispatchQueue.main.async {
-            panel.makeKey()
             controller.focusForInteraction()
         }
     }
 
-    private func dismissActionContext(restoreFocus: Bool = true) {
-        guard let panel = actionContextWindow else { return }
-        if let parent = panel.parent {
-            parent.removeChildWindow(panel)
-        }
-        panel.orderOut(nil)
+    private func dismissActionContext(animated: Bool = true, restoreFocus: Bool = true) {
+        let cleanup: () -> Void = { [weak self] in
+            self?.actionContextOverlay?.removeFromSuperview()
+            self?.actionContextOverlay = nil
 
-        if restoreFocus, view.window?.isVisible == true {
-            view.window?.makeKeyAndOrderFront(nil)
-            view.window?.makeFirstResponder(searchField)
+            if let panel = self?.actionContextWindow {
+                panel.parent?.removeChildWindow(panel)
+                panel.close()
+                self?.actionContextWindow = nil
+            }
+
+            if restoreFocus, self?.view.window?.isVisible == true {
+                self?.view.window?.makeKeyAndOrderFront(nil)
+                self?.view.window?.makeFirstResponder(self?.searchField)
+            }
         }
+
+        guard animated, let overlay = actionContextOverlay,
+            let contextView = actionContextWindow?.contentViewController?.view
+        else {
+            cleanup()
+            return
+        }
+
+        contextView.wantsLayer = true
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = 0.15
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                overlay.animator().alphaValue = 0
+                contextView.animator().alphaValue = 0
+            }, completionHandler: cleanup)
+
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 1.0
+        scaleAnim.toValue = 0.88
+        scaleAnim.duration = 0.15
+        scaleAnim.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        scaleAnim.fillMode = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+        contextView.layer?.add(scaleAnim, forKey: "popOut")
     }
 
     private func refreshActionContextIfNeeded() {
-        guard let panel = actionContextWindow, panel.isVisible else { return }
+        guard let panel = actionContextWindow else { return }
         guard let item = selectedItem(),
             let context = delegate?.actionContext(for: item)
         else {
-            dismissActionContext(restoreFocus: false)
+            dismissActionContext(animated: false, restoreFocus: false)
             return
         }
 
         let controller = actionContextViewController
         controller?.render(context: context)
 
-        if let controller, let parentWindow = view.window {
+        if let controller = controller {
             controller.view.layoutSubtreeIfNeeded()
             let contentSize = controller.preferredContentSize
-            let anchorRect = actionContextAnchorRect()
-            controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
-            let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NerwPanelContext.shared.sideOrigin(
-                forSize: contentSize,
-                anchorRect: screenRect
-            )
-            panel.setFrame(
-                NSRect(origin: windowOrigin, size: contentSize),
-                display: true
-            )
+
+            let anchorPoint = contextButtonAnchorPoint()
+            if let window = view.window {
+                let pointInWindow = panelView.contentView.convert(anchorPoint, to: nil)
+                var screenPoint = window.convertPoint(toScreen: pointInWindow)
+                screenPoint.x += 8
+                screenPoint.y -= contentSize.height / 2
+
+                panel.setFrame(
+                    NSRect(origin: screenPoint, size: contentSize), display: true, animate: false)
+            }
         }
     }
 
-    private func actionContextConnectorHeight(for anchorRect: NSRect) -> CGFloat {
-        max(0, anchorRect.height)
-    }
-
-    private func actionContextAnchorRect() -> NSRect {
+    private func contextButtonAnchorPoint() -> NSPoint {
         guard let ds = dataSource, ds.numberOfItems() > 0,
             selectedIndex >= 0, selectedIndex < ds.numberOfItems()
         else {
-            return NSRect(
-                x: leftContainer.frame.maxX - 8,
-                y: 0,
-                width: 8,
-                height: view.bounds.height
+            return NSPoint(
+                x: leftContainer.frame.midX,
+                y: panelView.contentView.bounds.midY
             )
         }
 
         let rowRect = tableView.rect(ofRow: selectedIndex)
-        let rectInView = view.convert(rowRect, from: tableView)
-        return NSRect(
-            x: leftContainer.frame.maxX - 8,
-            y: rectInView.minY,
-            width: 8,
-            height: rectInView.height
+        let rectInPanel = panelView.contentView.convert(rowRect, from: tableView)
+        return NSPoint(
+            x: leftContainer.frame.maxX - 20,
+            y: rectInPanel.midY
         )
     }
 
@@ -489,7 +546,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             let operation = context.operations.first(where: { $0.detailText == detailText })
         else { return false }
 
-        dismissActionContext(restoreFocus: false)
+        dismissActionContext(animated: false, restoreFocus: false)
         delegate?.didInvokeActionContext(operation: operation, for: item)
         return true
     }
@@ -581,7 +638,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         didInvoke operation: NerwActionContext.Operation,
         in context: NerwActionContext
     ) {
-        dismissActionContext(restoreFocus: false)
+        dismissActionContext(animated: false, restoreFocus: false)
         guard let item = selectedItem(),
             delegate?.actionContext(for: item)?.actionID == context.actionID
         else { return }

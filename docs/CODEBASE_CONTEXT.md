@@ -37,10 +37,10 @@ The source code is organized into modular targets within `Sources/`:
     - `MainPanelContentViewController.swift`: The central UI controller. Manages:
         - **InputState Machine**: `.search`, `.argument`, `.form`.
         - Results navigation and selection logic.
-        - **Action Context**: Opens a side popover for the selected result (`Cmd+K`) and routes per-action operations such as primary execution, hybrid secondary actions, modifier actions, aliases, and hotkeys. The popup is menu-like, glassy, and no longer uses a search field.
+        - **Action Context**: Opens an inline overlay panel for the selected result (`Cmd+K` or 3-dot button on selected row). The overlay appears centered over the trigger point with a liquid glass effect and pop animation. Routes per-action operations such as primary execution, hybrid secondary actions, modifier actions, aliases, and hotkeys.
         - Dynamic layout updates for "Peek" mode (expanded result view).
-    - `ActionContextViewController.swift`: Lightweight popover content for browsing and executing the current action's context operations, including inline alias/hotkey editing and the ability to enable/disable specific actions. It owns popup-local selection state, menu-style type-select, and popup-root keyboard routing.
-    - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading and "Peek" support.
+    - `ActionContextViewController.swift`: Lightweight popover content for browsing and executing the current action's context operations, including inline alias/hotkey editing and the ability to enable/disable specific actions. Supports `isInlineMode` for rendering inside the parent panel (no connector line or gap). It owns popup-local selection state, menu-style type-select, and popup-root keyboard routing.
+    - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading, "Peek" support, and a 3-dot vertical context button visible on the selected row.
     - **Notification System**: `NotificationManager.swift`, `NotificationPanel.swift`, `NotificationItemView.swift`. Handles glassmorphic, stacked alerts.
     - **Specialized Views**: `ExtensionCardView.swift` (Settings list), `FormView.swift` (Multi-field inputs), `IconDropView.swift` (Drag & Drop support), `KeybindRecorder.swift` (Hotkey input).
     - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
@@ -130,8 +130,8 @@ The source code is organized into modular targets within `Sources/`:
 5. **Query Classification**: `QueryCategorizer` classifies the query (URL, web search, or none) using NLP.
 6. **Ranking**: `FrecencyManager` boosts results based on historical usage. `QueryCategorizer` boosts category-tagged actions when the query matches that category — but a **trigger-match guard** ensures real matches always outrank NLP-boosted results.
 7. **Selection**: User selects a result.
-8. **Action Context (Optional)**: `Cmd+K` opens a side popover that enumerates operations for the selected action only, including modifier actions and global action configuration like alias/hotkey assignment.
-    - UI shape: compact, glassy menu list with grouped separators and no search field.
+8. **Action Context (Optional)**: `Cmd+K` or clicking the 3-dot icon on the selected row opens an inline overlay panel centered on the trigger point. The overlay uses liquid glass styling and appears with a pop-in spring animation. It enumerates operations for the selected action only, including modifier actions and global action configuration like alias/hotkey assignment. Clicking outside the overlay dismisses it.
+    - UI shape: compact, glassy menu list with grouped separators, rendered inline over the parent panel (not in a separate window).
     - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
 9. **Execution**: `NerwAction.type` determines the next step (Execute instantly, ask for arguments, open a form, or drill into a hybrid secondary action).
 
@@ -215,7 +215,7 @@ SplitPaneManager.shared.hide()
 - `↑ / ↓` or `Ctrl-P / Ctrl-N` — move selection (matches main Nerw panel convention)
 - `Enter` — primary action
 - `⌫ / Delete` — secondary action (e.g. delete entry)
-- `Cmd-K` — opens the same `NerwActionContext` popup used by the main panel when the selected split-pane item exposes context operations.
+- `Cmd-K` or 3-dot icon — opens the same inline `NerwActionContext` overlay used by the main panel when the selected split-pane item exposes context operations.
 - `Esc` — dismiss
 
 ---

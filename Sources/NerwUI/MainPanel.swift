@@ -10,15 +10,11 @@ public class MainPanel: NSPanel {
     public override func resignKey() {
         super.resignKey()
 
-        // Don't dismiss when focus moves to our own child window
-        // (e.g. ActionContextPanel). We check asynchronously since key
-        // window status update is slightly delayed.
+        // Don't dismiss when focus moves to our own child window.
+        // We check asynchronously since key window status update is slightly delayed.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if let nextKey = NSApp.keyWindow, self.childWindows?.contains(nextKey) == true {
-                return
-            }
-            if NSApp.keyWindow is ActionContextPanel {
                 return
             }
             self.resignHandler?()
@@ -66,4 +62,41 @@ class ActionContextPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         parent?.makeKeyAndOrderFront(nil)
     }
+}
+
+// MARK: - ActionContextOverlayView
+
+/// A transparent overlay view that captures clicks outside the context panel to dismiss it.
+/// Used when the context panel is displayed inline (as an overlay) instead of in a separate window.
+final class ActionContextOverlayView: NSView {
+    var onBackgroundClick: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        // Faded background to make the context panel pop out more
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+
+        // Check if click is inside any child subview (the context panel)
+        for subview in subviews {
+            let subviewFrame = subview.frame
+            if subviewFrame.contains(location) {
+                super.mouseDown(with: event)
+                return
+            }
+        }
+
+        // Click was outside the context panel — dismiss
+        onBackgroundClick?()
+    }
+
+    override var acceptsFirstResponder: Bool { false }
 }

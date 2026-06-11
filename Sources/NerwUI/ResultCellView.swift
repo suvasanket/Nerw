@@ -17,6 +17,9 @@ class ResultCellView: NSTableCellView {
     private let tabBadge = NSView()
     private let tabBadgeLabel = NSTextField(labelWithString: "tab")
 
+    // Context Menu Button (Removed, now managed as a floating button in MainPanelContentViewController)
+    // var onContextButtonTapped: (() -> Void)?
+
     // Icon Size Constraints
     private var iconWidthConstraint: NSLayoutConstraint!
     private var iconHeightConstraint: NSLayoutConstraint!
@@ -30,6 +33,27 @@ class ResultCellView: NSTableCellView {
     private var peekSubtitleTopConstraint: NSLayoutConstraint!
     private var normalSubtitleBottomConstraint: NSLayoutConstraint!
     private var peekSubtitleBottomConstraint: NSLayoutConstraint!
+
+    static func makeVerticalEllipsisImage() -> NSImage {
+        let size = NSSize(width: 6, height: 16)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.white.setFill()
+            let dotSize: CGFloat = 3.0
+            let spacing: CGFloat = 2.5
+            let totalHeight = dotSize * 3 + spacing * 2
+            let startY = (rect.height - totalHeight) / 2
+            for i in 0..<3 {
+                let y = startY + CGFloat(i) * (dotSize + spacing)
+                let dotRect = NSRect(
+                    x: (rect.width - dotSize) / 2, y: y,
+                    width: dotSize, height: dotSize)
+                NSBezierPath(ovalIn: dotRect).fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -121,7 +145,7 @@ class ResultCellView: NSTableCellView {
             subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
 
             hintStack.trailingAnchor.constraint(
-                equalTo: containerView.trailingAnchor, constant: -12),
+                equalTo: containerView.trailingAnchor, constant: -8),
             hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
         ])
 
@@ -391,6 +415,15 @@ class ResultCellView: NSTableCellView {
             textColor: isSelected ? selectedTextColor : mainTextColor)
     }
 
+    var contextButtonFrameInCell: NSRect {
+        let metrics = MainPanelContentViewController.LayoutMetrics.Cell.self
+        let containerTrailing = bounds.width - metrics.Margin.horizontal
+        let gapGuideCenterX = containerTrailing + metrics.Margin.horizontal / 2.0
+        let centerX = gapGuideCenterX + 7.0
+        let centerY = bounds.height / 2.0
+        return NSRect(x: centerX - 12.0, y: centerY - 12.0, width: 24.0, height: 24.0)
+    }
+
     private func updateHint(action: NerwAction, isSelected: Bool, textColor: NSColor) {
         // Only show if selected
         guard isSelected else {
@@ -463,5 +496,67 @@ class FlatButton: NSButton {
             rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self,
             userInfo: nil)
         addTrackingArea(trackingArea)
+    }
+}
+
+class ContextHoverButton: NSView {
+    let imageView = NSImageView()
+    var onTapped: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        layer?.backgroundColor = NSColor.clear.cgColor
+
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.imageScaling = .scaleNone
+        addSubview(imageView)
+
+        NSLayoutConstraint.activate([
+            imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            imageView.widthAnchor.constraint(equalTo: widthAnchor),
+            imageView.heightAnchor.constraint(equalTo: heightAnchor),
+        ])
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Prevent event from falling through
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if bounds.contains(point) {
+            onTapped?()
+        }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for trackingArea in trackingAreas {
+            removeTrackingArea(trackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self,
+            userInfo: nil)
+        addTrackingArea(trackingArea)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        layer?.backgroundColor = NSColor.clear.cgColor
     }
 }

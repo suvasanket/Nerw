@@ -15,9 +15,7 @@ class ClipboardController: SplitPaneDataSource, SplitPaneDelegate {
         currentQuery = ""
         refreshFilteredEntries()
         let icon =
-            NSImage(named: "clipboard") ?? NSImage(
-                systemSymbolName: "clipboard", accessibilityDescription: nil) ?? NSImage(
-                systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+            NSImage(systemSymbolName: "document.on.document", accessibilityDescription: nil)
             ?? NSImage()
         SplitPaneManager.shared.show(
             title: "Search Clipboard History...", icon: icon, dataSource: self, delegate: self)

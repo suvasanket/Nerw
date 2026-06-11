@@ -117,7 +117,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var accessoryStackViewTrailingConstraint: NSLayoutConstraint!
     private var formView: FormView?
     private var actionContextWindow: ActionContextPanel?
+    private var actionContextOverlay: ActionContextOverlayView?
     private var actionContextViewController: ActionContextViewController?
+    private let floatingContextButton = ContextHoverButton()
 
     private var isDebugMode = false
 
@@ -350,8 +352,15 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputFieldLeadingConstraint = inputField.leadingAnchor.constraint(
             equalTo: iconContainer.trailingAnchor, constant: LayoutMetrics.SearchField.leading)
         inputFieldTrailingConstraint = inputField.trailingAnchor.constraint(
-            equalTo: backgroundView.trailingAnchor,
-            constant: -LayoutMetrics.SearchField.trailing)
+            equalTo: backgroundView.trailingAnchor, constant: -LayoutMetrics.SearchField.trailing)
+        inputFieldLeadingConstraint.isActive = true
+        inputFieldTrailingConstraint.isActive = true
+
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(scrollViewDidScroll),
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView)
         accessoryStackViewLeadingConstraint = accessoryStackView.leadingAnchor.constraint(
             equalTo: backgroundView.leadingAnchor,
             constant: LayoutMetrics.Separator.leading)
@@ -403,6 +412,14 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         scrollViewBottomConstraint.isActive = true
 
         applyTheming()
+
+        // Floating Context Button (Add last so it's on top of scrollView)
+        floatingContextButton.imageView.image = ResultCellView.makeVerticalEllipsisImage()
+        floatingContextButton.isHidden = true
+        floatingContextButton.onTapped = { [weak self] in
+            self?.toggleActionContext()
+        }
+        backgroundView.addSubview(floatingContextButton)
     }
 
     override func viewDidLoad() {
@@ -421,6 +438,11 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
             return event
         }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        updateFloatingContextButton()
     }
 
     @objc private func configDidUpdate() {
@@ -459,6 +481,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         view.layoutSubtreeIfNeeded()
+        updateFloatingContextButton()
     }
 
     private func applyTheming() {
@@ -578,8 +601,27 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
     }
 
+    @objc private func scrollViewDidScroll(_ notification: Notification) {
+        updateFloatingContextButton()
+        refreshActionContextIfNeeded()
+    }
+
+    public func focusSearch() {
+        print("[DebugUI] resetToSearch called")
+        dismissActionContext()
+        activeAction = nil
+        inputState = .search
+
+        // Clear text (User Requirement: Do not recomplete previous string)
+        inputField.stringValue = ""
+        previousSearchText = ""
+
+        // Trigger search to restore default results
+        search(query: "")
+    }
+
     func reset(restoreFocus: Bool = true) {
-        dismissActionContext(restoreFocus: restoreFocus)
+        dismissActionContext(animated: false)
         activeAction = nil
         inputState = .search
         inputField.stringValue = ""
@@ -587,6 +629,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         previousSearchText = ""
         selectedIndex = 0
         userHasNavigated = false
+        currentExecutionId = nil
 
         // Form Cleanup
         formView?.removeFromSuperview()
@@ -633,64 +676,130 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         guard let action = currentContextAction() else { return }
 
         let context = NerwActionContextBuilder.build(for: action)
-        let anchorRect = actionContextAnchorRect()
 
         let controller = actionContextViewController ?? ActionContextViewController()
         controller.delegate = self
-        controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
+        controller.isInlineMode = true
+        controller.setConnectorSelectionHeight(0)
         controller.render(context: context)
         actionContextViewController = controller
 
-        let panel: ActionContextPanel
-        if let existing = actionContextWindow {
-            panel = existing
-        } else {
-            panel = ActionContextPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 343, height: 200),
-                styleMask: [.nonactivatingPanel, .borderless],
-                backing: .buffered,
-                defer: false
-            )
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.level = .floating
-            panel.hidesOnDeactivate = false
-            panel.contentView = controller.view
-            actionContextWindow = panel
+        // Create the full-size overlay (captures clicks outside to dismiss)
+        let overlay = ActionContextOverlayView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.onBackgroundClick = { [weak self] in
+            self?.dismissActionContext()
+        }
+        panelView.contentView.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
+        ])
+        actionContextOverlay = overlay
+
+        overlay.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = CAMediaTimingFunction(
+                controlPoints: 0.34, 1.56, 0.64, 1.0)
+            overlay.animator().alphaValue = 1.0
         }
 
         controller.view.layoutSubtreeIfNeeded()
         let contentSize = controller.preferredContentSize
-        panel.setFrame(
-            NSRect(origin: panel.frame.origin, size: contentSize), display: true)
 
-        if let parentWindow = self.view.window {
-            let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NerwPanelContext.shared.sideOrigin(
-                forSize: contentSize, anchorRect: screenRect)
-            panel.setFrameOrigin(windowOrigin)
-            parentWindow.addChildWindow(panel, ordered: .above)
-            panel.orderFront(nil)
-        }
+        let panel = ActionContextPanel(
+            contentRect: NSRect(origin: .zero, size: contentSize),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.contentViewController = controller
+        actionContextWindow = panel
+
+        let anchorPoint = contextButtonAnchorPoint()
+        guard let window = view.window else { return }
+
+        let pointInWindow = panelView.contentView.convert(anchorPoint, to: nil)
+        var screenPoint = window.convertPoint(toScreen: pointInWindow)
+
+        // Position to the right of the 3 dots
+        screenPoint.x += 8
+        // Center vertically
+        screenPoint.y -= contentSize.height / 2
+
+        panel.setFrameOrigin(screenPoint)
+
+        window.addChildWindow(panel, ordered: .above)
+        panel.makeKeyAndOrderFront(nil)
+
+        // Pop-in animation
+        let contextView = controller.view
+        contextView.wantsLayer = true
+        contextView.alphaValue = 1.0
+        contextView.layer?.removeAllAnimations()
+
+        let scaleAnim = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 0.82
+        scaleAnim.toValue = 1.0
+        scaleAnim.damping = 14
+        scaleAnim.stiffness = 280
+        scaleAnim.mass = 0.75
+        scaleAnim.duration = scaleAnim.settlingDuration
+        contextView.layer?.add(scaleAnim, forKey: "popIn")
+        contextView.layer?.transform = CATransform3DIdentity
 
         DispatchQueue.main.async {
-            panel.makeKey()
             controller.focusForInteraction()
         }
     }
 
-    private func dismissActionContext(restoreFocus: Bool = true) {
-        guard let panel = actionContextWindow else { return }
-        if let parent = panel.parent {
-            parent.removeChildWindow(panel)
-        }
-        panel.orderOut(nil)
+    private func dismissActionContext(animated: Bool = true) {
+        let cleanup: () -> Void = { [weak self] in
+            self?.actionContextOverlay?.removeFromSuperview()
+            self?.actionContextOverlay = nil
 
-        // Restore focus to main window input
-        if restoreFocus && !inputField.isHidden {
-            restoreInputFocusPreservingCaret()
+            if let panel = self?.actionContextWindow {
+                panel.parent?.removeChildWindow(panel)
+                panel.close()
+                self?.actionContextWindow = nil
+            }
+
+            if let self = self, !self.inputField.isHidden {
+                self.restoreInputFocusPreservingCaret()
+            }
         }
+
+        guard animated, let overlay = actionContextOverlay,
+            let contextView = actionContextWindow?.contentViewController?.view
+        else {
+            cleanup()
+            return
+        }
+
+        contextView.wantsLayer = true
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = 0.15
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                overlay.animator().alphaValue = 0
+                contextView.animator().alphaValue = 0
+            }, completionHandler: cleanup)
+
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 1.0
+        scaleAnim.toValue = 0.88
+        scaleAnim.duration = 0.15
+        scaleAnim.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        scaleAnim.fillMode = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+        contextView.layer?.add(scaleAnim, forKey: "popOut")
     }
 
     func restoreInputFocusPreservingCaret() {
@@ -709,55 +818,118 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func refreshActionContextIfNeeded() {
-        guard let panel = actionContextWindow, panel.isVisible else { return }
+        guard let panel = actionContextWindow else { return }
+
         guard let action = currentContextAction() else {
-            dismissActionContext()
+            dismissActionContext(animated: false)
             return
         }
 
+        let context = NerwActionContextBuilder.build(for: action)
         let controller = actionContextViewController
-        controller?.render(context: NerwActionContextBuilder.build(for: action))
+        controller?.render(context: context)
 
-        // Reposition after content size change
-        if let controller, let parentWindow = self.view.window {
+        if let controller = controller {
             controller.view.layoutSubtreeIfNeeded()
             let contentSize = controller.preferredContentSize
-            let anchorRect = actionContextAnchorRect()
-            controller.setConnectorSelectionHeight(actionContextConnectorHeight(for: anchorRect))
-            let screenRect = parentWindow.convertToScreen(anchorRect)
-            let windowOrigin = NerwPanelContext.shared.sideOrigin(
-                forSize: contentSize, anchorRect: screenRect)
-            panel.setFrame(
-                NSRect(origin: windowOrigin, size: contentSize), display: true)
+
+            let anchorPoint = contextButtonAnchorPoint()
+            if let window = view.window {
+                let pointInWindow = panelView.contentView.convert(anchorPoint, to: nil)
+                var screenPoint = window.convertPoint(toScreen: pointInWindow)
+                screenPoint.x += 8
+                screenPoint.y -= contentSize.height / 2
+
+                panel.setFrame(
+                    NSRect(origin: screenPoint, size: contentSize), display: true, animate: false)
+            }
         }
     }
 
-    private func actionContextConnectorHeight(for anchorRect: NSRect) -> CGFloat {
-        let selectionVerticalInsets = LayoutMetrics.Cell.Margin.vertical * 2
-        let defaultHeight = LayoutMetrics.Results.rowHeight - selectionVerticalInsets
-
-        guard !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
-            !scrollView.isHidden
-        else {
-            return max(0, defaultHeight)
-        }
-
-        return max(0, anchorRect.height - selectionVerticalInsets)
-    }
-
-    private func actionContextAnchorRect() -> NSRect {
-        let insetX = max(view.bounds.width - 8, 0)
-
-        // Align to selected row if visible
+    /// Returns the anchor point (in panelView.contentView coordinates) for positioning the context overlay.
+    private func contextButtonAnchorPoint() -> NSPoint {
         if !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
             !scrollView.isHidden
         {
             let rowRect = resultsTableView.rect(ofRow: selectedIndex)
-            let rectInView = view.convert(rowRect, from: resultsTableView)
-            return NSRect(x: insetX, y: rectInView.minY, width: 8, height: rectInView.height)
+
+            let rightMargin = LayoutMetrics.Separator.trailing
+            // Anchor it exactly in the middle of the empty margin gap to the right of the cell highlight
+            let anchorX = panelView.contentView.bounds.width - (rightMargin / 2.0)
+
+            let centerY = rowRect.height / 2.0
+            let buttonCenterInTable = NSPoint(x: 0, y: rowRect.minY + centerY)
+            var pointInPanel = panelView.contentView.convert(
+                buttonCenterInTable, from: resultsTableView)
+            pointInPanel.x = anchorX
+            return pointInPanel
         }
 
-        return NSRect(x: insetX, y: 0, width: 8, height: view.bounds.height)
+        // Fallback: right-center of the panel
+        return NSPoint(
+            x: panelView.contentView.bounds.maxX - 40,
+            y: panelView.contentView.bounds.midY
+        )
+    }
+
+    private func updateFloatingContextButton() {
+        guard !actions.isEmpty, selectedIndex >= 0, selectedIndex < actions.count,
+            !scrollView.isHidden
+        else {
+            print(
+                "[DebugUI_Icon] Early return 1: isEmpty=\(actions.isEmpty), selectedIndex=\(selectedIndex), count=\(actions.count), hidden=\(scrollView.isHidden)"
+            )
+            floatingContextButton.isHidden = true
+            return
+        }
+
+        let action = actions[selectedIndex]
+        if action.peek != nil {
+            print("[DebugUI_Icon] Early return 2: peek != nil")
+            floatingContextButton.isHidden = true
+            return
+        }
+
+        let rowRect = resultsTableView.rect(ofRow: selectedIndex)
+        guard rowRect.width > 0, rowRect.height > 0 else {
+            // Table view hasn't laid out the row yet. Retry asynchronously.
+            DispatchQueue.main.async { [weak self] in
+                self?.updateFloatingContextButton()
+            }
+            return
+        }
+
+        let visibleRect = scrollView.contentView.documentVisibleRect
+        if visibleRect.height > 0, !visibleRect.intersects(rowRect) {
+            print(
+                "[DebugUI_Icon] Early return 3: outside visibleRect. rowRect=\(rowRect), visibleRect=\(visibleRect)"
+            )
+            floatingContextButton.isHidden = true
+            return
+        }
+
+        let config = ConfigManager.shared.config.uiConfig
+        let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
+        floatingContextButton.imageView.contentTintColor = selectedTextColor.withAlphaComponent(0.8)
+        floatingContextButton.layer?.zPosition = 1000
+        floatingContextButton.layer?.backgroundColor = NSColor.clear.cgColor
+        floatingContextButton.isHidden = false
+
+        let anchorPoint = contextButtonAnchorPoint()
+        let buttonWidth: CGFloat = 14.0  // Slim width to fit completely within the window margin
+        let buttonHeight: CGFloat = 24.0
+
+        let newFrame = NSRect(
+            x: anchorPoint.x - buttonWidth / 2.0,
+            y: anchorPoint.y - buttonHeight / 2.0,
+            width: buttonWidth,
+            height: buttonHeight
+        )
+        floatingContextButton.frame = newFrame
+
+        Logger.shared.info(
+            "[DebugUI_Icon] Frame: \(newFrame), Anchor: \(anchorPoint), RowRect: \(rowRect), VisibleRect: \(visibleRect)"
+        )
     }
 
     private func currentContextAction() -> NerwAction? {
@@ -907,7 +1079,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     // MARK: - Helpers
     private func closeSession(restoreText: Bool = true, restoreFocus: Bool = true) {
         currentExecutionId = nil
-        dismissActionContext(restoreFocus: restoreFocus)
+        dismissActionContext(animated: false)
         activeAction = nil
         inputState = .search
 
@@ -1509,6 +1681,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         )
         updateSelectionIcon()
         refreshActionContextIfNeeded()
+        updateFloatingContextButton()
     }
 
     @discardableResult
@@ -1602,6 +1775,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         cell?.configure(
             with: action, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated,
             modifiers: modifiers)
+
         return cell
     }
 
@@ -1661,6 +1835,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         NSAnimationContext.endGrouping()
         refreshActionContextIfNeeded()
+        updateFloatingContextButton()
     }
 }
 
