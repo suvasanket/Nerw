@@ -500,8 +500,13 @@ class FlatButton: NSButton {
 }
 
 class ContextHoverButton: NSView {
+    let effectView = NSVisualEffectView()
     let imageView = NSImageView()
+    let hintLabel = NSTextField(labelWithString: "⌘K")
     var onTapped: (() -> Void)?
+
+    private var isExpanded = false
+    private var baseTrackingArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -515,19 +520,83 @@ class ContextHoverButton: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.cornerRadius = 6
         layer?.backgroundColor = NSColor.clear.cgColor
 
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.material = .popover
+        effectView.blendingMode = .withinWindow
+        effectView.state = .active
+        effectView.wantsLayer = true
+        effectView.alphaValue = 0  // Hidden initially
+        addSubview(effectView)
+
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.imageScaling = .scaleNone
+        imageView.imageScaling = .scaleProportionallyDown
         addSubview(imageView)
 
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+        hintLabel.font = .systemFont(ofSize: 13, weight: .bold)  // Increased font size from 10 to 13
+        hintLabel.textColor = NSColor.labelColor
+        hintLabel.alignment = .center
+        hintLabel.alphaValue = 0
+        hintLabel.drawsBackground = false
+        hintLabel.isBordered = false
+        hintLabel.isEditable = false
+        hintLabel.isSelectable = false
+        addSubview(hintLabel)
+
         NSLayoutConstraint.activate([
-            imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            imageView.widthAnchor.constraint(equalTo: widthAnchor),
-            imageView.heightAnchor.constraint(equalTo: heightAnchor),
+            effectView.topAnchor.constraint(equalTo: topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.widthAnchor.constraint(equalToConstant: 24),
+            imageView.heightAnchor.constraint(equalToConstant: 24),
+
+            hintLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            hintLabel.widthAnchor.constraint(equalToConstant: 38),
+            hintLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            hintLabel.heightAnchor.constraint(equalToConstant: 20),
         ])
+    }
+
+    private func makeBubblePath() -> CGPath {
+        let path = CGMutablePath()
+
+        // 1. Bubble body: rounded rect at the bottom-left (0, 0, 42, 28)
+        let bodyRect = CGRect(x: 0, y: 0, width: 42, height: 28)
+        let cornerRadius: CGFloat = 8
+        path.addRoundedRect(in: bodyRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius)
+
+        // 2. Tail pointing from the top edge of the body (y: 28) to the tip (38, 36)
+        path.move(to: CGPoint(x: 24, y: 28))
+        // Curve to tip
+        path.addQuadCurve(to: CGPoint(x: 38, y: 36), control: CGPoint(x: 32, y: 33))
+        // Curve back to body
+        path.addQuadCurve(to: CGPoint(x: 36, y: 28), control: CGPoint(x: 38, y: 31))
+        path.closeSubpath()
+
+        return path
+    }
+
+    override func layout() {
+        super.layout()
+
+        // Update mask layer path on layout
+        if let maskLayer = effectView.layer?.mask as? CAShapeLayer {
+            maskLayer.path = makeBubblePath()
+        } else {
+            let maskLayer = CAShapeLayer()
+            maskLayer.path = makeBubblePath()
+
+            // Add border styling on the mask layer if desired, or let the layer border handle it.
+            // But since a mask clips borders too, we apply border directly inside the mask path or use the layer's border.
+            // For NSVisualEffectView, masking it clips the background and borders perfectly.
+            effectView.layer?.mask = maskLayer
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -543,20 +612,58 @@ class ContextHoverButton: NSView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        for trackingArea in trackingAreas {
-            removeTrackingArea(trackingArea)
+        if let area = baseTrackingArea {
+            removeTrackingArea(area)
         }
-        let trackingArea = NSTrackingArea(
-            rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self,
-            userInfo: nil)
-        addTrackingArea(trackingArea)
+
+        // Track only the top-right 24x24 area when collapsed to avoid invisible overlap blocking the row below
+        let rect =
+            isExpanded
+            ? bounds : NSRect(x: 26, y: 28, width: 24, height: 24)
+        baseTrackingArea = NSTrackingArea(
+            rect: rect,
+            options: [.activeAlways, .mouseEnteredAndExited],
+            owner: self,
+            userInfo: nil
+        )
+        if let area = baseTrackingArea {
+            addTrackingArea(area)
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        if !isExpanded {
+            isExpanded = true
+            updateTrackingAreas()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.effectView.animator().alphaValue = 1.0
+                self.hintLabel.animator().alphaValue = 1.0
+            }
+        }
     }
 
     override func mouseExited(with event: NSEvent) {
-        layer?.backgroundColor = NSColor.clear.cgColor
+        if let window = window {
+            let localPoint = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            if !bounds.contains(localPoint) {
+                collapse()
+            }
+        } else {
+            collapse()
+        }
+    }
+
+    private func collapse() {
+        if isExpanded {
+            isExpanded = false
+            updateTrackingAreas()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                self.effectView.animator().alphaValue = 0.0
+                self.hintLabel.animator().alphaValue = 0.0
+            }
+        }
     }
 }

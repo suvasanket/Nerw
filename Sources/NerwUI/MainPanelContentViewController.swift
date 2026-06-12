@@ -910,18 +910,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         let config = ConfigManager.shared.config.uiConfig
         let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
+
         floatingContextButton.imageView.contentTintColor = selectedTextColor.withAlphaComponent(0.8)
+
         floatingContextButton.layer?.zPosition = 1000
-        floatingContextButton.layer?.backgroundColor = NSColor.clear.cgColor
         floatingContextButton.isHidden = false
 
         let anchorPoint = contextButtonAnchorPoint()
-        let buttonWidth: CGFloat = 14.0  // Slim width to fit completely within the window margin
-        let buttonHeight: CGFloat = 24.0
+        let buttonWidth: CGFloat = 50.0  // Expanded width
+        let buttonHeight: CGFloat = 52.0  // Expanded height
 
         let newFrame = NSRect(
-            x: anchorPoint.x - buttonWidth / 2.0,
-            y: anchorPoint.y - buttonHeight / 2.0,
+            x: anchorPoint.x + 12.0 - buttonWidth,  // Right edge aligned with anchorPoint.x + 12.0
+            y: anchorPoint.y + 12.0 - buttonHeight,  // Top edge aligned with anchorPoint.y + 12.0
             width: buttonWidth,
             height: buttonHeight
         )
