@@ -67,7 +67,7 @@ public class FindFile {
             title: "Find File",
             subtitle: "Search and Reveal in Finder",
             icon: .image(finderIcon),
-            triggers: ["find", "file"],
+            triggers: ["findfile"],
             type: .args(
                 placeholder: "Filename",
                 searcher: { _, argument, completion in
