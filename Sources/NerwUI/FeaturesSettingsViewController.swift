@@ -4,6 +4,44 @@ import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
 
+class CenteredTextFieldCell: NSTextFieldCell {
+    override func titleRect(forBounds rect: NSRect) -> NSRect {
+        let textHeight: CGFloat = font?.pointSize ?? 13.0
+        let editHeight = textHeight + 2
+        let deltaY = (rect.height - editHeight) / 2
+        return NSRect(
+            x: rect.origin.x + 8,
+            y: rect.origin.y + deltaY,
+            width: rect.width - 16,
+            height: editHeight
+        )
+    }
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        return titleRect(forBounds: rect)
+    }
+
+    override func edit(
+        withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?,
+        event: NSEvent?
+    ) {
+        let editingRect = titleRect(forBounds: rect)
+        super.edit(
+            withFrame: editingRect, in: controlView, editor: textObj, delegate: delegate,
+            event: event)
+    }
+
+    override func select(
+        withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?,
+        start selStart: Int, length selLength: Int
+    ) {
+        let selectingRect = titleRect(forBounds: rect)
+        super.select(
+            withFrame: selectingRect, in: controlView, editor: textObj, delegate: delegate,
+            start: selStart, length: selLength)
+    }
+}
+
 class FeaturesSettingsViewController: NSViewController {
 
     private let scrollView: NSScrollView = {
@@ -27,7 +65,7 @@ class FeaturesSettingsViewController: NSViewController {
     private var clipboardSwitch: NSSwitch!
     private var snippetSwitch: NSSwitch!
     private var clipboardHotkeyRecorder: KeybindRecorder!
-    private var findFileSwitch: NSSwitch!
+    private var onFirstSpaceField: NSTextField!
     private var shortcutsSwitch: NSSwitch!
 
     override func loadView() {
@@ -67,6 +105,11 @@ class FeaturesSettingsViewController: NSViewController {
         clipboardSubtitle.font = .systemFont(ofSize: 11)
         clipboardSubtitle.textColor = .secondaryLabelColor
 
+        clipboardLabel.lineBreakMode = .byTruncatingTail
+        clipboardLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        clipboardSubtitle.lineBreakMode = .byTruncatingTail
+        clipboardSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         clipboardTextStack.addArrangedSubview(clipboardLabel)
         clipboardTextStack.addArrangedSubview(clipboardSubtitle)
 
@@ -99,6 +142,12 @@ class FeaturesSettingsViewController: NSViewController {
         hotkeyTextStack.orientation = .vertical
         hotkeyTextStack.spacing = 2
         hotkeyTextStack.alignment = .leading
+
+        hotkeyLabel.lineBreakMode = .byTruncatingTail
+        hotkeyLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        hotkeySubtitle.lineBreakMode = .byTruncatingTail
+        hotkeySubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         hotkeyTextStack.addArrangedSubview(hotkeyLabel)
         hotkeyTextStack.addArrangedSubview(hotkeySubtitle)
 
@@ -143,6 +192,11 @@ class FeaturesSettingsViewController: NSViewController {
         snippetSubtitle.font = .systemFont(ofSize: 11)
         snippetSubtitle.textColor = .secondaryLabelColor
 
+        snippetLabel.lineBreakMode = .byTruncatingTail
+        snippetLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        snippetSubtitle.lineBreakMode = .byTruncatingTail
+        snippetSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         snippetTextStack.addArrangedSubview(snippetLabel)
         snippetTextStack.addArrangedSubview(snippetSubtitle)
 
@@ -178,29 +232,55 @@ class FeaturesSettingsViewController: NSViewController {
         findFileTextStack.spacing = 2
         findFileTextStack.alignment = .leading
 
-        let findFileLabel = NSTextField(labelWithString: "Find File on Space")
+        let findFileLabel = NSTextField(labelWithString: "On First space")
         findFileLabel.font = .systemFont(ofSize: 13, weight: .regular)
         let findFileSubtitle = NSTextField(
             labelWithString:
-                "Automatically enter find file mode when pressing the spacebar with an empty query")
+                "Automatically enter this trigger when pressing the spacebar with an empty query (empty to disable)"
+        )
         findFileSubtitle.font = .systemFont(ofSize: 11)
         findFileSubtitle.textColor = .secondaryLabelColor
+
+        findFileLabel.lineBreakMode = .byTruncatingTail
+        findFileLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        findFileSubtitle.lineBreakMode = .byTruncatingTail
+        findFileSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         findFileTextStack.addArrangedSubview(findFileLabel)
         findFileTextStack.addArrangedSubview(findFileSubtitle)
 
-        findFileSwitch = NSSwitch()
-        findFileSwitch.controlSize = .mini
-        findFileSwitch.state = ConfigManager.shared.config.findFileOnSpace ? .on : .off
-        findFileSwitch.target = self
-        findFileSwitch.action = #selector(findFileToggled(_:))
+        onFirstSpaceField = NSTextField()
+        let cell = CenteredTextFieldCell(textCell: "")
+        cell.isEditable = true
+        cell.isScrollable = true
+        cell.isSelectable = true
+        onFirstSpaceField.cell = cell
+        onFirstSpaceField.wantsLayer = true
+        onFirstSpaceField.isBordered = false
+        onFirstSpaceField.drawsBackground = false
+        onFirstSpaceField.focusRingType = .none
+        onFirstSpaceField.layer?.cornerRadius = 12
+        onFirstSpaceField.layer?.masksToBounds = true
+        onFirstSpaceField.layer?.borderWidth = 1
+        onFirstSpaceField.layer?.borderColor = NSColor.separatorColor.cgColor
+        onFirstSpaceField.layer?.backgroundColor =
+            NSColor.labelColor.withAlphaComponent(0.05).cgColor
+        onFirstSpaceField.textColor = .secondaryLabelColor
+        onFirstSpaceField.font = .systemFont(ofSize: 13, weight: .medium)
+        onFirstSpaceField.alignment = .center
+        onFirstSpaceField.stringValue = ConfigManager.shared.config.onFirstSpace
+        onFirstSpaceField.delegate = self
+        onFirstSpaceField.placeholderString = "e.g. findfile "
+        onFirstSpaceField.translatesAutoresizingMaskIntoConstraints = false
+        onFirstSpaceField.widthAnchor.constraint(equalToConstant: 100).isActive = true
+        onFirstSpaceField.heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         let spacer4 = NSView()
         spacer4.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         findFileRow.addArrangedSubview(findFileTextStack)
         findFileRow.addArrangedSubview(spacer4)
-        findFileRow.addArrangedSubview(findFileSwitch)
+        findFileRow.addArrangedSubview(onFirstSpaceField)
 
         let shortcutsRow = NSStackView()
         shortcutsRow.orientation = .horizontal
@@ -220,6 +300,11 @@ class FeaturesSettingsViewController: NSViewController {
         )
         shortcutsSubtitle.font = .systemFont(ofSize: 11)
         shortcutsSubtitle.textColor = .secondaryLabelColor
+
+        shortcutsLabel.lineBreakMode = .byTruncatingTail
+        shortcutsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        shortcutsSubtitle.lineBreakMode = .byTruncatingTail
+        shortcutsSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         shortcutsTextStack.addArrangedSubview(shortcutsLabel)
         shortcutsTextStack.addArrangedSubview(shortcutsSubtitle)
@@ -285,11 +370,6 @@ class FeaturesSettingsViewController: NSViewController {
         SearchService.shared.loadCache(asyncUpdate: true)
     }
 
-    @objc private func findFileToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.findFileOnSpace = (sender.state == .on)
-        ConfigManager.shared.save()
-    }
-
     @objc private func shortcutsToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.showShortcutsInMain = (sender.state == .on)
         ConfigManager.shared.save()
@@ -299,7 +379,7 @@ class FeaturesSettingsViewController: NSViewController {
         let config = ConfigManager.shared.config
         clipboardSwitch.state = config.clipboardEnabled ? .on : .off
         snippetSwitch.state = config.snippetExpansionEnabled ? .on : .off
-        findFileSwitch.state = config.findFileOnSpace ? .on : .off
+        onFirstSpaceField.stringValue = config.onFirstSpace
         shortcutsSwitch.state = config.showShortcutsInMain ? .on : .off
 
         let hotkeyString = NerwActionPreferenceManager.shared.hotkey(for: "builtin.clipboard")
@@ -311,6 +391,15 @@ extension FeaturesSettingsViewController: KeybindRecorderDelegate {
     func keybindRecorder(_ recorder: KeybindRecorder, didChangeKeybind keybind: String) {
         if recorder === clipboardHotkeyRecorder {
             NerwActionPreferenceManager.shared.updateHotkey(keybind, for: "builtin.clipboard")
+        }
+    }
+}
+
+extension FeaturesSettingsViewController: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+        if let field = obj.object as? NSTextField, field === onFirstSpaceField {
+            ConfigManager.shared.config.onFirstSpace = field.stringValue
+            ConfigManager.shared.save()
         }
     }
 }

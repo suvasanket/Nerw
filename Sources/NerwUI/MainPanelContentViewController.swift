@@ -1424,11 +1424,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     func controlTextDidChange(_ obj: Notification) {
         var query = inputField.stringValue
 
-        // [New Feature] Space to Trigger Find File (Alfred Style)
-        if ConfigManager.shared.config.findFileOnSpace && query == " " {
-            inputField.stringValue = "find "
+        // [New Feature] Space to Trigger configured action (Alfred Style)
+        let firstSpaceTrigger = ConfigManager.shared.config.onFirstSpace
+        if !firstSpaceTrigger.isEmpty && query == " " {
+            inputField.stringValue = firstSpaceTrigger
             inputField.currentEditor()?.moveToEndOfLine(nil)
-            query = "find "
+            query = firstSpaceTrigger
         }
 
         // Unified Smart Trigger Logic (e.g., "eject <arg>", "find <arg>")

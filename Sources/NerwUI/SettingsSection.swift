@@ -113,6 +113,8 @@ class SettingsSection: NSStackView {
 
         for view in contentViews {
             contentStack.addArrangedSubview(view)
+            view.widthAnchor.constraint(equalTo: contentStack.widthAnchor, constant: -32).isActive =
+                true
         }
 
         if isCollapsable && !isExpanded {
@@ -151,7 +153,8 @@ class SettingsSection: NSStackView {
     /// Adds a view to the section's content area
     func addContent(_ view: NSView) {
         contentStack.addArrangedSubview(view)
-        view.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
+        view.widthAnchor.constraint(equalTo: contentStack.widthAnchor, constant: -32).isActive =
+            true
     }
 
     /// Triggers the lazy loading of content if not loaded already

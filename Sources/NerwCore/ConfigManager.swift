@@ -30,7 +30,7 @@ public struct LayoutConfig: Codable {
 public struct Config: Codable {
     public var defaultSearchEngine: [String] = ["google", "g"]
     public var globalKeybind: String = "Cmd+Shift+Space"
-    public var findFileOnSpace: Bool = true
+    public var onFirstSpace: String = "findfile "
     public var showShortcutsInMain: Bool = false
     public var uiConfig: UIConfig?
     public var layoutConfig: LayoutConfig = LayoutConfig()
@@ -48,7 +48,10 @@ public struct Config: Codable {
             ]
         globalKeybind =
             try container.decodeIfPresent(String.self, forKey: .globalKeybind) ?? "Cmd+Shift+Space"
-        findFileOnSpace = try container.decodeIfPresent(Bool.self, forKey: .findFileOnSpace) ?? true
+
+        onFirstSpace =
+            try container.decodeIfPresent(String.self, forKey: .onFirstSpace) ?? "findfile "
+
         showShortcutsInMain =
             try container.decodeIfPresent(Bool.self, forKey: .showShortcutsInMain) ?? false
         uiConfig = try container.decodeIfPresent(UIConfig.self, forKey: .uiConfig)
