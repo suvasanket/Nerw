@@ -155,6 +155,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         resultsTableView.alphaValue = 1.0
         scrollView.isHidden = actions.isEmpty
 
+        // Remove spinner and restore icons if not executing
+        if case .executing = inputState {
+            // Handled below
+        } else {
+            for view in iconContainer.arrangedSubviews {
+                if view is NSProgressIndicator {
+                    view.removeFromSuperview()
+                } else if view is NSImageView {
+                    view.isHidden = false
+                }
+            }
+        }
+
         switch inputState {
         case .search:
             if let action = activeAction {
@@ -193,29 +206,34 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             inputField.isSelectable = false
             resultsTableView.alphaValue = 0.5
 
-            // Set spinner icon
+            // Hide existing icons instead of removing them
             for subview in iconContainer.arrangedSubviews {
-                subview.removeFromSuperview()
+                if subview is NSImageView {
+                    subview.isHidden = true
+                }
             }
-            let spinner = NSProgressIndicator()
-            spinner.style = .spinning
-            spinner.controlSize = .small
-            spinner.translatesAutoresizingMaskIntoConstraints = false
-            spinner.startAnimation(nil)
 
-            // Maintain layout dimensions for the spinner
-            let spinnerWidth = spinner.widthAnchor.constraint(equalToConstant: 16)
-            spinnerWidth.isActive = true
-            let spinnerHeight = spinner.heightAnchor.constraint(equalToConstant: 16)
-            spinnerHeight.isActive = true
+            // Set spinner icon
+            if !iconContainer.arrangedSubviews.contains(where: { $0 is NSProgressIndicator }) {
+                let spinner = NSProgressIndicator()
+                spinner.style = .spinning
+                spinner.controlSize = .small
+                spinner.translatesAutoresizingMaskIntoConstraints = false
+                spinner.startAnimation(nil)
 
-            // We need to keep the iconContainerWidthConstraints up to date so it matches the padding
-            iconContainerWidthConstraints.removeAll()
-            iconContainerHeightConstraints.removeAll()
-            iconContainerWidthConstraints.append(spinnerWidth)
-            iconContainerHeightConstraints.append(spinnerHeight)
+                // Maintain layout dimensions for the spinner
+                let spinnerWidth = spinner.widthAnchor.constraint(equalToConstant: 16)
+                spinnerWidth.isActive = true
+                let spinnerHeight = spinner.heightAnchor.constraint(equalToConstant: 16)
+                spinnerHeight.isActive = true
 
-            iconContainer.addArrangedSubview(spinner)
+                iconContainer.addArrangedSubview(spinner)
+            } else if let spinner = iconContainer.arrangedSubviews.first(where: {
+                $0 is NSProgressIndicator
+            }) as? NSProgressIndicator {
+                spinner.isHidden = false
+                spinner.startAnimation(nil)
+            }
         }
     }
 
@@ -538,6 +556,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     func setIcons(_ icons: [NSImage]) {
+        // Remove progress indicator just in case
+        for view in iconContainer.arrangedSubviews {
+            if view is NSProgressIndicator {
+                view.removeFromSuperview()
+            }
+        }
+
         let displayIcons =
             icons.isEmpty
             ? [MainPanelContentViewController.getSymbolImage(for: "magnifyingglass")] : icons
@@ -558,6 +583,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let iv: NSImageView
             if index < existingViews.count {
                 iv = existingViews[index]
+                iv.isHidden = false
             } else {
                 iv = NSImageView()
                 iv.contentTintColor = .secondaryLabelColor
