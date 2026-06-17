@@ -133,6 +133,18 @@ public class NotificationItemView: NSView {
                 imageView.centerYAnchor.constraint(equalTo: self.bottomAnchor, constant: -7),
             ])
         }
+
+        // Enforce strict constant height and default width (which can be narrowed by the manager)
+        let heightConstraint = self.heightAnchor.constraint(equalToConstant: 46)
+        heightConstraint.priority = .required
+        heightConstraint.isActive = true
+
+        let widthConstraint = self.widthAnchor.constraint(equalToConstant: 320)
+        widthConstraint.priority = .defaultHigh
+        widthConstraint.isActive = true
+
+        // Allow text to truncate gracefully instead of forcing width expansion
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
     public override func layout() {
