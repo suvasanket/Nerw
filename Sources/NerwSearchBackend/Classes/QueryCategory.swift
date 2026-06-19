@@ -7,4 +7,6 @@ public enum QueryCategory: String, CaseIterable, Hashable, Sendable {
     case webSearch = "webSearch"
     /// The query looks like a URL or domain name
     case url = "url"
+    /// The query looks like a math expression or a unit/currency conversion
+    case mathConversion = "mathConversion"
 }

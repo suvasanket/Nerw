@@ -59,6 +59,7 @@ The source code is organized into modular targets within `Sources/`:
     - `QuickAction.swift`: Real-time process management (Quit/Force Quit).
     - `ShortcutsManager.swift`: Integration with macOS Shortcuts system.
     - `IconManager.swift`: Built-in component for icon lifecycle and resource management.
+    - `MathConversionService.swift`: Handles `.mathConversion` category queries. Evaluates simple math expressions using `JavaScriptCore`, converts Foundation units via `MeasurementFormatter`, and fetches real-time currency conversions from Frankfurter API.
     - `Nerw.swift`: Global singleton for cross-module command execution.
 
 ### `NerwAction` (Action Domain & Preferences)
@@ -89,8 +90,8 @@ The source code is organized into modular targets within `Sources/`:
 - **Key Components**:
     - `Classes/Frecency/Frecency.swift`: \"Frequency + Recency\" scoring. Supports both Global and Query-Aware ranking.
     - `Fuse.swift`: Fuzzy search library integration.
-    - `QueryCategory.swift`: Enum defining action categories (`webSearch`, `url`) for smart ranking.
-    - `QueryCategorizer.swift`: NLP-based query classifier using Apple's NaturalLanguage framework. 
+    - `QueryCategory.swift`: Enum defining action categories (`webSearch`, `url`, `mathConversion`) for smart ranking.
+    - `QueryCategorizer.swift`: NLP and regex-based query classifier. 
     - **Search Algorithms**:
         - `Levenstain/`: String similarity algorithms.
         - `FuzzyFind/`: Advanced fuzzy matching logic including scoring and result segmenting.

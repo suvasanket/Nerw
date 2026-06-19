@@ -265,13 +265,23 @@ public class SearchService {
                 if let fallback = fallbackAction {
                     allActions.append(fallback)
                 }
-                let ranked = self.rankResults(
+                var ranked = self.rankResults(
                     actions: allActions, query: query,
                     categoryResult: catResult.category)
 
-                DispatchQueue.main.async {
-                    if self.searchWorkItem?.isCancelled == false {
-                        completion(ranked)
+                Task {
+                    if catResult.category == .mathConversion {
+                        if let mathAction = await MathConversionService.shared.evaluate(
+                            query: query)
+                        {
+                            ranked.insert(mathAction, at: 0)
+                        }
+                    }
+
+                    DispatchQueue.main.async {
+                        if self.searchWorkItem?.isCancelled == false {
+                            completion(ranked)
+                        }
                     }
                 }
             }

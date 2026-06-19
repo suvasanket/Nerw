@@ -34,6 +34,10 @@ public final class QueryCategorizer {
     private let ipPattern: NSRegularExpression
     /// Matches localhost with optional port
     private let localhostPattern: NSRegularExpression
+    /// Matches basic math expressions
+    private let mathPattern: NSRegularExpression
+    /// Matches unit/currency conversions (e.g. 10 kg to lbs)
+    private let conversionPattern: NSRegularExpression
 
     // MARK: - NLP
 
@@ -68,6 +72,13 @@ public final class QueryCategorizer {
         )
         localhostPattern = rx(#"^localhost(:\d+)?(\/.*)?$"#)
 
+        // Math matches digits, operators, parens, and spaces. At least one digit and one operator.
+        // E.g. "10 + 20", "10^20", "5 * (2 + 3)"
+        // Needs at least one digit and one operator to prevent empty strings or just numbers
+        mathPattern = rx(#"^[\d\s\+\-\*\/\^\(\)\.]+$"#)
+        // Unit conversion matches: number [spaces] unit [spaces] to/in [spaces] unit
+        conversionPattern = rx(#"^([0-9.]+)\s*([a-zA-Z]{1,4})\s+(to|in)\s+([a-zA-Z]{1,4})$"#)
+
         // Web search signal phrases — sorted longest-first
         webPhrases = [
             "how to fix", "where to buy", "how to install", "how to use",
@@ -98,6 +109,22 @@ public final class QueryCategorizer {
 
         if let urlResult = detectURL(lower) {
             return urlResult
+        }
+
+        // ── MATH / CONVERSION detection ───────────────────────────────
+
+        let nsRange = NSRange(trimmed.startIndex..., in: trimmed)
+
+        if conversionPattern.firstMatch(in: trimmed, range: nsRange) != nil {
+            return QueryCategorizerResult(category: .mathConversion, confidence: 1.0)
+        }
+
+        if mathPattern.firstMatch(in: trimmed, range: nsRange) != nil {
+            // Check if it's not just a single number or empty string
+            // It should contain at least one operator to be a math expression
+            if trimmed.contains(where: { "+-*/^()".contains($0) }) {
+                return QueryCategorizerResult(category: .mathConversion, confidence: 1.0)
+            }
         }
 
         // ── WEB SEARCH detection ──────────────────────────────────────
