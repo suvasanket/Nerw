@@ -128,7 +128,8 @@ public class MathConversionService {
                         title: resultStr,
                         subtitle: "Currency Conversion",
                         peekText:
-                            "\(amount) \(from) = \(resultStr)\n\nExchange rate: \(rate)\nProvided by Frankfurter API"
+                            "\(amount) \(from) = \(resultStr)",
+                        courtesyText: "Powered by Frankfurter"
                     )
                 }
             }
@@ -147,7 +148,8 @@ public class MathConversionService {
 
     private func createAction(
         title: String, subtitle: String, peekText: String,
-        icon: NerwAction.IconType = .system("sparkles")
+        courtesyText: String? = nil,
+        icon: NerwAction.IconType? = nil
     ) -> NerwAction {
         return NerwAction(
             id: "nerw.mathconversion.\(UUID().uuidString)",
@@ -155,9 +157,11 @@ public class MathConversionService {
             subtitle: subtitle,
             icon: icon,
             peek: NerwAction.PeekData(
-                title: subtitle,
+                title: "",
                 text: peekText,
-                icon: icon
+                icon: nil,
+                textFontSize: 24.0,
+                courtesyText: courtesyText
             ),
             category: .mathConversion,
             triggers: [],

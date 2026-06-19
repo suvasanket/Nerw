@@ -35,8 +35,10 @@ class ResultCellView: NSTableCellView {
     private var peekTitleCenterYConstraint: NSLayoutConstraint!
     private var normalSubtitleTopConstraint: NSLayoutConstraint!
     private var peekSubtitleTopConstraint: NSLayoutConstraint!
+    private var peekSubtitleTopNoTitleConstraint: NSLayoutConstraint!
     private var normalSubtitleBottomConstraint: NSLayoutConstraint!
     private var peekSubtitleBottomConstraint: NSLayoutConstraint!
+    private var peekSubtitleBottomNoCourtesyConstraint: NSLayoutConstraint!
 
     static func makeVerticalEllipsisImage() -> NSImage {
         let size = NSSize(width: 6, height: 16)
@@ -197,12 +199,18 @@ class ResultCellView: NSTableCellView {
         // give the peek subtitle some breathing room below the title
         peekSubtitleTopConstraint = subtitleLabel.topAnchor.constraint(
             equalTo: titleLabel.bottomAnchor, constant: 12)
+        // when title is completely hidden, bring subtitle to the top
+        peekSubtitleTopNoTitleConstraint = subtitleLabel.topAnchor.constraint(
+            equalTo: containerView.topAnchor, constant: 16)
 
         normalSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
             lessThanOrEqualTo: containerView.bottomAnchor, constant: -metrics.Text.subtitleTop)
         // give the peek subtitle some breathing room below the title, and above courtesyStack
         peekSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
             lessThanOrEqualTo: courtesyStack.topAnchor, constant: -8)
+        // when there is no courtesy stack, constrain directly to container view bottom
+        peekSubtitleBottomNoCourtesyConstraint = subtitleLabel.bottomAnchor.constraint(
+            lessThanOrEqualTo: containerView.bottomAnchor, constant: -16)
 
         NSLayoutConstraint.activate([
             normalIconCenterYConstraint,
@@ -375,9 +383,19 @@ class ResultCellView: NSTableCellView {
             normalTitleTopConstraint.isActive = false
             peekTitleCenterYConstraint.isActive = true
             normalSubtitleTopConstraint.isActive = false
-            peekSubtitleTopConstraint.isActive = true
+
+            let isTitleHidden =
+                peek.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || (peek.titleFontSize ?? 16) <= 0
+            if isTitleHidden {
+                peekSubtitleTopConstraint.isActive = false
+                peekSubtitleTopNoTitleConstraint.isActive = true
+            } else {
+                peekSubtitleTopNoTitleConstraint.isActive = false
+                peekSubtitleTopConstraint.isActive = true
+            }
+
             normalSubtitleBottomConstraint.isActive = false
-            peekSubtitleBottomConstraint.isActive = true
 
             // Allow multiple lines
             subtitleLabel.lineBreakMode = .byWordWrapping
@@ -440,9 +458,15 @@ class ResultCellView: NSTableCellView {
                 }
             }
 
-            if let courtesy = peek.courtesyText {
+            if let courtesy = peek.courtesyText,
+                !courtesy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
                 courtesyStack.isHidden = false
                 courtesyLabel.stringValue = courtesy
+
+                peekSubtitleBottomNoCourtesyConstraint.isActive = false
+                peekSubtitleBottomConstraint.isActive = true
+
                 if let courtesyIcon = peek.courtesyIcon {
                     courtesyIconView.isHidden = false
                     switch courtesyIcon {
@@ -469,6 +493,8 @@ class ResultCellView: NSTableCellView {
                 }
             } else {
                 courtesyStack.isHidden = true
+                peekSubtitleBottomConstraint.isActive = false
+                peekSubtitleBottomNoCourtesyConstraint.isActive = true
             }
 
             // Reduce icon size for Peek
@@ -487,6 +513,9 @@ class ResultCellView: NSTableCellView {
             peekTitleCenterYConstraint.isActive = false
             normalSubtitleTopConstraint.isActive = true
             peekSubtitleTopConstraint.isActive = false
+            peekSubtitleTopNoTitleConstraint.isActive = false
+            peekSubtitleBottomNoCourtesyConstraint.isActive = false
+            peekSubtitleBottomConstraint.isActive = false
             normalSubtitleBottomConstraint.isActive = true
             peekSubtitleBottomConstraint.isActive = false
 

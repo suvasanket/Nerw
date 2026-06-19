@@ -39,28 +39,6 @@ public class System {
 
     public func getAllActions() -> [NerwAction] {
         return [
-            // TEMPORARY: Test Peek UI
-            NerwAction(
-                id: "nerw.system.testpeek",
-                title: "Test Peek UI",
-                subtitle: "Action to test new Peek features",
-                icon: .system("testtube.2"),
-                peek: NerwAction.PeekData(
-                    title: "Test Title (Big)",
-                    text:
-                        "This is test text that should show up. The icon is hidden here, title is big, text is small.",
-                    icon: .none,  // explicitly no icon in peek
-                    primaryActionName: "Do nothing",
-                    secondaryActionName: nil,
-                    titleFontSize: 24,
-                    textFontSize: 14,
-                    courtesyText: "Provided by Tester",
-                    courtesyIcon: .system("person.fill")
-                ),
-                triggers: ["testpeek"],
-                type: .instant(perform: { _ in print("Test Peek action executed") })
-            ),
-
             // Dictionary Define
             NerwAction(
                 id: "nerw.system.define",

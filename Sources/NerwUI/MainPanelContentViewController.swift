@@ -1774,18 +1774,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         let textFontSize = peek.textFontSize ?? 12
         let titleFontSize = peek.titleFontSize ?? 16
 
+        let isTitleHidden =
+            peek.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || titleFontSize <= 0
+
         var containerHeight: CGFloat = 0
 
-        if titleFontSize > 0 {
-            // Icon top constraint is 16. Icon size 22. Center is 27.
-            // Title center is 27. So bottom of title is roughly 27 + titleFontSize*1.5/2
+        if !isTitleHidden {
+            // Title is visible. Center is 27. Bottom is 27 + (fontHeight/2)
             containerHeight = 27.0 + (CGFloat(titleFontSize) * 1.5 / 2.0)
+            containerHeight += 12.0  // Gap below title
         } else {
-            // Title is hidden, but its Y center is still 27
-            containerHeight = 27.0
+            // Title is hidden. Subtitle will start near the top.
+            containerHeight = 16.0
         }
-
-        containerHeight += 12.0  // Gap below title
 
         if textFontSize > 0 {
             let font = NSFont.systemFont(ofSize: textFontSize, weight: .regular)
@@ -1795,7 +1796,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 attributes: [.font: font],
                 context: nil
             )
-            containerHeight += ceil(rect.height) + 6.0  // Added buffer for NSTextField intrinsic padding
+            containerHeight += ceil(rect.height) + 12.0  // Safer buffer for NSTextField intrinsic padding
         }
 
         // Bottom padding
@@ -1803,6 +1804,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             // Courtesy stack height is ~14, plus 12 bottom margin. Subtitle is 8 above it.
             containerHeight += 8.0 + 14.0 + 12.0
         } else {
+            // Just standard bottom margin to container
             containerHeight += 16.0
         }
 

@@ -705,7 +705,11 @@ public func peek(
     text: String,
     icon: NerwIcon? = nil,
     primaryAction: String? = nil,
-    secondaryAction: String? = nil
+    secondaryAction: String? = nil,
+    titleFontSize: CGFloat? = nil,
+    textFontSize: CGFloat? = nil,
+    courtesyText: String? = nil,
+    courtesyIcon: NerwIcon? = nil
 ) -> NerwResult
 ```
 
@@ -715,9 +719,13 @@ public func peek(
 |-----------|------|-------------|
 | `title` | String | Preview pane title |
 | `text` | String | Content text |
-| `icon` | NerwIcon? | Optional icon |
+| `icon` | NerwIcon? | Optional icon. Use `.none` to hide completely. |
 | `primaryAction` | String? | Optional function called by primary button |
 | `secondaryAction` | String? | Optional function called by secondary button |
+| `titleFontSize` | CGFloat? | Optional custom font size for the title. Set to 0 to completely hide the title. |
+| `textFontSize` | CGFloat? | Optional custom font size for the text. Set to 0 to completely hide the text. |
+| `courtesyText` | String? | Optional small attribution text placed in the bottom right corner. |
+| `courtesyIcon` | NerwIcon? | Optional icon placed next to the courtesy text. |
 
 **Example:**
 ```swift
@@ -859,13 +867,21 @@ public struct NerwPeek {
     public let icon: NerwIcon?
     public let primaryActionName: String?
     public let secondaryActionName: String?
+    public let titleFontSize: CGFloat?
+    public let textFontSize: CGFloat?
+    public let courtesyText: String?
+    public let courtesyIcon: NerwIcon?
 
     public init(
         title: String,
         text: String,
         icon: NerwIcon? = nil,
         primaryAction: String? = nil,
-        secondaryAction: String? = nil
+        secondaryAction: String? = nil,
+        titleFontSize: CGFloat? = nil,
+        textFontSize: CGFloat? = nil,
+        courtesyText: String? = nil,
+        courtesyIcon: NerwIcon? = nil
     )
 }
 ```
@@ -876,9 +892,13 @@ public struct NerwPeek {
 |----------|------|-------------|
 | `title` | String | Preview pane title |
 | `text` | String | Main content text |
-| `icon` | NerwIcon? | Optional icon |
+| `icon` | NerwIcon? | Optional icon. Use `.none` to hide completely. |
 | `primaryActionName` | String? | Function called when primary button clicked |
 | `secondaryActionName` | String? | Function called when secondary button clicked |
+| `titleFontSize` | CGFloat? | Custom font size for the title. Set to 0 to completely hide the title. |
+| `textFontSize` | CGFloat? | Custom font size for the text. Set to 0 to completely hide the text. |
+| `courtesyText` | String? | Small attribution text in bottom right |
+| `courtesyIcon` | NerwIcon? | Optional icon next to the courtesy text |
 
 **Implementation:**
 ```swift
@@ -887,13 +907,21 @@ public init(
     text: String,
     icon: NerwIcon? = nil,
     primaryAction: String? = nil,
-    secondaryAction: String? = nil
+    secondaryAction: String? = nil,
+    titleFontSize: CGFloat? = nil,
+    textFontSize: CGFloat? = nil,
+    courtesyText: String? = nil,
+    courtesyIcon: NerwIcon? = nil
 ) {
     self.title = title
     self.text = text
     self.icon = icon
     self.primaryActionName = primaryAction
     self.secondaryActionName = secondaryAction
+    self.titleFontSize = titleFontSize
+    self.textFontSize = textFontSize
+    self.courtesyText = courtesyText
+    self.courtesyIcon = courtesyIcon
 }
 ```
 
