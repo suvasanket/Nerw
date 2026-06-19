@@ -51,6 +51,10 @@ Nerw intelligently routes your query to the best provider via the `SearchService
     - **Dynamic Elements**: Supports various tint types (`warn`, `error`, `info`) and optional unbounded progressive spinners.
     - **3D Stacking**: When multiple notifications overlap elegantly natively mirroring macOS "deck of cards" behaviors.
     - **Extensions Integration**: Can be triggered seamlessly via custom Extensions using the `Nerw.notify` hook.
+11. **App Menubar Search**:
+    - **Crawling**: Automatically indexes the menubar items of the active frontmost application (the app active prior to opening Nerw).
+    - **Execution**: Searching and pressing Enter on a menu item action triggers it directly in the active app.
+    - **Control**: Toggleable in Settings > Features > Menubar Search. Requires Accessibility permissions.
 
 ### Trigger Rules
 - **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).

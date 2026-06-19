@@ -9,7 +9,7 @@ public class System {
 
     private let systemIcon = NSImage(systemSymbolName: "gearshape.2", accessibilityDescription: nil)
 
-    private var lastActiveApp: NSRunningApplication?
+    var lastActiveApp: NSRunningApplication?
 
     private init() {
         self.lastActiveApp = NSWorkspace.shared.frontmostApplication

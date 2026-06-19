@@ -37,6 +37,7 @@ public struct Config: Codable {
     public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
     public var snippetExpansionEnabled: Bool = true
     public var clipboardEnabled: Bool = true
+    public var menubarSearchEnabled: Bool = true
 
     public init() {}
 
@@ -65,6 +66,8 @@ public struct Config: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .snippetExpansionEnabled) ?? true
         clipboardEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .clipboardEnabled) ?? true
+        menubarSearchEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .menubarSearchEnabled) ?? true
     }
 }
 
