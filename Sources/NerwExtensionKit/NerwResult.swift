@@ -165,18 +165,23 @@ public struct NerwResult {
         return copy
     }
 
-    /// Convenience: add peek with inline parameters.
     public func peek(
         title: String,
         text: String,
         icon: NerwIcon? = nil,
         primaryAction: String? = nil,
-        secondaryAction: String? = nil
+        secondaryAction: String? = nil,
+        titleFontSize: CGFloat? = nil,
+        textFontSize: CGFloat? = nil,
+        courtesyText: String? = nil,
+        courtesyIcon: NerwIcon? = nil
     ) -> NerwResult {
         peek(
             NerwPeek(
                 title: title, text: text, icon: icon,
-                primaryAction: primaryAction, secondaryAction: secondaryAction
+                primaryAction: primaryAction, secondaryAction: secondaryAction,
+                titleFontSize: titleFontSize, textFontSize: textFontSize,
+                courtesyText: courtesyText, courtesyIcon: courtesyIcon
             ))
     }
 

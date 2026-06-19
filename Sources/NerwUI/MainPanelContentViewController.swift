@@ -1380,6 +1380,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     [weak self] image in
                     if let image = image { self?.setIcons([image]) }
                 }
+            case .none:
+                setIcons([])
             }
         }
     }
@@ -1700,7 +1702,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 && actions[selectedIndex].peek != nil)
         let peekDiff: CGFloat =
             hasPeek
-            ? (calculatePeekHeight(for: actions[selectedIndex].peek!.text)
+            ? (calculatePeekHeight(for: actions[selectedIndex])
                 - LayoutMetrics.Results.rowHeight) : 0
         let totalResultsHeight = baseHeight + peekDiff
 
@@ -1765,19 +1767,49 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     // MARK: - NSTableViewDataSource
+    private func calculatePeekHeight(for action: NerwAction) -> CGFloat {
+        guard let peek = action.peek else { return 70.0 }
 
-    private func calculatePeekHeight(for text: String) -> CGFloat {
         let textWidth: CGFloat = 550.0  // Safe estimate for subtitle width
-        let font = NSFont.systemFont(ofSize: 12, weight: .regular)
-        let rect = NSString(string: text).boundingRect(
-            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font],
-            context: nil
-        )
-        // Base padding (approx: icon height, title height, top/bottom padding constraints)
-        let calculated = ceil(rect.height) + 70.0
-        return max(70.0, min(calculated, 400.0))
+        let textFontSize = peek.textFontSize ?? 12
+        let titleFontSize = peek.titleFontSize ?? 16
+
+        var containerHeight: CGFloat = 0
+
+        if titleFontSize > 0 {
+            // Icon top constraint is 16. Icon size 22. Center is 27.
+            // Title center is 27. So bottom of title is roughly 27 + titleFontSize*1.5/2
+            containerHeight = 27.0 + (CGFloat(titleFontSize) * 1.5 / 2.0)
+        } else {
+            // Title is hidden, but its Y center is still 27
+            containerHeight = 27.0
+        }
+
+        containerHeight += 12.0  // Gap below title
+
+        if textFontSize > 0 {
+            let font = NSFont.systemFont(ofSize: textFontSize, weight: .regular)
+            let rect = NSString(string: peek.text).boundingRect(
+                with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font],
+                context: nil
+            )
+            containerHeight += ceil(rect.height) + 6.0  // Added buffer for NSTextField intrinsic padding
+        }
+
+        // Bottom padding
+        if peek.courtesyText != nil && !peek.courtesyText!.isEmpty {
+            // Courtesy stack height is ~14, plus 12 bottom margin. Subtitle is 8 above it.
+            containerHeight += 8.0 + 14.0 + 12.0
+        } else {
+            containerHeight += 16.0
+        }
+
+        // Add vertical margins for the cell container itself
+        let totalHeight = containerHeight + (LayoutMetrics.Cell.Margin.vertical * 2)
+
+        return max(70.0, min(totalHeight, 400.0))
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -1811,7 +1843,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         guard row < actions.count else { return LayoutMetrics.Results.rowHeight }
         let action = actions[row]
         if row == selectedIndex && action.peek != nil {
-            return calculatePeekHeight(for: action.peek!.text)
+            return calculatePeekHeight(for: action)
         }
         return LayoutMetrics.Results.rowHeight
     }
@@ -1851,7 +1883,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             let baseHeight =
                 CGFloat(min(actions.count, maxVisible)) * LayoutMetrics.Results.rowHeight
             let dynamicPeekHeight =
-                newHasPeek ? calculatePeekHeight(for: actions[selectedIndex].peek!.text) : 110.0
+                newHasPeek ? calculatePeekHeight(for: actions[selectedIndex]) : 110.0
             let peekDiff: CGFloat =
                 newHasPeek ? (dynamicPeekHeight - LayoutMetrics.Results.rowHeight) : 0
             let totalResultsHeight = baseHeight + peekDiff

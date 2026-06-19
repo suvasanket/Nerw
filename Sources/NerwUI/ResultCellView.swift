@@ -11,11 +11,15 @@ class ResultCellView: NSTableCellView {
     private let containerView = NSView()
     private var currentActionID: String?
 
-    // Tab Hint UI
     private let hintStack = NSStackView()
     private let hintLabel = NSTextField(labelWithString: "")
     private let tabBadge = NSView()
     private let tabBadgeLabel = NSTextField(labelWithString: "tab")
+
+    // Courtesy Stack for Peek Mode
+    private let courtesyStack = NSStackView()
+    private let courtesyIconView = NSImageView()
+    private let courtesyLabel = NSTextField(labelWithString: "")
 
     // Context Menu Button (Removed, now managed as a floating button in MainPanelContentViewController)
     // var onContextButtonTapped: (() -> Void)?
@@ -114,6 +118,22 @@ class ResultCellView: NSTableCellView {
 
         tabBadge.addSubview(tabBadgeLabel)
 
+        // Courtesy Stack
+        courtesyStack.orientation = .horizontal
+        courtesyStack.spacing = 4
+        courtesyStack.translatesAutoresizingMaskIntoConstraints = false
+        courtesyStack.alignment = .centerY
+        containerView.addSubview(courtesyStack)
+
+        courtesyIconView.translatesAutoresizingMaskIntoConstraints = false
+        courtesyIconView.imageScaling = .scaleProportionallyUpOrDown
+        courtesyStack.addArrangedSubview(courtesyIconView)
+
+        courtesyLabel.font = .systemFont(ofSize: 10, weight: .medium)
+        courtesyLabel.textColor = .secondaryLabelColor
+        courtesyLabel.translatesAutoresizingMaskIntoConstraints = false
+        courtesyStack.addArrangedSubview(courtesyLabel)
+
         NSLayoutConstraint.activate([
             tabBadgeLabel.leadingAnchor.constraint(equalTo: tabBadge.leadingAnchor, constant: 4),
             tabBadgeLabel.trailingAnchor.constraint(equalTo: tabBadge.trailingAnchor, constant: -4),
@@ -147,6 +167,14 @@ class ResultCellView: NSTableCellView {
             hintStack.trailingAnchor.constraint(
                 equalTo: containerView.trailingAnchor, constant: -8),
             hintStack.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+
+            courtesyIconView.widthAnchor.constraint(equalToConstant: 14),
+            courtesyIconView.heightAnchor.constraint(equalToConstant: 14),
+
+            courtesyStack.trailingAnchor.constraint(
+                equalTo: containerView.trailingAnchor, constant: -12),
+            courtesyStack.bottomAnchor.constraint(
+                equalTo: containerView.bottomAnchor, constant: -12),
         ])
 
         iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: metrics.Icon.size)
@@ -172,8 +200,9 @@ class ResultCellView: NSTableCellView {
 
         normalSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
             lessThanOrEqualTo: containerView.bottomAnchor, constant: -metrics.Text.subtitleTop)
+        // give the peek subtitle some breathing room below the title, and above courtesyStack
         peekSubtitleBottomConstraint = subtitleLabel.bottomAnchor.constraint(
-            lessThanOrEqualTo: containerView.bottomAnchor, constant: -16)
+            lessThanOrEqualTo: courtesyStack.topAnchor, constant: -8)
 
         NSLayoutConstraint.activate([
             normalIconCenterYConstraint,
@@ -304,6 +333,8 @@ class ResultCellView: NSTableCellView {
                         }
                     }
                 }
+            case .none:
+                iconView.image = nil
             }
         } else {
             iconView.image = nil
@@ -352,19 +383,42 @@ class ResultCellView: NSTableCellView {
             subtitleLabel.lineBreakMode = .byWordWrapping
 
             // Apply Fonts & Colors for Peek
-            titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+            let peekTitleFont = peek.titleFontSize ?? 16
+            if peekTitleFont <= 0 {
+                titleLabel.isHidden = true
+                titleLabel.stringValue = ""
+            } else {
+                titleLabel.isHidden = false
+                titleLabel.font = .systemFont(ofSize: peekTitleFont, weight: .semibold)
+                titleLabel.stringValue = peek.title
+            }
             titleLabel.textColor = .white
 
             // Shrink icon size
-            iconWidthConstraint.constant = 22
+            var shouldHideIcon = false
+            if case .none = peek.icon {
+                shouldHideIcon = true
+            } else if peek.icon == nil && displayIcon == nil {
+                shouldHideIcon = true
+            }
+
+            if shouldHideIcon {
+                iconWidthConstraint.constant = 0
+            } else {
+                iconWidthConstraint.constant = 22
+            }
             iconHeightConstraint.constant = 22
 
-            subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+            let peekTextFont = peek.textFontSize ?? 12
+            if peekTextFont <= 0 {
+                subtitleLabel.isHidden = true
+                subtitleLabel.stringValue = ""
+            } else {
+                subtitleLabel.isHidden = false
+                subtitleLabel.font = .systemFont(ofSize: peekTextFont, weight: .regular)
+                subtitleLabel.stringValue = peek.text
+            }
             subtitleLabel.textColor = .secondaryLabelColor
-
-            // Apply Peek Overrides
-            titleLabel.stringValue = peek.title
-            subtitleLabel.stringValue = peek.text
 
             // Override Icon
             if let peekIcon = peek.icon {
@@ -381,7 +435,40 @@ class ResultCellView: NSTableCellView {
                             self.iconView.image = image ?? self.iconView.image
                         }
                     }
+                case .none:
+                    iconView.image = nil
                 }
+            }
+
+            if let courtesy = peek.courtesyText {
+                courtesyStack.isHidden = false
+                courtesyLabel.stringValue = courtesy
+                if let courtesyIcon = peek.courtesyIcon {
+                    courtesyIconView.isHidden = false
+                    switch courtesyIcon {
+                    case .system(let name):
+                        courtesyIconView.image = NSImage(
+                            systemSymbolName: name, accessibilityDescription: nil)
+                    case .image(let img):
+                        courtesyIconView.image = img
+                    case .file(let url):
+                        NerwUtils.IconUtils.getIconAsync(
+                            for: url, size: CGSize(width: 32, height: 32)
+                        ) { [weak self] image in
+                            if let self = self, self.currentActionID == action.id {
+                                self.courtesyIconView.image = image
+                            }
+                        }
+                    case .none:
+                        courtesyIconView.image = nil
+                    }
+                    courtesyIconView.contentTintColor = .secondaryLabelColor
+                } else {
+                    courtesyIconView.isHidden = true
+                    courtesyIconView.image = nil
+                }
+            } else {
+                courtesyStack.isHidden = true
             }
 
             // Reduce icon size for Peek
@@ -403,8 +490,16 @@ class ResultCellView: NSTableCellView {
             normalSubtitleBottomConstraint.isActive = true
             peekSubtitleBottomConstraint.isActive = false
 
+            titleLabel.isHidden = false
+            subtitleLabel.isHidden = false
+            courtesyStack.isHidden = true
+
             // Revert icon size
-            iconWidthConstraint.constant = metrics.Icon.size
+            if displayIcon == nil {
+                iconWidthConstraint.constant = 0
+            } else {
+                iconWidthConstraint.constant = metrics.Icon.size
+            }
             iconHeightConstraint.constant = metrics.Icon.size
 
             subtitleLabel.lineBreakMode = .byTruncatingTail

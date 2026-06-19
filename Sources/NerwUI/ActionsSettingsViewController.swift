@@ -273,6 +273,8 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                 iconView.image = image
             case .file(let url):
                 loadIconAsync(url)
+            case .none:
+                iconView.image = nil
             }
         } else if let url = iconURL {
             loadIconAsync(url)

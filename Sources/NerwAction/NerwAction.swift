@@ -10,6 +10,7 @@ public struct NerwAction {
         case system(String)
         case image(NSImage)
         case file(URL)
+        case none
     }
     public let icon: IconType?
 
@@ -19,16 +20,26 @@ public struct NerwAction {
         public let icon: IconType?
         public let primaryActionName: String?
         public let secondaryActionName: String?
+        public let titleFontSize: CGFloat?
+        public let textFontSize: CGFloat?
+        public let courtesyText: String?
+        public let courtesyIcon: IconType?
 
         public init(
             title: String, text: String, icon: IconType? = nil, primaryActionName: String? = nil,
-            secondaryActionName: String? = nil
+            secondaryActionName: String? = nil, titleFontSize: CGFloat? = nil,
+            textFontSize: CGFloat? = nil,
+            courtesyText: String? = nil, courtesyIcon: IconType? = nil
         ) {
             self.title = title
             self.text = text
             self.icon = icon
             self.primaryActionName = primaryActionName
             self.secondaryActionName = secondaryActionName
+            self.titleFontSize = titleFontSize
+            self.textFontSize = textFontSize
+            self.courtesyText = courtesyText
+            self.courtesyIcon = courtesyIcon
         }
     }
     public let peek: PeekData?

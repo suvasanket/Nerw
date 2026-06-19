@@ -326,6 +326,8 @@ private final class ActionContextOperationCellView: NSTableCellView {
             return image
         case .file(let url):
             return NSWorkspace.shared.icon(forFile: url.path)
+        case .none:
+            return nil
         }
     }
 }

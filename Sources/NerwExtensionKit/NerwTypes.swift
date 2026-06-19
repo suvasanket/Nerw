@@ -8,11 +8,14 @@ public enum NerwIcon {
     case system(String)
     /// Absolute file path to an image.
     case file(String)
+    /// No icon
+    case none
 
     func serialize() -> String {
         switch self {
         case .system(let name): return name
         case .file(let path): return path
+        case .none: return "none"
         }
     }
 }
@@ -68,18 +71,31 @@ public struct NerwPeek {
     public let primaryActionName: String?
     public let secondaryActionName: String?
 
+    public let titleFontSize: CGFloat?
+    public let textFontSize: CGFloat?
+    public let courtesyText: String?
+    public let courtesyIcon: NerwIcon?
+
     public init(
         title: String,
         text: String,
         icon: NerwIcon? = nil,
         primaryAction: String? = nil,
-        secondaryAction: String? = nil
+        secondaryAction: String? = nil,
+        titleFontSize: CGFloat? = nil,
+        textFontSize: CGFloat? = nil,
+        courtesyText: String? = nil,
+        courtesyIcon: NerwIcon? = nil
     ) {
         self.title = title
         self.text = text
         self.icon = icon
         self.primaryActionName = primaryAction
         self.secondaryActionName = secondaryAction
+        self.titleFontSize = titleFontSize
+        self.textFontSize = textFontSize
+        self.courtesyText = courtesyText
+        self.courtesyIcon = courtesyIcon
     }
 
     func serialize() -> [String: Any] {
@@ -87,6 +103,10 @@ public struct NerwPeek {
         if let icon = icon { dict["icon"] = icon.serialize() }
         if let pa = primaryActionName { dict["primaryActionName"] = pa }
         if let sa = secondaryActionName { dict["secondaryActionName"] = sa }
+        if let tfs = titleFontSize { dict["titleFontSize"] = tfs }
+        if let txfs = textFontSize { dict["textFontSize"] = txfs }
+        if let ct = courtesyText { dict["courtesyText"] = ct }
+        if let ci = courtesyIcon { dict["courtesyIcon"] = ci.serialize() }
         return dict
     }
 }

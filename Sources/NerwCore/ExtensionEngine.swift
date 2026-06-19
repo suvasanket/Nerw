@@ -879,11 +879,24 @@ public class ExtensionEngine {
             let peekTitle = peekDict["title"] as? String ?? ""
             let peekText = peekDict["text"] as? String ?? ""
             let peekIconName = peekDict["icon"] as? String
-            let peekIcon: NerwAction.IconType? = peekIconName.map { .system($0) }
+            let peekIcon: NerwAction.IconType?
+            if peekIconName == "none" {
+                peekIcon = .none
+            } else if let name = peekIconName {
+                peekIcon = .system(name)
+            } else {
+                peekIcon = nil
+            }
+            let courtesyIconName = peekDict["courtesyIcon"] as? String
+            let courtesyIcon: NerwAction.IconType? = courtesyIconName.map { .system($0) }
             peek = NerwAction.PeekData(
                 title: peekTitle, text: peekText, icon: peekIcon,
                 primaryActionName: peekDict["primaryActionName"] as? String,
-                secondaryActionName: peekDict["secondaryActionName"] as? String
+                secondaryActionName: peekDict["secondaryActionName"] as? String,
+                titleFontSize: peekDict["titleFontSize"] as? CGFloat,
+                textFontSize: peekDict["textFontSize"] as? CGFloat,
+                courtesyText: peekDict["courtesyText"] as? String,
+                courtesyIcon: courtesyIcon
             )
         }
 
