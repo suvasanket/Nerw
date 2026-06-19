@@ -13,6 +13,10 @@ public class NerwNotificationManager {
     private var activeNotifications: [NotificationItemView] = []
     private var dismissalTimers: [UUID: Timer] = [:]
 
+    public var hasActiveNotifications: Bool {
+        return !activeNotifications.isEmpty
+    }
+
     private init() {
         // panel.contentView is already an NSView from NotificationPanel initialization
     }
@@ -73,10 +77,10 @@ public class NerwNotificationManager {
         id: UUID? = nil
     ) -> UUID {
         let finalId = id ?? UUID()
-        let view = NotificationItemView(
-            id: finalId, content: content, level: level, progressive: progressive)
 
         DispatchQueue.main.async {
+            let view = NotificationItemView(
+                id: finalId, content: content, level: level, progressive: progressive)
             self.addNotification(view: view, progressive: progressive)
         }
         return finalId
@@ -146,6 +150,9 @@ public class NerwNotificationManager {
 
                 if self.activeNotifications.isEmpty {
                     self.panel.orderOut(nil)
+                    if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeKey }) {
+                        NSApp.hide(nil)
+                    }
                 } else {
                     self.updateStackLayout()
                 }

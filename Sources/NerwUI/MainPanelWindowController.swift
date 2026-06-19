@@ -99,7 +99,11 @@ public class MainPanelWindowController: NSObject {
                 $0.isVisible && $0.isKeyWindow && $0 != panel
             }
             if !isFocusStayingInApp {
-                NSApp.hide(nil)
+                if NerwNotificationManager.shared.hasActiveNotifications {
+                    NSApp.deactivate()
+                } else {
+                    NSApp.hide(nil)
+                }
             }
         }
     }
@@ -169,28 +173,40 @@ extension MainPanelWindowController: MainPanelContentDelegate {
 
 extension MainPanelWindowController: NerwUIApplication {
     public func hideWindow() {
-        hide()
+        DispatchQueue.main.async {
+            self.hide()
+        }
     }
 
     public func showWindow() {
-        show()
+        DispatchQueue.main.async {
+            self.show()
+        }
     }
 
     public func setQuery(_ query: String) {
-        contentViewController.inputField.stringValue = query
+        DispatchQueue.main.async {
+            self.contentViewController.inputField.stringValue = query
+        }
     }
 
     public func openAction(_ action: NerwAction) {
-        show()
-        contentViewController.openAction(action)
+        DispatchQueue.main.async {
+            self.show()
+            self.contentViewController.openAction(action)
+        }
     }
 
     @discardableResult
     public func showNotification(
         content: String, level: NerwNotificationLevel, progressive: Bool, id: UUID?
     ) -> UUID {
-        return NerwNotificationManager.shared.show(
-            content: content, level: level, progressive: progressive, id: id)
+        let finalId = id ?? UUID()
+        DispatchQueue.main.async {
+            NerwNotificationManager.shared.show(
+                content: content, level: level, progressive: progressive, id: finalId)
+        }
+        return finalId
     }
 
     public func dismissNotification(id: UUID) {

@@ -169,9 +169,8 @@ public class MathConversionService {
                 // Copy result to clipboard on enter
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(title, forType: .string)
-                if let ui = NerwSystem.shared.ui {
-                    ui.hideWindow()
-                }
+                Nerw.notify("Copied to clipboard")
+                NerwSystem.shared.ui?.hideWindow()
             })
         )
     }

@@ -60,7 +60,9 @@ The source code is organized into modular targets within `Sources/`:
     - `ShortcutsManager.swift`: Integration with macOS Shortcuts system.
     - `IconManager.swift`: Built-in component for icon lifecycle and resource management.
     - `MathConversionService.swift`: Handles `.mathConversion` category queries. Evaluates simple math expressions using `JavaScriptCore`, converts Foundation units via `MeasurementFormatter`, and fetches real-time currency conversions from Frankfurter API.
-    - `Nerw.swift`: Global singleton for cross-module command execution.
+    - `Nerw.swift`: Global singleton for cross-module command execution. Exposes built-in actions (e.g. `quit`) and internal APIs such as:
+        - `Nerw.notify(_ content: String, level: NerwNotificationLevel = .info, progressive: Bool = false, id: UUID? = nil)`
+        - `Nerw.dismissNotify(id: UUID)`
 
 ### `NerwAction` (Action Domain & Preferences)
 - **Role**: Standalone module defining core action models and user configurations, decoupled from central application logic.
