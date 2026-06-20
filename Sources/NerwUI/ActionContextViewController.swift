@@ -24,13 +24,25 @@ public enum ActionContextKeyboardRouter {
         }
 
         if modifierFlags.contains(.control) {
-            switch normalizedCharacters {
-            case "n":
-                return .moveDown
-            case "p":
-                return .moveUp
-            default:
-                break
+            let navStyle = ConfigManager.shared.config.navigationStyle
+            if navStyle == "vim" {
+                switch normalizedCharacters {
+                case "j":
+                    return .moveDown
+                case "k":
+                    return .moveUp
+                default:
+                    break
+                }
+            } else {
+                switch normalizedCharacters {
+                case "n":
+                    return .moveDown
+                case "p":
+                    return .moveUp
+                default:
+                    break
+                }
             }
         }
 

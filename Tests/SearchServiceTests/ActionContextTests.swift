@@ -177,13 +177,75 @@ func testActionPreferenceStorePersistsAndClearsValues() {
 }
 
 func testActionContextKeyboardRouting() {
-    let ctrlDown = ActionContextKeyboardRouter.command(
+    let originalStyle = ConfigManager.shared.config.navigationStyle
+    defer {
+        ConfigManager.shared.config.navigationStyle = originalStyle
+    }
+
+    // Test Unix style
+    ConfigManager.shared.config.navigationStyle = "unix"
+
+    let ctrlDownUnix = ActionContextKeyboardRouter.command(
         keyCode: 45,
         charactersIgnoringModifiers: "n",
         modifierFlags: [.control]
     )
-    if ctrlDown != .moveDown {
-        fatalError("FAIL: Ctrl-N must map to moveDown. Got \(String(describing: ctrlDown))")
+    if ctrlDownUnix != .moveDown {
+        fatalError(
+            "FAIL: Ctrl-N must map to moveDown in unix style. Got \(String(describing: ctrlDownUnix))"
+        )
+    }
+
+    let ctrlUpUnix = ActionContextKeyboardRouter.command(
+        keyCode: 0,
+        charactersIgnoringModifiers: "p",
+        modifierFlags: [.control]
+    )
+    if ctrlUpUnix != .moveUp {
+        fatalError(
+            "FAIL: Ctrl-P must map to moveUp in unix style. Got \(String(describing: ctrlUpUnix))")
+    }
+
+    let ctrlJUnix = ActionContextKeyboardRouter.command(
+        keyCode: 38,
+        charactersIgnoringModifiers: "j",
+        modifierFlags: [.control]
+    )
+    if ctrlJUnix != nil {
+        fatalError(
+            "FAIL: Ctrl-J must not route in unix style. Got \(String(describing: ctrlJUnix))")
+    }
+
+    // Test Vim style
+    ConfigManager.shared.config.navigationStyle = "vim"
+
+    let ctrlJVim = ActionContextKeyboardRouter.command(
+        keyCode: 38,
+        charactersIgnoringModifiers: "j",
+        modifierFlags: [.control]
+    )
+    if ctrlJVim != .moveDown {
+        fatalError(
+            "FAIL: Ctrl-J must map to moveDown in vim style. Got \(String(describing: ctrlJVim))")
+    }
+
+    let ctrlKVim = ActionContextKeyboardRouter.command(
+        keyCode: 40,
+        charactersIgnoringModifiers: "k",
+        modifierFlags: [.control]
+    )
+    if ctrlKVim != .moveUp {
+        fatalError(
+            "FAIL: Ctrl-K must map to moveUp in vim style. Got \(String(describing: ctrlKVim))")
+    }
+
+    let ctrlNVim = ActionContextKeyboardRouter.command(
+        keyCode: 45,
+        charactersIgnoringModifiers: "n",
+        modifierFlags: [.control]
+    )
+    if ctrlNVim != nil {
+        fatalError("FAIL: Ctrl-N must not route in vim style. Got \(String(describing: ctrlNVim))")
     }
 
     let moveDown = ActionContextKeyboardRouter.command(
@@ -193,15 +255,6 @@ func testActionContextKeyboardRouting() {
     )
     if moveDown != .moveDown {
         fatalError("FAIL: Down arrow must map to moveDown. Got \(String(describing: moveDown))")
-    }
-
-    let moveUp = ActionContextKeyboardRouter.command(
-        keyCode: 0,
-        charactersIgnoringModifiers: "p",
-        modifierFlags: [.control]
-    )
-    if moveUp != .moveUp {
-        fatalError("FAIL: Ctrl-P must map to moveUp. Got \(String(describing: moveUp))")
     }
 
     let activate = ActionContextKeyboardRouter.command(

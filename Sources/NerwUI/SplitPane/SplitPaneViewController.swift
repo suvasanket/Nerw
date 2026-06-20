@@ -597,16 +597,30 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             updateSelection(to: selectedIndex + 1)
             return true
         }
+        if let event = NSApp.currentEvent, event.modifierFlags.contains(.control) {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            let navStyle = ConfigManager.shared.config.navigationStyle
 
-        let isCtrl = NSEvent.modifierFlags.contains(.control)
-        if isCtrl {
-            if let event = NSApp.currentEvent, event.keyCode == 35 {  // Ctrl-P
-                updateSelection(to: selectedIndex - 1)
-                return true
-            }
-            if let event = NSApp.currentEvent, event.keyCode == 45 {  // Ctrl-N
-                updateSelection(to: selectedIndex + 1)
-                return true
+            if navStyle == "vim" {
+                if chars == "j" {
+                    updateSelection(to: selectedIndex + 1)
+                    return true
+                } else if chars == "k" {
+                    updateSelection(to: selectedIndex - 1)
+                    return true
+                } else if chars == "n" || chars == "p" {
+                    return true
+                }
+            } else {  // unix
+                if chars == "n" {
+                    updateSelection(to: selectedIndex + 1)
+                    return true
+                } else if chars == "p" {
+                    updateSelection(to: selectedIndex - 1)
+                    return true
+                } else if chars == "j" || chars == "k" {
+                    return true
+                }
             }
         }
 

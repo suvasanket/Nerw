@@ -101,6 +101,7 @@ class SearchEnginesSettingsViewController: NSViewController {
         descLabel.textColor = .secondaryLabelColor
         descLabel.lineBreakMode = .byWordWrapping
         descLabel.translatesAutoresizingMaskIntoConstraints = false
+        descLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         fallbacksStack.addArrangedSubview(descLabel)
 
         let buttonStack = NSStackView()
@@ -150,11 +151,24 @@ class SearchEnginesSettingsViewController: NSViewController {
         modifierStack.addArrangedSubview(modifierLabel)
         modifierStack.addArrangedSubview(fallbackModifierPopUp)
 
+        let modifierDescLabel = NSTextField(
+            labelWithString:
+                "Hold this modifier key to swap search results with fallbacks. While holding, you can navigate using Mod+N/P (Unix) or Mod+J/K (Vim) based on your navigation style, and press Mod+Enter to execute."
+        )
+        modifierDescLabel.font = .systemFont(ofSize: 11)
+        modifierDescLabel.textColor = .secondaryLabelColor
+        modifierDescLabel.lineBreakMode = .byWordWrapping
+        modifierDescLabel.translatesAutoresizingMaskIntoConstraints = false
+        modifierDescLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         fallbacksStack.addArrangedSubview(fallbackScrollView)
         fallbacksStack.addArrangedSubview(buttonStack)
         fallbacksStack.addArrangedSubview(modifierStack)
+        fallbacksStack.addArrangedSubview(modifierDescLabel)
 
         fallbackScrollView.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
+            true
+        modifierDescLabel.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
             true
 
         let fallbacksSection = SettingsSection(

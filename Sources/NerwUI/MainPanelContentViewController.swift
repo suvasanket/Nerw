@@ -491,6 +491,58 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
             return event
         }
+
+        // Monitor key down events when fallback modifier is held to allow navigation (Mod+N/P or Mod+J/K) and execution (Mod+Enter)
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+
+            if case .search = self.inputState, self.preModifierActions != nil {
+                let modConfig = ConfigManager.shared.config.fallbackModifier
+                let isHoldingFallbackMod: Bool
+                switch modConfig {
+                case "cmd": isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                case "opt": isHoldingFallbackMod = event.modifierFlags.contains(.option)
+                case "ctrl": isHoldingFallbackMod = event.modifierFlags.contains(.control)
+                case "shift": isHoldingFallbackMod = event.modifierFlags.contains(.shift)
+                default: isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                }
+
+                if isHoldingFallbackMod {
+                    let chars = event.charactersIgnoringModifiers?.lowercased()
+                    let navStyle = ConfigManager.shared.config.navigationStyle
+
+                    if navStyle == "vim" {
+                        if chars == "j" {
+                            self.moveSelection(by: 1)
+                            return nil  // Consume event
+                        } else if chars == "k" {
+                            self.moveSelection(by: -1)
+                            return nil  // Consume event
+                        } else if chars == "n" || chars == "p" {
+                            return nil  // Consume event to prevent default behavior
+                        }
+                    } else {  // unix
+                        if chars == "n" {
+                            self.moveSelection(by: 1)
+                            return nil  // Consume event
+                        } else if chars == "p" {
+                            self.moveSelection(by: -1)
+                            return nil  // Consume event
+                        } else if chars == "j" || chars == "k" {
+                            return nil  // Consume event to prevent default behavior
+                        }
+                    }
+
+                    if chars == "\r" {
+                        if self.handleEnter() {
+                            return nil  // Consume event
+                        }
+                    }
+                }
+            }
+
+            return event
+        }
     }
 
     override func viewDidLayout() {
@@ -1519,6 +1571,33 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
         -> Bool
     {
+        if let event = NSApp.currentEvent, event.modifierFlags.contains(.control) {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            let navStyle = ConfigManager.shared.config.navigationStyle
+
+            if navStyle == "vim" {
+                if chars == "j" {
+                    moveSelection(by: 1)
+                    return true
+                } else if chars == "k" {
+                    moveSelection(by: -1)
+                    return true
+                } else if chars == "n" || chars == "p" {
+                    return true
+                }
+            } else {  // unix
+                if chars == "n" {
+                    moveSelection(by: 1)
+                    return true
+                } else if chars == "p" {
+                    moveSelection(by: -1)
+                    return true
+                } else if chars == "j" || chars == "k" {
+                    return true
+                }
+            }
+        }
+
         switch commandSelector {
         case #selector(NSResponder.deleteBackward(_:)):
             if inputField.stringValue.isEmpty {

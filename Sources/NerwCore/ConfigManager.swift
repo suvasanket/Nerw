@@ -38,6 +38,7 @@ public struct Config: Codable {
     public var snippetExpansionEnabled: Bool = true
     public var clipboardEnabled: Bool = true
     public var menubarSearchEnabled: Bool = true
+    public var navigationStyle: String = "unix"
 
     private enum CodingKeys: String, CodingKey {
         case fallbackActions
@@ -50,6 +51,7 @@ public struct Config: Codable {
         case snippetExpansionEnabled
         case clipboardEnabled
         case menubarSearchEnabled
+        case navigationStyle
     }
 
     private enum OldCodingKeys: String, CodingKey {
@@ -103,6 +105,8 @@ public struct Config: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .clipboardEnabled) ?? true
         menubarSearchEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .menubarSearchEnabled) ?? true
+        navigationStyle =
+            try container.decodeIfPresent(String.self, forKey: .navigationStyle) ?? "unix"
     }
 }
 

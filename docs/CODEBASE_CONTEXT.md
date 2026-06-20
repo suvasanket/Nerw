@@ -138,7 +138,7 @@ The source code is organized into modular targets within `Sources/`:
 7. **Selection**: User selects a result.
 8. **Action Context (Optional)**: `Cmd+K` or clicking the 3-dot icon on the selected row opens an inline overlay panel centered on the trigger point. The overlay uses liquid glass styling and appears with a pop-in spring animation. It enumerates operations for the selected action only, including modifier actions and global action configuration like alias/hotkey assignment. Clicking outside the overlay dismisses it.
     - UI shape: compact, glassy menu list with grouped separators, rendered inline over the parent panel (not in a separate window).
-    - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
+    - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` (Unix Style) / `Ctrl-J / Ctrl-K` (Vim Style) move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
 9. **Execution**: `NerwAction.type` determines the next step (Execute instantly, ask for arguments, open a form, or drill into a hybrid secondary action).
 10. **Fallback Modifier**: When the configured modifier (default: `⌘ Cmd`) is held, search results are swapped with fallback searches. Pressing `Enter` while holding the modifier executes the selected fallback search. Releasing the modifier restores the original search results list.
 
@@ -216,7 +216,7 @@ SplitPaneManager.shared.hide()
 - The controller tears down fully on close; ARC reclaims all views.
 
 ### Keyboard Navigation
-- `↑ / ↓` or `Ctrl-P / Ctrl-N` — move selection (matches main Nerw panel convention)
+- `↑ / ↓` or `Ctrl-P / Ctrl-N` (Unix Style) / `Ctrl-J / Ctrl-K` (Vim Style) — move selection (matches main Nerw panel convention)
 - `Enter` — primary action
 - `⌫ / Delete` — secondary action (e.g. delete entry)
 - `Cmd-K` or 3-dot icon — opens the same inline `NerwActionContext` overlay used by the main panel when the selected split-pane item exposes context operations.

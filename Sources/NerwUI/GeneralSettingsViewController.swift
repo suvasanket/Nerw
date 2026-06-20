@@ -6,6 +6,7 @@ import NerwUtils
 class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
 
     private var recorder: KeybindRecorder!
+    private let navStylePopUp = NSPopUpButton()
 
     private let stackView: NSStackView = {
         let stack = NSStackView()
@@ -29,6 +30,8 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(refreshUI), name: Notification.Name("NerwConfigDidUpdate"),
             object: nil)
+
+        refreshUI()
     }
 
     private func setupUI() {
@@ -55,7 +58,46 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         shortcutSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
-        // 2. Reset
+        // 2. Navigation Style
+        navStylePopUp.pullsDown = false
+        navStylePopUp.bezelStyle = .rounded
+        navStylePopUp.controlSize = .small
+        navStylePopUp.translatesAutoresizingMaskIntoConstraints = false
+
+        let styles = [
+            ("Unix Style (Ctrl-N / Ctrl-P)", "unix"),
+            ("Vim Style (Ctrl-J / Ctrl-K)", "vim"),
+        ]
+        for (title, val) in styles {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.representedObject = val
+            navStylePopUp.menu?.addItem(item)
+        }
+        navStylePopUp.target = self
+        navStylePopUp.action = #selector(navStyleChanged(_:))
+
+        let navStyleLabel = NSTextField(labelWithString: "Navigation Binding Style:")
+        navStyleLabel.font = .systemFont(ofSize: 13)
+        navStyleLabel.textColor = .labelColor
+
+        let navStyleRow = NSStackView()
+        navStyleRow.orientation = .horizontal
+        navStyleRow.alignment = .centerY
+        navStyleRow.spacing = 10
+        navStyleRow.edgeInsets = NSEdgeInsets(top: 8, left: 0, bottom: 12, right: 0)
+        navStyleRow.addArrangedSubview(navStyleLabel)
+        navStyleRow.addArrangedSubview(navStylePopUp)
+        navStyleRow.addArrangedSubview(NSView())  // Spacer
+
+        let navStyleSection = SettingsSection(
+            title: "Navigation Style",
+            contentViews: [navStyleRow]
+        )
+        stackView.addArrangedSubview(navStyleSection)
+        navStyleSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
+
+        // 3. Reset
         let resetBtn = NSButton(
             title: "Reset to Default", target: self, action: #selector(resetClicked(_:)))
         resetBtn.bezelStyle = .rounded
@@ -101,6 +143,15 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
         ConfigManager.shared.config.globalKeybind = keybind
         ConfigManager.shared.save()
         ConfigManager.shared.reload()  // Triggers notification
+    }
+
+    @objc private func navStyleChanged(_ sender: NSPopUpButton) {
+        guard let selectedItem = sender.selectedItem,
+            let style = selectedItem.representedObject as? String
+        else { return }
+        ConfigManager.shared.config.navigationStyle = style
+        ConfigManager.shared.save()
+        ConfigManager.shared.reload()
     }
 
     @objc private func resetClicked(_ sender: NSButton) {
@@ -160,5 +211,10 @@ class GeneralSettingsViewController: NSViewController, KeybindRecorderDelegate {
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config
         recorder.setKeybind(config.globalKeybind)
+        if let idx = navStylePopUp.menu?.items.firstIndex(where: {
+            ($0.representedObject as? String) == config.navigationStyle
+        }) {
+            navStylePopUp.selectItem(at: idx)
+        }
     }
 }
