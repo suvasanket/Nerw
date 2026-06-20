@@ -43,7 +43,7 @@ The source code is organized into modular targets within `Sources/`:
     - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading, "Peek" support, and a 3-dot vertical context button visible on the selected row.
     - **Notification System**: `NotificationManager.swift`, `NotificationPanel.swift`, `NotificationItemView.swift`. Handles glassmorphic, stacked alerts.
     - **Specialized Views**: `ExtensionCardView.swift` (Settings list), `FormView.swift` (Multi-field inputs), `IconDropView.swift` (Drag & Drop support), `KeybindRecorder.swift` (Hotkey input).
-    - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
+    - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch - includes a dropdown to configure the fallback modifier key), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
     - `SettingsWindowController.swift`: Manages the tabbed settings interface.
     - `ExtensionInstallWindowController.swift`: Manages the `.nerw` extension installation flow and confirmation UI.
     - **UI Helpers**: `ColorExtensions.swift`, `NSColor+Hex.swift`, `SettingsSection.swift`, `GlobalLayout.swift` (Centralized UI Dimensions & Typography).
@@ -140,6 +140,7 @@ The source code is organized into modular targets within `Sources/`:
     - UI shape: compact, glassy menu list with grouped separators, rendered inline over the parent panel (not in a separate window).
     - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
 9. **Execution**: `NerwAction.type` determines the next step (Execute instantly, ask for arguments, open a form, or drill into a hybrid secondary action).
+10. **Fallback Modifier**: When the configured modifier (default: `⌘ Cmd`) is held, search results are swapped with fallback searches. Pressing `Enter` while holding the modifier executes the selected fallback search. Releasing the modifier restores the original search results list.
 
 ### Extension Daemon Flow (new)
 1. Manifest declares `"daemon": { "enabled": true, "description": "...", "memoryLimit": 128 }`.

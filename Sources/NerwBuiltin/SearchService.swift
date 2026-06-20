@@ -165,7 +165,7 @@ public class SearchService {
         }
     }
 
-    public func search(query: String, completion: @escaping ([NerwAction]) -> Void) {
+    public func search(query: String, completion: @escaping ([NerwAction], [NerwAction]) -> Void) {
         // 0. Cancel previous pending search
         searchWorkItem?.cancel()
 
@@ -204,7 +204,7 @@ public class SearchService {
                                         results.append(fallback)
                                     }
                                 }
-                                completion(results)
+                                completion(results, fallbacks)
                             }
                             return
                         }
@@ -223,7 +223,7 @@ public class SearchService {
                             triggers: [],
                             type: .instant(perform: { _ in perform(action, arg) })
                         )
-                        completion([inlineAction])
+                        completion([inlineAction], [])
                         return
                     }
                 }
@@ -238,12 +238,12 @@ public class SearchService {
                 query: cleanedQuery,
                 engine: Engine(
                     name: engineName, triggers: [], urlTemplate: urlTemplate))
-            completion([bangAction])
+            completion([bangAction], [])
             return
         }
 
         guard !query.isEmpty else {
-            completion([])
+            completion([], [])
             return
         }
 
@@ -306,7 +306,7 @@ public class SearchService {
 
                     DispatchQueue.main.async {
                         if self.searchWorkItem?.isCancelled == false {
-                            completion(ranked)
+                            completion(ranked, configuredFallbacks)
                         }
                     }
                 }

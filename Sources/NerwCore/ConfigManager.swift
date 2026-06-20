@@ -29,6 +29,7 @@ public struct LayoutConfig: Codable {
 
 public struct Config: Codable {
     public var fallbackActions: [String] = ["engine:Google"]
+    public var fallbackModifier: String = "cmd"
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var onFirstSpace: String = "findfile "
     public var showShortcutsInMain: Bool = false
@@ -40,6 +41,7 @@ public struct Config: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case fallbackActions
+        case fallbackModifier
         case globalKeybind
         case onFirstSpace
         case showShortcutsInMain
@@ -79,6 +81,9 @@ public struct Config: Codable {
                 fallbackActions.append("engine:Google")
             }
         }
+
+        fallbackModifier =
+            try container.decodeIfPresent(String.self, forKey: .fallbackModifier) ?? "cmd"
 
         globalKeybind =
             try container.decodeIfPresent(String.self, forKey: .globalKeybind) ?? "Cmd+Shift+Space"

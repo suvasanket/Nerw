@@ -124,6 +124,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var isDebugMode = false
 
     private var actions: [NerwAction] = []
+    private var cachedFallbacks: [NerwAction] = []
+    private var preModifierActions: [NerwAction]? = nil
     private var activeAction: NerwAction?
     private var previousSearchText: String = ""
     private var selectedIndex: Int = 0
@@ -446,13 +448,46 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             self, selector: #selector(configDidUpdate),
             name: Notification.Name("NerwConfigDidUpdate"), object: nil)
 
-        // Monitor modifier flags to update UI (alternate titles/subtitles)
+        // Monitor modifier flags to update UI (alternate titles/subtitles) and swap fallback results
         NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            guard let self = self, !self.actions.isEmpty else { return event }
-            let row = self.selectedIndex
-            if row >= 0 && row < self.actions.count {
-                self.resultsTableView.reloadData(
-                    forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+            guard let self = self else { return event }
+
+            if case .search = self.inputState {
+                let modConfig = ConfigManager.shared.config.fallbackModifier
+                let isHoldingFallbackMod: Bool
+                switch modConfig {
+                case "cmd": isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                case "opt": isHoldingFallbackMod = event.modifierFlags.contains(.option)
+                case "ctrl": isHoldingFallbackMod = event.modifierFlags.contains(.control)
+                case "shift": isHoldingFallbackMod = event.modifierFlags.contains(.shift)
+                default: isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                }
+
+                let isInFallbackMode = self.preModifierActions != nil
+
+                if isHoldingFallbackMod && !isInFallbackMode && !self.cachedFallbacks.isEmpty {
+                    // Enter fallback mode
+                    self.preModifierActions = self.actions
+                    self.actions = self.cachedFallbacks
+                    self.selectedIndex = 0
+                    self.userHasNavigated = false
+                    self.updateActions()
+                } else if !isHoldingFallbackMod && isInFallbackMode {
+                    // Exit fallback mode
+                    self.actions = self.preModifierActions ?? []
+                    self.preModifierActions = nil
+                    self.selectedIndex = 0
+                    self.userHasNavigated = false
+                    self.updateActions()
+                }
+            }
+
+            if !self.actions.isEmpty {
+                let row = self.selectedIndex
+                if row >= 0 && row < self.actions.count {
+                    self.resultsTableView.reloadData(
+                        forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+                }
             }
             return event
         }
@@ -1122,6 +1157,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Drop strong references to all candidates and actions so ARC can immediately reclaim >100MB of icon data
         actions = []
+        cachedFallbacks = []
+        preModifierActions = nil
         resultsTableView.reloadData()
 
         SearchService.shared.clearCache()
@@ -1652,12 +1689,32 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         // Main Search via Service
-        SearchService.shared.search(query: query) { [weak self] results in
+        SearchService.shared.search(query: query) { [weak self] results, fallbacks in
             DispatchQueue.main.async {  // Ensure Main Thread
                 guard let self = self else { return }
                 // Verify text hasn't changed (though Service handles cancellation best effort)
                 if self.inputField.stringValue == query {
-                    self.actions = results
+                    self.cachedFallbacks = fallbacks
+                    self.preModifierActions = nil
+
+                    let currentFlags = NSApp.currentEvent?.modifierFlags ?? []
+                    let modConfig = ConfigManager.shared.config.fallbackModifier
+                    let isHoldingFallbackMod: Bool
+                    switch modConfig {
+                    case "cmd": isHoldingFallbackMod = currentFlags.contains(.command)
+                    case "opt": isHoldingFallbackMod = currentFlags.contains(.option)
+                    case "ctrl": isHoldingFallbackMod = currentFlags.contains(.control)
+                    case "shift": isHoldingFallbackMod = currentFlags.contains(.shift)
+                    default: isHoldingFallbackMod = currentFlags.contains(.command)
+                    }
+
+                    if isHoldingFallbackMod && !fallbacks.isEmpty {
+                        self.preModifierActions = results
+                        self.actions = fallbacks
+                    } else {
+                        self.actions = results
+                    }
+
                     self.selectedIndex = 0
                     self.userHasNavigated = false
                     self.updateActions()

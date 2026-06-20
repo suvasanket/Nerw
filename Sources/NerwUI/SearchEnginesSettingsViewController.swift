@@ -12,6 +12,7 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     private var enginesListStack: NSStackView!
     private var fallbackTableView = NSTableView()
+    private let fallbackModifierPopUp = NSPopUpButton()
 
     private struct FallbackItem {
         let id: String
@@ -117,8 +118,41 @@ class SearchEnginesSettingsViewController: NSViewController {
         buttonStack.addArrangedSubview(addFallbackBtn)
         buttonStack.addArrangedSubview(removeFallbackBtn)
 
+        // Fallback modifier selector
+        let modifierLabel = NSTextField(labelWithString: "Fallback Modifier:")
+        modifierLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        modifierLabel.textColor = .labelColor
+        modifierLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        fallbackModifierPopUp.pullsDown = false
+        fallbackModifierPopUp.bezelStyle = .rounded
+        fallbackModifierPopUp.controlSize = .small
+        fallbackModifierPopUp.translatesAutoresizingMaskIntoConstraints = false
+
+        let modifiers: [(title: String, val: String)] = [
+            ("Command (⌘)", "cmd"),
+            ("Option (⌥)", "opt"),
+            ("Control (⌃)", "ctrl"),
+            ("Shift (⇧)", "shift"),
+        ]
+        for mod in modifiers {
+            let item = NSMenuItem(title: mod.title, action: nil, keyEquivalent: "")
+            item.representedObject = mod.val
+            fallbackModifierPopUp.menu?.addItem(item)
+        }
+        fallbackModifierPopUp.target = self
+        fallbackModifierPopUp.action = #selector(fallbackModifierChanged(_:))
+
+        let modifierStack = NSStackView()
+        modifierStack.orientation = .horizontal
+        modifierStack.spacing = 8
+        modifierStack.alignment = .centerY
+        modifierStack.addArrangedSubview(modifierLabel)
+        modifierStack.addArrangedSubview(fallbackModifierPopUp)
+
         fallbacksStack.addArrangedSubview(fallbackScrollView)
         fallbacksStack.addArrangedSubview(buttonStack)
+        fallbacksStack.addArrangedSubview(modifierStack)
 
         fallbackScrollView.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
             true
@@ -241,6 +275,22 @@ class SearchEnginesSettingsViewController: NSViewController {
             enginesListStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: enginesListStack.widthAnchor).isActive = true
         }
+
+        // Update fallback modifier selection
+        let currentMod = ConfigManager.shared.config.fallbackModifier
+        if let idx = fallbackModifierPopUp.menu?.items.firstIndex(where: {
+            ($0.representedObject as? String) == currentMod
+        }) {
+            fallbackModifierPopUp.selectItem(at: idx)
+        }
+    }
+
+    @objc private func fallbackModifierChanged(_ sender: NSPopUpButton) {
+        guard let selectedVal = sender.selectedItem?.representedObject as? String else { return }
+        var config = ConfigManager.shared.config
+        config.fallbackModifier = selectedVal
+        ConfigManager.shared.config = config
+        ConfigManager.shared.save()
     }
 
     @objc private func refreshUI() {
