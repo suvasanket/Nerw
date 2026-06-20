@@ -1,5 +1,6 @@
 APP=Nerw
 BUILD_DIR=.build/debug
+CODESIGN_ID ?= LocalDevCert
 
 BUNDLE_NAME=$(APP).app
 MACOS_DIR=$(BUNDLE_NAME)/Contents/MacOS
@@ -90,9 +91,19 @@ bundle: main
 	@iconutil -c icns $(EXT_ICON_SET)
 	@cp nerw_ext.icns $(EXT_ICON_DEST)
 	@rm -rf $(EXT_ICON_SET) nerw_ext.icns
+	@if [ -n "$(CODESIGN_ID)" ] && security find-identity -p codesigning -v | grep -q "$(CODESIGN_ID)"; then \
+		echo "Signing $(BUNDLE_NAME) with $(CODESIGN_ID)..."; \
+		codesign --force --deep --sign "$(CODESIGN_ID)" $(BUNDLE_NAME); \
+	else \
+		echo "No codesigning identity '$(CODESIGN_ID)' found. Leaving $(BUNDLE_NAME) unsigned."; \
+	fi
 
 clean-bundle:
 	rm -rf $(BUNDLE_NAME)
 
-dmg: bundle
+dmg-signed: bundle
+	@./Scripts/create_dmg.sh
+
+dmg: clean-bundle
+	@$(MAKE) bundle CODESIGN_ID=
 	@./Scripts/create_dmg.sh
