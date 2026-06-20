@@ -731,9 +731,10 @@ public class System {
                         peek: NerwAction.PeekData(
                             title: title,
                             text: summaryText,
-                            icon: .image(iconImage),
+                            icon: NerwAction.IconType.none,
                             primaryActionName: nil,
-                            secondaryActionName: nil
+                            secondaryActionName: nil,
+                            courtesyText: "powered by wikipedia"
                         ),
                         type: .instant(perform: { _ in
                             if let url = URL(string: pageUrlString) {
