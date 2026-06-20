@@ -11,6 +11,7 @@ ICON_DEST=$(RESOURCES_DIR)/AppIcon.icns
 EXT_ICON_SOURCE=Assets/nerw_ext.png
 EXT_ICON_SET=nerw_ext.iconset
 EXT_ICON_DEST=$(RESOURCES_DIR)/nerw_ext.icns
+MENUBAR_ICON_SOURCE=Assets/iconTemplate.png
 
 main:
 	@swift-format format -rip .
@@ -60,6 +61,8 @@ bundle: main
 	@iconutil -c icns $(ICON_SET)
 	@cp AppIcon.icns $(ICON_DEST)
 	@cp -r Resources/* $(RESOURCES_DIR)/ 2>/dev/null || :
+	@sips -z 18 18     $(MENUBAR_ICON_SOURCE) --out $(RESOURCES_DIR)/iconTemplate.png > /dev/null 2>&1
+	@sips -z 36 36     $(MENUBAR_ICON_SOURCE) --out $(RESOURCES_DIR)/iconTemplate@2x.png > /dev/null 2>&1
 	@rm -rf $(ICON_SET) AppIcon.icns
 	@mkdir -p $(EXT_ICON_SET)
 	@sips -z 16 16     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_16x16.png > /dev/null 2>&1

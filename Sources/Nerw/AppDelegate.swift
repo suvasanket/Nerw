@@ -176,7 +176,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)
+            if let image = NSImage(named: "iconTemplate") {
+                image.isTemplate = true
+                image.size = NSSize(width: 18, height: 18)
+                button.image = image
+            } else {
+                button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)
+            }
             button.action = #selector(statusBarIconClicked(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
