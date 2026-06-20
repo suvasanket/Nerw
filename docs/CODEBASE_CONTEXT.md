@@ -179,11 +179,7 @@ The source code is organized into modular targets within `Sources/`:
 ---
 
 ## 4. Build System & Tooling
-- **Makefile**: Wrapper for `swift build` and `swift-format`.
-- **make run**: Standard command to build, code-sign (if identity exists), and launch for development.
-- **make dmg**: Creates a custom, compressed, dark-garden styled DMG installer (code-signed if identity exists).
-- **make dmg-unsigned**: Cleans the bundle and creates an unsigned DMG installer.
-- **swift-format**: Enforced linting and formatting. Always run before committing.
+- **Makefile**: For building
 
 ## 5. Agent Instructions
 - **Consistency**: Adhere to the programmatic Auto Layout pattern.

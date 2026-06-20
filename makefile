@@ -45,58 +45,23 @@ run: bundle open
 	@echo "Log file: ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
 	@echo "View logs with: tail -f ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
 
+dev-main:
+	$(SWIFT) build --disable-sandbox
+
+bundle-dev: dev-main
+	@APP="$(APP)" BUILD_DIR="$(BUILD_DIR)" CODESIGN_ID="$(CODESIGN_ID)" ./Scripts/bundle.sh
+
+run-dev: bundle-dev open
+	@echo ""
+	@echo "Log file: ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
+	@echo "View logs with: tail -f ~/.nerw/log/nerw-$$(date +%Y-%m-%d).log"
+
 debug: bundle
 	@pkill -x Nerw || true
 	@./$(MACOS_DIR)/$(APP)
 
 bundle: main
-	@mkdir -p $(MACOS_DIR)
-	@mkdir -p $(CLI_BIN_DIR)
-	@mkdir -p $(RESOURCES_DIR)
-	@mkdir -p $(RESOURCES_DIR)/Modules
-	@mkdir -p $(RESOURCES_DIR)/lib
-	@cp Info.plist $(BUNDLE_NAME)/Contents/
-	@cp $(BUILD_DIR)/$(APP) $(MACOS_DIR)/
-	@cp $(BUILD_DIR)/nerw-cli $(CLI_BIN_DIR)/nerw
-	@cp -R $(BUILD_DIR)/Modules/NerwExtensionKit.* $(RESOURCES_DIR)/Modules/ 2>/dev/null || :
-	@cp $(BUILD_DIR)/libNerwExtensionKit.a $(RESOURCES_DIR)/lib/ 2>/dev/null || :
-	@mkdir -p $(ICON_SET)
-	@sips -z 16 16     $(ICON_SOURCE) --out $(ICON_SET)/icon_16x16.png > /dev/null 2>&1
-	@sips -z 32 32     $(ICON_SOURCE) --out $(ICON_SET)/icon_16x16@2x.png > /dev/null 2>&1
-	@sips -z 32 32     $(ICON_SOURCE) --out $(ICON_SET)/icon_32x32.png > /dev/null 2>&1
-	@sips -z 64 64     $(ICON_SOURCE) --out $(ICON_SET)/icon_32x32@2x.png > /dev/null 2>&1
-	@sips -z 128 128   $(ICON_SOURCE) --out $(ICON_SET)/icon_128x128.png > /dev/null 2>&1
-	@sips -z 256 256   $(ICON_SOURCE) --out $(ICON_SET)/icon_128x128@2x.png > /dev/null 2>&1
-	@sips -z 256 256   $(ICON_SOURCE) --out $(ICON_SET)/icon_256x256.png > /dev/null 2>&1
-	@sips -z 512 512   $(ICON_SOURCE) --out $(ICON_SET)/icon_256x256@2x.png > /dev/null 2>&1
-	@sips -z 512 512   $(ICON_SOURCE) --out $(ICON_SET)/icon_512x512.png > /dev/null 2>&1
-	@sips -z 1024 1024 $(ICON_SOURCE) --out $(ICON_SET)/icon_512x512@2x.png > /dev/null 2>&1
-	@iconutil -c icns $(ICON_SET)
-	@cp AppIcon.icns $(ICON_DEST)
-	@cp -r Resources/* $(RESOURCES_DIR)/ 2>/dev/null || :
-	@sips -z 18 18     $(MENUBAR_ICON_SOURCE) --out $(RESOURCES_DIR)/iconTemplate.png > /dev/null 2>&1
-	@sips -z 36 36     $(MENUBAR_ICON_SOURCE) --out $(RESOURCES_DIR)/iconTemplate@2x.png > /dev/null 2>&1
-	@rm -rf $(ICON_SET) AppIcon.icns
-	@mkdir -p $(EXT_ICON_SET)
-	@sips -z 16 16     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_16x16.png > /dev/null 2>&1
-	@sips -z 32 32     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_16x16@2x.png > /dev/null 2>&1
-	@sips -z 32 32     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_32x32.png > /dev/null 2>&1
-	@sips -z 64 64     $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_32x32@2x.png > /dev/null 2>&1
-	@sips -z 128 128   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_128x128.png > /dev/null 2>&1
-	@sips -z 256 256   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_128x128@2x.png > /dev/null 2>&1
-	@sips -z 256 256   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_256x256.png > /dev/null 2>&1
-	@sips -z 512 512   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512.png > /dev/null 2>&1
-	@sips -z 512 512   $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512@2x.png > /dev/null 2>&1
-	@sips -z 1024 1024 $(EXT_ICON_SOURCE) --out $(EXT_ICON_SET)/icon_512x512@2x.png > /dev/null 2>&1
-	@iconutil -c icns $(EXT_ICON_SET)
-	@cp nerw_ext.icns $(EXT_ICON_DEST)
-	@rm -rf $(EXT_ICON_SET) nerw_ext.icns
-	@if [ -n "$(CODESIGN_ID)" ] && security find-identity -p codesigning -v | grep -q "$(CODESIGN_ID)"; then \
-		echo "Signing $(BUNDLE_NAME) with $(CODESIGN_ID)..."; \
-		codesign --force --deep --sign "$(CODESIGN_ID)" $(BUNDLE_NAME); \
-	else \
-		echo "No codesigning identity '$(CODESIGN_ID)' found. Leaving $(BUNDLE_NAME) unsigned."; \
-	fi
+	@APP="$(APP)" BUILD_DIR="$(BUILD_DIR)" CODESIGN_ID="$(CODESIGN_ID)" ./Scripts/bundle.sh
 
 clean-bundle:
 	rm -rf $(BUNDLE_NAME)
