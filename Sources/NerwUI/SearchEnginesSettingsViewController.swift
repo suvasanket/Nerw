@@ -12,7 +12,14 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     private var enginesListStack: NSStackView!
     private var modifiersListStack: NSStackView!
-    private var enginesPopUp: NSPopUpButton!
+    private var fallbackTableView = NSTableView()
+
+    private struct FallbackItem {
+        let id: String
+        let title: String
+        let icon: NSImage?
+    }
+    private var fallbackItems: [FallbackItem] = []
 
     override func loadView() {
         self.view = NSView()
@@ -58,38 +65,71 @@ class SearchEnginesSettingsViewController: NSViewController {
             stackView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
         ])
 
-        // --- 1. General Section (Default Engine) ---
-        let generalSectionStack = NSStackView()
-        generalSectionStack.orientation = .vertical
-        generalSectionStack.spacing = 12
-        generalSectionStack.alignment = .leading
+        // --- 1. Fallback Searches Section ---
+        let fallbacksStack = NSStackView()
+        fallbacksStack.orientation = .vertical
+        fallbacksStack.spacing = 12
+        fallbacksStack.alignment = .leading
+        fallbacksStack.translatesAutoresizingMaskIntoConstraints = false
 
-        // Default Engine Row
-        let defaultEngineRow = NSStackView()
-        defaultEngineRow.orientation = .horizontal
-        defaultEngineRow.spacing = 10
-        defaultEngineRow.alignment = .centerY
+        let fallbackScrollView = NSScrollView()
+        fallbackScrollView.hasVerticalScroller = true
+        fallbackScrollView.borderType = .noBorder
+        fallbackScrollView.drawsBackground = true
+        fallbackScrollView.backgroundColor = NSColor.black.withAlphaComponent(0.15)
+        fallbackScrollView.wantsLayer = true
+        fallbackScrollView.layer?.cornerRadius = 8
+        fallbackScrollView.layer?.masksToBounds = true
+        fallbackScrollView.translatesAutoresizingMaskIntoConstraints = false
+        fallbackScrollView.heightAnchor.constraint(equalToConstant: 150).isActive = true
 
-        let defaultEngineLabel = NSTextField(labelWithString: "Default Engine:")
-        enginesPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        fallbackTableView.backgroundColor = .clear
 
-        refreshDefaultEnginePopUp()
+        fallbackTableView.addTableColumn(
+            NSTableColumn(identifier: NSUserInterfaceItemIdentifier("FallbackColumn")))
+        fallbackTableView.headerView = nil
+        fallbackTableView.dataSource = self
+        fallbackTableView.delegate = self
+        fallbackTableView.registerForDraggedTypes([.string])
 
-        enginesPopUp.target = self
-        enginesPopUp.action = #selector(defaultEngineChanged(_:))
+        fallbackScrollView.documentView = fallbackTableView
 
-        defaultEngineRow.addArrangedSubview(defaultEngineLabel)
-        defaultEngineRow.addArrangedSubview(enginesPopUp)
-        defaultEngineRow.addArrangedSubview(NSView())  // Spacer
+        let descLabel = NSTextField(
+            labelWithString:
+                "Drag and drop to reorder. The search engines will be evaluated in this order.")
+        descLabel.font = .systemFont(ofSize: 11)
+        descLabel.textColor = .secondaryLabelColor
+        descLabel.lineBreakMode = .byWordWrapping
+        descLabel.translatesAutoresizingMaskIntoConstraints = false
+        fallbacksStack.addArrangedSubview(descLabel)
 
-        generalSectionStack.addArrangedSubview(defaultEngineRow)
+        let buttonStack = NSStackView()
+        buttonStack.orientation = .horizontal
+        buttonStack.spacing = 8
 
-        let generalSection = SettingsSection(
-            title: "General",
-            contentViews: [generalSectionStack]
+        let addFallbackBtn = NSButton(
+            title: "Add", target: self, action: #selector(addFallbackClicked))
+        addFallbackBtn.bezelStyle = .rounded
+
+        let removeFallbackBtn = NSButton(
+            title: "Remove", target: self, action: #selector(removeFallbackClicked))
+        removeFallbackBtn.bezelStyle = .rounded
+
+        buttonStack.addArrangedSubview(addFallbackBtn)
+        buttonStack.addArrangedSubview(removeFallbackBtn)
+
+        fallbacksStack.addArrangedSubview(fallbackScrollView)
+        fallbacksStack.addArrangedSubview(buttonStack)
+
+        fallbackScrollView.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
+            true
+
+        let fallbacksSection = SettingsSection(
+            title: "Fallback Searches",
+            contentViews: [fallbacksStack]
         )
-        stackView.addArrangedSubview(generalSection)
-        generalSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+        stackView.addArrangedSubview(fallbacksSection)
+        fallbacksSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
         // --- 2. Custom Bangs List ---
@@ -167,7 +207,62 @@ class SearchEnginesSettingsViewController: NSViewController {
             return a.name < b.name
         }
 
-        refreshDefaultEnginePopUp()
+        // --- Fallbacks ---
+        let configFallbacks = ConfigManager.shared.config.fallbackActions
+        fallbackItems = []
+
+        let candidates = SearchService.shared.getCandidates()
+
+        for id in configFallbacks {
+            if id.starts(with: "engine:") {
+                let engineName = String(id.dropFirst("engine:".count))
+                if let engine = engines.first(where: { $0.name == engineName }) {
+                    let domain =
+                        URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
+                        .host ?? engine.name
+                    var iconImage: NSImage?
+                    if let iconStr = engine.icon {
+                        iconImage =
+                            IconManager.shared.icon(forKey: iconStr)
+                            ?? NSImage(named: NSImage.Name(iconStr))
+                    }
+                    if iconImage == nil {
+                        iconImage = IconManager.shared.icon(for: domain)
+                    }
+                    fallbackItems.append(
+                        FallbackItem(
+                            id: id, title: engine.name,
+                            icon: iconImage
+                                ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+                        ))
+                }
+            } else if id.starts(with: "action:") {
+                let actionID = String(id.dropFirst("action:".count))
+                if let action = candidates.first(where: { $0.id == actionID }) {
+                    var iconImage: NSImage?
+                    if let actionIcon = action.icon {
+                        switch actionIcon {
+                        case .system(let name):
+                            iconImage = NSImage(
+                                systemSymbolName: name, accessibilityDescription: nil)
+                        case .image(let img):
+                            iconImage = img
+                        case .file(let url):
+                            iconImage = NSWorkspace.shared.icon(forFile: url.path)
+                        case .none: break
+                        }
+                    }
+                    fallbackItems.append(
+                        FallbackItem(
+                            id: id, title: action.title,
+                            icon: iconImage
+                                ?? NSImage(
+                                    systemSymbolName: "puzzlepiece", accessibilityDescription: nil))
+                    )
+                }
+            }
+        }
+        fallbackTableView.reloadData()
 
         // Clear current list
         for subview in enginesListStack.arrangedSubviews {
@@ -194,18 +289,87 @@ class SearchEnginesSettingsViewController: NSViewController {
         }
     }
 
-    private func refreshDefaultEnginePopUp() {
-        guard let popUp = enginesPopUp else { return }
-        popUp.removeAllItems()
-        for engine in SearchEngine.shared.engines {
-            popUp.addItem(withTitle: engine.name)
-        }
-        let defaultEngine = SearchEngine.shared.getDefaultEngine()
-        popUp.selectItem(withTitle: defaultEngine.name)
+    @objc private func refreshUI() {
+        reloadData()
     }
 
-    @objc private func refreshUI() {
-        refreshDefaultEnginePopUp()
+    @objc private func addFallbackClicked() {
+        guard let window = self.view.window else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Add Fallback Search"
+        alert.informativeText = "Select a search engine or action to add as a fallback."
+
+        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 25))
+        popUp.pullsDown = false
+
+        // Populate options that aren't already in the list
+        let currentIDs = Set(ConfigManager.shared.config.fallbackActions)
+
+        var availableOptions: [(title: String, id: String)] = []
+        for engine in engines {
+            let id = "engine:\(engine.name)"
+            if !currentIDs.contains(id) && engine.isEnabled {
+                availableOptions.append((title: engine.name, id: id))
+            }
+        }
+
+        let candidates = SearchService.shared.getCandidates()
+        var seenTitles = Set<String>()
+        for action in candidates {
+            if !action.supportsArguments || action.id.starts(with: "nerw.web.search.") { continue }
+            let shouldInclude: Bool
+            switch action.type {
+            case .inlineArg, .args, .arg:
+                shouldInclude = true
+            default:
+                shouldInclude = false
+            }
+            if shouldInclude && !seenTitles.contains(action.title) {
+                seenTitles.insert(action.title)
+                let id = "action:\(action.id)"
+                if !currentIDs.contains(id) {
+                    availableOptions.append((title: action.title, id: id))
+                }
+            }
+        }
+
+        for option in availableOptions {
+            let item = NSMenuItem(title: option.title, action: nil, keyEquivalent: "")
+            item.representedObject = option.id
+            popUp.menu?.addItem(item)
+        }
+
+        if availableOptions.isEmpty {
+            popUp.addItem(withTitle: "No more options available")
+            popUp.isEnabled = false
+        }
+
+        alert.accessoryView = popUp
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn, let selected = popUp.selectedItem,
+                let id = selected.representedObject as? String
+            {
+                var config = ConfigManager.shared.config
+                config.fallbackActions.append(id)
+                ConfigManager.shared.config = config
+                ConfigManager.shared.save()
+                self.reloadData()
+            }
+        }
+    }
+
+    @objc private func removeFallbackClicked() {
+        let selectedRow = fallbackTableView.selectedRow
+        guard selectedRow >= 0 && selectedRow < fallbackItems.count else { return }
+
+        var config = ConfigManager.shared.config
+        config.fallbackActions.remove(at: selectedRow)
+        ConfigManager.shared.config = config
+        ConfigManager.shared.save()
         reloadData()
     }
 
@@ -526,13 +690,6 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     // MARK: - Actions
 
-    @objc private func defaultEngineChanged(_ sender: NSPopUpButton) {
-        let name = sender.titleOfSelectedItem
-        if let engine = SearchEngine.shared.engines.first(where: { $0.name == name }) {
-            SearchEngine.shared.setDefaultEngine(engine)
-        }
-    }
-
     @objc private func addBangClicked() {
         showEngineSheet(editing: nil)
     }
@@ -591,5 +748,115 @@ class SearchEnginesSettingsViewController: NSViewController {
                 self.reloadData()
             }
         }
+    }
+}
+
+extension SearchEnginesSettingsViewController: NSTableViewDataSource, NSTableViewDelegate {
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        if tableView == fallbackTableView {
+            return fallbackItems.count
+        }
+        return 0
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
+        -> NSView?
+    {
+        if tableView == fallbackTableView {
+            let item = fallbackItems[row]
+
+            let cellIdentifier = NSUserInterfaceItemIdentifier("FallbackCell")
+            var cell =
+                tableView.makeView(withIdentifier: cellIdentifier, owner: nil) as? NSTableCellView
+
+            if cell == nil {
+                cell = NSTableCellView()
+                cell?.identifier = cellIdentifier
+
+                let imageView = NSImageView()
+                imageView.translatesAutoresizingMaskIntoConstraints = false
+                cell?.addSubview(imageView)
+                cell?.imageView = imageView
+
+                let textField = NSTextField(labelWithString: "")
+                textField.translatesAutoresizingMaskIntoConstraints = false
+                textField.isBordered = false
+                textField.drawsBackground = false
+                textField.isEditable = false
+                textField.font = .systemFont(ofSize: 13, weight: .medium)
+                cell?.addSubview(textField)
+                cell?.textField = textField
+
+                NSLayoutConstraint.activate([
+                    imageView.leadingAnchor.constraint(equalTo: cell!.leadingAnchor, constant: 4),
+                    imageView.centerYAnchor.constraint(equalTo: cell!.centerYAnchor),
+                    imageView.widthAnchor.constraint(equalToConstant: 16),
+                    imageView.heightAnchor.constraint(equalToConstant: 16),
+
+                    textField.leadingAnchor.constraint(
+                        equalTo: imageView.trailingAnchor, constant: 8),
+                    textField.trailingAnchor.constraint(
+                        equalTo: cell!.trailingAnchor, constant: -4),
+                    textField.centerYAnchor.constraint(equalTo: cell!.centerYAnchor),
+                ])
+            }
+
+            cell?.imageView?.image = item.icon
+            cell?.textField?.stringValue = item.title
+
+            return cell
+        }
+        return nil
+    }
+
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int)
+        -> NSPasteboardWriting?
+    {
+        if tableView == fallbackTableView {
+            let item = NSPasteboardItem()
+            item.setString(String(row), forType: .string)
+            return item
+        }
+        return nil
+    }
+
+    func tableView(
+        _ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
+        proposedDropOperation dropOperation: NSTableView.DropOperation
+    ) -> NSDragOperation {
+        if tableView == fallbackTableView {
+            if dropOperation == .above {
+                return .move
+            }
+        }
+        return []
+    }
+
+    func tableView(
+        _ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int,
+        dropOperation: NSTableView.DropOperation
+    ) -> Bool {
+        if tableView == fallbackTableView {
+            guard let item = info.draggingPasteboard.pasteboardItems?.first,
+                let rowString = item.string(forType: .string),
+                let sourceRow = Int(rowString)
+            else { return false }
+
+            var config = ConfigManager.shared.config
+            let element = config.fallbackActions.remove(at: sourceRow)
+
+            var targetRow = row
+            if sourceRow < targetRow {
+                targetRow -= 1
+            }
+
+            config.fallbackActions.insert(element, at: targetRow)
+            ConfigManager.shared.config = config
+            ConfigManager.shared.save()
+            reloadData()
+
+            return true
+        }
+        return false
     }
 }

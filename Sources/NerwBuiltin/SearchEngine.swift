@@ -108,38 +108,6 @@ public class SearchEngine {
         }
     }
 
-    public func getDefaultEngine() -> Engine {
-        let configTriggers = ConfigManager.shared.config.defaultSearchEngine
-        if let engine = engines.first(where: { engine in
-            engine.isEnabled && !Set(engine.triggers).isDisjoint(with: configTriggers)
-        }) {
-            return engine
-        }
-
-        if let engine = engines.first(where: { $0.name == "Google" && $0.isEnabled }) {
-            return engine
-        }
-
-        if let engine = engines.first(where: { $0.isEnabled }) {
-            return engine
-        }
-
-        if let firstEngine = engines.first {
-            return firstEngine
-        }
-
-        return Engine(
-            name: "Google", triggers: ["g"], urlTemplate: "https://www.google.com/search?q=%@",
-            icon: "se_google")
-    }
-
-    public func setDefaultEngine(_ engine: Engine) {
-        var config = ConfigManager.shared.config
-        config.defaultSearchEngine = engine.triggers
-        ConfigManager.shared.config = config
-        ConfigManager.shared.save()
-    }
-
     public func addEngine(name: String, url: String, triggers: [String], icon: String? = nil) {
         // Convert %s to %@ for format string if needed
         let template = url.replacingOccurrences(of: "%s", with: "%@")

@@ -195,15 +195,14 @@ public class SearchService {
                                 guard let self = self else { return }
                                 var results = dynamicResults
 
-                                // Append default Web Search fallback
-                                let defaultEngine = SearchEngine.shared.getDefaultEngine()
-                                let webSearchAction = self.createWebSearchAction(
-                                    query: query, engine: defaultEngine)
+                                // Append all fallbacks
+                                let fallbacks = self.getFallbackActions(
+                                    for: query, allCandidates: allCandidates)
 
-                                if !results.contains(where: {
-                                    $0.category == .webSearch && $0.title.contains("Search ")
-                                }) {
-                                    results.append(webSearchAction)
+                                for fallback in fallbacks {
+                                    if !results.contains(where: { $0.id == fallback.id }) {
+                                        results.append(fallback)
+                                    }
                                 }
                                 completion(results)
                             }
@@ -273,30 +272,25 @@ public class SearchService {
                 let validResults = results.filter { $0.index < allCandidates.count }
                 let matchedActions = validResults.map { allCandidates[$0.index] }
 
-                // Web Fallback
-                var fallbackAction: NerwAction? = nil
-                if let topMatch = FrecencyManager.shared.getMostRecentID(for: query),
-                    topMatch.id.starts(with: "nerw.web.search.")
-                {
-                    let engineName = String(topMatch.id.dropFirst("nerw.web.search.".count))
-                    if let engine = SearchEngine.shared.engines.first(where: {
-                        $0.name == engineName
-                    }) {
-                        fallbackAction = self.createWebSearchAction(query: query, engine: engine)
-                    }
-                }
+                // Fallbacks
+                var fallbacks: [NerwAction] = []
 
-                if fallbackAction == nil {
-                    fallbackAction = self.createWebSearchAction(
-                        query: query, engine: SearchEngine.shared.getDefaultEngine())
+                // If Frecency suggests a specific top web search, we can include it or rely on the configured fallbacks.
+                // To keep it simple and powerful, we just fetch all user-configured fallbacks.
+                let configuredFallbacks = self.getFallbackActions(
+                    for: query, allCandidates: allCandidates)
+
+                // We'll append all configured fallbacks that aren't already in matchedActions
+                for fb in configuredFallbacks {
+                    if !matchedActions.contains(where: { $0.id == fb.id }) {
+                        fallbacks.append(fb)
+                    }
                 }
 
                 // NLP Rank
                 let catResult = QueryCategorizer.shared.classifySync(query)
                 var allActions = matchedActions
-                if let fallback = fallbackAction {
-                    allActions.append(fallback)
-                }
+                allActions.append(contentsOf: fallbacks)
                 var ranked = self.rankResults(
                     actions: allActions, query: query,
                     categoryResult: catResult.category)
@@ -592,6 +586,62 @@ public class SearchService {
                 let urlString = String(format: engine.urlTemplate, encodedQuery)
                 if let url = URL(string: urlString) {
                     NSWorkspace.shared.open(url)
+                }
+            })
+        )
+    }
+
+    private func getFallbackActions(for query: String, allCandidates: [NerwAction]) -> [NerwAction]
+    {
+        let fallbackIDs = ConfigManager.shared.config.fallbackActions
+        var fallbacks: [NerwAction] = []
+
+        for id in fallbackIDs {
+            if id.starts(with: "engine:") {
+                let engineName = String(id.dropFirst("engine:".count))
+                if let engine = SearchEngine.shared.engines.first(where: {
+                    $0.name == engineName && $0.isEnabled
+                }) {
+                    fallbacks.append(self.createWebSearchAction(query: query, engine: engine))
+                }
+            } else if id.starts(with: "action:") {
+                let actionID = String(id.dropFirst("action:".count))
+                if let action = allCandidates.first(where: { $0.id == actionID }) {
+                    let wrapped = self.createActionFallback(query: query, action: action)
+                    fallbacks.append(wrapped)
+                }
+            }
+        }
+
+        // Ensure we always have at least one fallback (Google) if config is empty or invalid
+        if fallbacks.isEmpty {
+            if let firstEngine = SearchEngine.shared.engines.first(where: {
+                $0.name == "Google" && $0.isEnabled
+            }) ?? SearchEngine.shared.engines.first {
+                fallbacks.append(self.createWebSearchAction(query: query, engine: firstEngine))
+            }
+        }
+
+        return fallbacks
+    }
+
+    private func createActionFallback(query: String, action: NerwAction) -> NerwAction {
+        return NerwAction(
+            id: "nerw.fallback.\(action.id)",
+            title: "\(action.title) '\(query)'",
+            subtitle: action.subtitle,
+            icon: action.icon,
+            type: .instant(perform: { _ in
+                switch action.type {
+                case .inlineArg(let perform, _):
+                    perform(action, query)
+                case .args(_, _, let perform):
+                    perform?(action, query)
+                case .arg(_, let perform):
+                    perform(action, [query])
+                default:
+                    // For other types, just open the action if possible or do nothing.
+                    break
                 }
             })
         )

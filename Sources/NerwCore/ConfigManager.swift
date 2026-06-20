@@ -28,7 +28,7 @@ public struct LayoutConfig: Codable {
 }
 
 public struct Config: Codable {
-    public var defaultSearchEngine: [String] = ["google", "g"]
+    public var fallbackActions: [String] = ["engine:Google"]
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var onFirstSpace: String = "findfile "
     public var showShortcutsInMain: Bool = false
@@ -39,14 +39,49 @@ public struct Config: Codable {
     public var clipboardEnabled: Bool = true
     public var menubarSearchEnabled: Bool = true
 
+    private enum CodingKeys: String, CodingKey {
+        case fallbackActions
+        case globalKeybind
+        case onFirstSpace
+        case showShortcutsInMain
+        case uiConfig
+        case layoutConfig
+        case searchEngineModifiers
+        case snippetExpansionEnabled
+        case clipboardEnabled
+        case menubarSearchEnabled
+    }
+
+    private enum OldCodingKeys: String, CodingKey {
+        case defaultSearchEngine
+    }
+
     public init() {}
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        defaultSearchEngine =
-            try container.decodeIfPresent([String].self, forKey: .defaultSearchEngine) ?? [
-                "google", "g",
-            ]
+
+        fallbackActions =
+            try container.decodeIfPresent([String].self, forKey: .fallbackActions) ?? []
+
+        // Migration from old defaultSearchEngine
+        if fallbackActions.isEmpty {
+            let oldContainer = try? decoder.container(keyedBy: OldCodingKeys.self)
+            if let oldDefault = try? oldContainer?.decodeIfPresent(
+                [String].self, forKey: .defaultSearchEngine)
+            {
+                if oldDefault.contains("g") || oldDefault.contains("google") {
+                    fallbackActions.append("engine:Google")
+                } else if oldDefault.contains("ddg") || oldDefault.contains("duckduckgo") {
+                    fallbackActions.append("engine:DuckDuckGo")
+                } else {
+                    fallbackActions.append("engine:Google")
+                }
+            } else {
+                fallbackActions.append("engine:Google")
+            }
+        }
+
         globalKeybind =
             try container.decodeIfPresent(String.self, forKey: .globalKeybind) ?? "Cmd+Shift+Space"
 
@@ -118,7 +153,7 @@ public class ConfigManager {
             print("Nerw: Failed to load config: \(error). Using defaults.")
             // Maintain defaults
         }
-        print("Nerw: Config loaded. Engines: \(config.defaultSearchEngine)")
+        print("Nerw: Config loaded. Fallbacks: \(config.fallbackActions)")
     }
 
     public func save() {
