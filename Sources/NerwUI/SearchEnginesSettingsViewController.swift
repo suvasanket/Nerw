@@ -11,7 +11,6 @@ class SearchEnginesSettingsViewController: NSViewController {
     private var engines: [Engine] = []
 
     private var enginesListStack: NSStackView!
-    private var modifiersListStack: NSStackView!
     private var fallbackTableView = NSTableView()
 
     private struct FallbackItem {
@@ -163,39 +162,6 @@ class SearchEnginesSettingsViewController: NSViewController {
         stackView.addArrangedSubview(customBangsSection)
         customBangsSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
-
-        // --- 3. Custom Modifiers Section ---
-        modifiersListStack = NSStackView()
-        modifiersListStack.orientation = .vertical
-        modifiersListStack.spacing = 0
-        modifiersListStack.alignment = .leading
-        modifiersListStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let addModBtn = NSButton(
-            title: "Add Modifier", target: self, action: #selector(addModifierClicked))
-        addModBtn.bezelStyle = .rounded
-        addModBtn.controlSize = .small
-        addModBtn.font = .systemFont(ofSize: 11)
-        addModBtn.translatesAutoresizingMaskIntoConstraints = false
-
-        let modifiersStack = NSStackView()
-        modifiersStack.orientation = .vertical
-        modifiersStack.spacing = 12
-        modifiersStack.alignment = .leading
-        modifiersStack.addArrangedSubview(modifiersListStack)
-        modifiersStack.addArrangedSubview(addModBtn)
-
-        modifiersListStack.widthAnchor.constraint(equalTo: modifiersStack.widthAnchor).isActive =
-            true
-
-        let customModifiersSection = SettingsSection(
-            title: "Custom Modifiers",
-            contentViews: [modifiersStack]
-        )
-
-        stackView.addArrangedSubview(customModifiersSection)
-        customModifiersSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
     }
 
     private func reloadData() {
@@ -274,18 +240,6 @@ class SearchEnginesSettingsViewController: NSViewController {
             let row = createEngineRow(for: engine)
             enginesListStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: enginesListStack.widthAnchor).isActive = true
-        }
-
-        // --- Modifiers ---
-        for subview in modifiersListStack.arrangedSubviews {
-            subview.removeFromSuperview()
-        }
-
-        let configModifiers = ConfigManager.shared.config.searchEngineModifiers
-        for (mod, triggers) in configModifiers {
-            let row = createModifierRow(modStr: mod, triggers: triggers)
-            modifiersListStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: modifiersListStack.widthAnchor).isActive = true
         }
     }
 
@@ -474,124 +428,6 @@ class SearchEnginesSettingsViewController: NSViewController {
         return container
     }
 
-    private func createModifierRow(modStr: String, triggers: [String]) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.spacing = 12
-        row.alignment = .centerY
-        row.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.heightAnchor.constraint(equalToConstant: 36).isActive = true
-
-        // 1. Mod Label
-        let modLabel = NSTextField(labelWithString: modStr.uppercased())
-        modLabel.font = .systemFont(ofSize: 11, weight: .bold)
-        modLabel.textColor = .secondaryLabelColor
-        modLabel.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1)
-        modLabel.isBezeled = false
-        modLabel.isEditable = false
-        modLabel.drawsBackground = true
-        row.addArrangedSubview(modLabel)
-
-        // 2. Engine Info
-        var engineName = "Unknown Engine"
-        if let engine = SearchEngine.shared.engines.first(where: { e in
-            !Set(e.triggers).isDisjoint(with: triggers)
-        }) {
-            engineName = engine.name
-        }
-
-        let nameLabel = NSTextField(labelWithString: engineName)
-        nameLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        row.addArrangedSubview(nameLabel)
-
-        // Spacer
-        row.addArrangedSubview(NSView())
-
-        // Delete Button
-        let deleteBtn = NSButton(
-            image: NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")!,
-            target: self, action: #selector(deleteModifierRowClicked(_:)))
-        deleteBtn.isBordered = false
-        deleteBtn.bezelStyle = .recessed
-        deleteBtn.controlSize = .small
-        deleteBtn.contentTintColor = .systemRed
-        deleteBtn.identifier = NSUserInterfaceItemIdentifier(modStr)
-        row.addArrangedSubview(deleteBtn)
-
-        let line = NSBox()
-        line.boxType = .separator
-        line.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = NSStackView()
-        container.orientation = .vertical
-        container.spacing = 0
-        container.addArrangedSubview(row)
-        container.addArrangedSubview(line)
-
-        container.translatesAutoresizingMaskIntoConstraints = false
-        row.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
-        line.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
-
-        return container
-    }
-
-    private func showModifierSheet() {
-        guard let window = self.view.window else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Add Custom Modifier Mapping"
-        alert.informativeText = "Map a modifier key to a specific search engine."
-
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 300, height: 80))
-        stack.orientation = .vertical
-        stack.spacing = 10
-        stack.alignment = .leading
-
-        let modRow = NSStackView()
-        modRow.orientation = .horizontal
-        modRow.spacing = 10
-        let modLabel = NSTextField(labelWithString: "Modifier:")
-        let modPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        for key in NerwAction.ModifierKey.allCases {
-            modPopUp.addItem(withTitle: key.rawValue)
-        }
-        modRow.addArrangedSubview(modLabel)
-        modRow.addArrangedSubview(modPopUp)
-
-        let engineRow = NSStackView()
-        engineRow.orientation = .horizontal
-        engineRow.spacing = 10
-        let engineLabel = NSTextField(labelWithString: "Engine:")
-        let enginePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        for engine in SearchEngine.shared.engines {
-            enginePopUp.addItem(withTitle: engine.name)
-        }
-        engineRow.addArrangedSubview(engineLabel)
-        engineRow.addArrangedSubview(enginePopUp)
-
-        stack.addArrangedSubview(modRow)
-        stack.addArrangedSubview(engineRow)
-
-        alert.accessoryView = stack
-        alert.addButton(withTitle: "Add")
-        alert.addButton(withTitle: "Cancel")
-
-        alert.beginSheetModal(for: window) { response in
-            guard response == .alertFirstButtonReturn else { return }
-            let mod = modPopUp.titleOfSelectedItem ?? ""
-            let engineName = enginePopUp.titleOfSelectedItem ?? ""
-
-            if let engine = SearchEngine.shared.engines.first(where: { $0.name == engineName }) {
-                var config = ConfigManager.shared.config
-                config.searchEngineModifiers[mod] = engine.triggers
-                ConfigManager.shared.config = config
-                ConfigManager.shared.save()
-                self.reloadData()
-            }
-        }
-    }
-
     private func showEngineSheet(editing engine: Engine?) {
         guard let window = self.view.window else { return }
 
@@ -692,31 +528,6 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     @objc private func addBangClicked() {
         showEngineSheet(editing: nil)
-    }
-
-    @objc private func addModifierClicked() {
-        showModifierSheet()
-    }
-
-    @objc private func deleteModifierRowClicked(_ sender: NSButton) {
-        guard let mod = sender.identifier?.rawValue else { return }
-
-        guard let window = self.view.window else { return }
-        let alert = NSAlert()
-        alert.messageText = "Remove Modifier Mapping"
-        alert.informativeText = "Are you sure you want to remove the \(mod) mapping?"
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-
-        alert.beginSheetModal(for: window) { response in
-            if response == .alertFirstButtonReturn {
-                var config = ConfigManager.shared.config
-                config.searchEngineModifiers.removeValue(forKey: mod)
-                ConfigManager.shared.config = config
-                ConfigManager.shared.save()
-                self.reloadData()
-            }
-        }
     }
 
     @objc private func toggleEngineClicked(_ sender: NSSwitch) {

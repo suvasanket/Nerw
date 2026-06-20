@@ -196,7 +196,7 @@ public class SearchService {
                                 var results = dynamicResults
 
                                 // Append all fallbacks
-                                let fallbacks = self.getFallbackActions(
+                                let fallbacks = FallbackSearchService.shared.getFallbackActions(
                                     for: query, allCandidates: allCandidates)
 
                                 for fallback in fallbacks {
@@ -234,7 +234,7 @@ public class SearchService {
         if let (engineName, urlTemplate, cleanedQuery) = SearchEngine.shared.resolveBang(
             query: query)
         {
-            let bangAction = self.createWebSearchAction(
+            let bangAction = WebSearchService.shared.createWebSearchAction(
                 query: cleanedQuery,
                 engine: Engine(
                     name: engineName, triggers: [], urlTemplate: urlTemplate))
@@ -277,7 +277,7 @@ public class SearchService {
 
                 // If Frecency suggests a specific top web search, we can include it or rely on the configured fallbacks.
                 // To keep it simple and powerful, we just fetch all user-configured fallbacks.
-                let configuredFallbacks = self.getFallbackActions(
+                let configuredFallbacks = FallbackSearchService.shared.getFallbackActions(
                     for: query, allCandidates: allCandidates)
 
                 // We'll append all configured fallbacks that aren't already in matchedActions
@@ -497,153 +497,4 @@ public class SearchService {
         return sortedHigh + sortedNormal
     }
 
-    private func resolveIcon(for engine: Engine, domain: String) -> NerwAction.IconType? {
-        if let iconStr = engine.icon {
-            if let url = URL(string: iconStr), url.isFileURL {
-                return .file(url)
-            }
-            if let icon = NSImage(named: NSImage.Name(iconStr)) {
-                return .image(icon)
-            }
-            if let icon = IconManager.shared.icon(forKey: iconStr) {
-                return .image(icon)
-            }
-        }
-
-        if domain.contains("google.com") {
-            if let icon = NSImage(named: "se_google") {
-                return .image(icon)
-            }
-        }
-        if domain.contains("duckduckgo.com") {
-            if let icon = NSImage(named: "se_duckduckgo") {
-                return .image(icon)
-            }
-        }
-        if domain.contains("duck.ai") {
-            if let icon = NSImage(named: "se_duckduckgo") {
-                return .image(icon)
-            }
-        }
-
-        if let icon = IconManager.shared.icon(for: domain) {
-            return .image(icon)
-        }
-
-        return .system("globe")
-    }
-
-    private func createWebSearchAction(query: String, engine: Engine) -> NerwAction {
-        let domain =
-            URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
-            ?? engine.name
-        let iconType = self.resolveIcon(for: engine, domain: domain)
-
-        // Add modifiers based on config
-        var modifiers: [NerwAction.ModifierKey: NerwAction.ModifierAction] = [:]
-        let configModifiers = ConfigManager.shared.config.searchEngineModifiers
-
-        for (modStr, triggers) in configModifiers {
-            if let modKey = NerwAction.ModifierKey(rawValue: modStr) {
-                // Find engine for these triggers
-                if let modEngine = SearchEngine.shared.engines.first(where: { e in
-                    e.isEnabled && !Set(e.triggers).isDisjoint(with: triggers)
-                }) {
-                    let modDomain =
-                        URL(string: modEngine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?
-                        .host ?? modEngine.name
-                    let modIcon = self.resolveIcon(for: modEngine, domain: modDomain)
-
-                    modifiers[modKey] = NerwAction.ModifierAction(
-                        title: "Search \(modEngine.name)",
-                        subtitle: "Search for '\(query)' on \(modEngine.name)",
-                        icon: modIcon,
-                        perform: { _ in
-                            let encodedQuery =
-                                query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                                ?? ""
-                            let urlString = String(format: modEngine.urlTemplate, encodedQuery)
-                            if let url = URL(string: urlString) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        return NerwAction(
-            id: "nerw.web.search.\(engine.name)",
-            title: "Search \(engine.name)",
-            subtitle: "Search for '\(query)' on \(engine.name)",
-            icon: iconType ?? .system("globe"),
-            category: .webSearch,
-            triggers: [],
-            modifiers: modifiers,
-            type: .instant(perform: { _ in
-                let encodedQuery =
-                    query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                let urlString = String(format: engine.urlTemplate, encodedQuery)
-                if let url = URL(string: urlString) {
-                    NSWorkspace.shared.open(url)
-                }
-            })
-        )
-    }
-
-    private func getFallbackActions(for query: String, allCandidates: [NerwAction]) -> [NerwAction]
-    {
-        let fallbackIDs = ConfigManager.shared.config.fallbackActions
-        var fallbacks: [NerwAction] = []
-
-        for id in fallbackIDs {
-            if id.starts(with: "engine:") {
-                let engineName = String(id.dropFirst("engine:".count))
-                if let engine = SearchEngine.shared.engines.first(where: {
-                    $0.name == engineName && $0.isEnabled
-                }) {
-                    fallbacks.append(self.createWebSearchAction(query: query, engine: engine))
-                }
-            } else if id.starts(with: "action:") {
-                let actionID = String(id.dropFirst("action:".count))
-                if let action = allCandidates.first(where: { $0.id == actionID }) {
-                    let wrapped = self.createActionFallback(query: query, action: action)
-                    fallbacks.append(wrapped)
-                }
-            }
-        }
-
-        // Ensure we always have at least one fallback (Google) if config is empty or invalid
-        if fallbacks.isEmpty {
-            if let firstEngine = SearchEngine.shared.engines.first(where: {
-                $0.name == "Google" && $0.isEnabled
-            }) ?? SearchEngine.shared.engines.first {
-                fallbacks.append(self.createWebSearchAction(query: query, engine: firstEngine))
-            }
-        }
-
-        return fallbacks
-    }
-
-    private func createActionFallback(query: String, action: NerwAction) -> NerwAction {
-        return NerwAction(
-            id: "nerw.fallback.\(action.id)",
-            title: "\(action.title) '\(query)'",
-            subtitle: action.subtitle,
-            icon: action.icon,
-            type: .instant(perform: { _ in
-                switch action.type {
-                case .inlineArg(let perform, _):
-                    perform(action, query)
-                case .args(_, _, let perform):
-                    perform?(action, query)
-                case .arg(_, let perform):
-                    perform(action, [query])
-                default:
-                    // For other types, just open the action if possible or do nothing.
-                    break
-                }
-            })
-        )
-    }
 }

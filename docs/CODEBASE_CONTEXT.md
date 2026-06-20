@@ -51,8 +51,10 @@ The source code is organized into modular targets within `Sources/`:
 ### `NerwBuiltin` (Features)
 - **Role**: Core search providers and internal capabilities.
 - **Key Components**:
-    - `SearchService.swift`: The central orchestrator. Aggregates results from Apps, Built-ins, and Extensions while filtering out disabled actions. Handles fuzzy matching, ranking, and Web Search execution. Also handles pinning **inlineArg** triggers to the top.
-    - `WebSearch.swift`: Manages web search sites and "trigger" (!g, !yt) matching (formerly Bang Search). Persists to `~/Library/Application Support/Nerw/WebSearch.json`.
+    - `SearchService.swift`: The central orchestrator. Aggregates results from Apps, Built-ins, and Extensions while filtering out disabled actions. Handles fuzzy matching and ranking. Delegates Web Search and Fallback Search to dedicated services. Also handles pinning **inlineArg** triggers to the top.
+    - `WebSearchService.swift`: Handles generating web search actions and resolving icons for web search engines.
+    - `FallbackSearchService.swift`: Handles generating fallback search actions (both web search engines and generic actions).
+    - `SearchEngine.swift`: Manages custom search engines and bang matching (!g, !yt). Persists to `~/Library/Application Support/Nerw/Bangs.json`.
     - `FindFile.swift`: Native Spotlight integration using `NSMetadataQuery` for instant file search. Requests permission for protected folders (Downloads, Documents, Desktop) on-demand upon first search.
     - `AppSearch.swift`: Fast application indexing and launching. Uses focused `NSMetadataQuery` scopes (`/Applications`, `/System/Applications`, `~/Applications`, CoreServices) to avoid scanning the entire user directory tree.
     - `MenubarSearch.swift`: Real-time active application menubar item indexing. Uses Accessibility APIs to extract click-able actions from the frontmost app and injects them directly into the search index.

@@ -34,7 +34,6 @@ public struct Config: Codable {
     public var showShortcutsInMain: Bool = false
     public var uiConfig: UIConfig?
     public var layoutConfig: LayoutConfig = LayoutConfig()
-    public var searchEngineModifiers: [String: [String]] = ["shift": ["lucky"]]
     public var snippetExpansionEnabled: Bool = true
     public var clipboardEnabled: Bool = true
     public var menubarSearchEnabled: Bool = true
@@ -46,7 +45,6 @@ public struct Config: Codable {
         case showShortcutsInMain
         case uiConfig
         case layoutConfig
-        case searchEngineModifiers
         case snippetExpansionEnabled
         case clipboardEnabled
         case menubarSearchEnabled
@@ -94,9 +92,6 @@ public struct Config: Codable {
         layoutConfig =
             try container.decodeIfPresent(LayoutConfig.self, forKey: .layoutConfig)
             ?? LayoutConfig()
-        searchEngineModifiers =
-            try container.decodeIfPresent([String: [String]].self, forKey: .searchEngineModifiers)
-            ?? ["shift": ["lucky"]]
         snippetExpansionEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .snippetExpansionEnabled) ?? true
         clipboardEnabled =
