@@ -173,3 +173,93 @@ If you want to test locally with zero costs:
 ## 5. Verification Script
 
 To test the socket connection end-to-end, compile and execute the test client script provided in `Scripts/test_ai_socket.swift`. It connects to the active socket, sends a text request, and prints the token deltas as they are received.
+
+---
+
+## 6. Front-end Implementation & UI Layout System
+
+Nerw provides a custom, premium card-based Conversation UI inside the app that replaces the main search panel when the `"AI Chat"` action is triggered.
+
+### UI Hierarchy & Component Architecture
+
+The visual layout is implemented programmatically using Auto Layout inside [ConversationViewController](file:///Users/suvasanketrout/Developer/Nerw/Sources/NerwUI/Conversation/ConversationViewController.swift):
+
+```
++--------------------------------------------------------+
+|  AI Assistant                                          |
++--------------------------------------------------------+
+|                                          [User Query]  |
+|        +--------------------------------+          [|] |
+|        |                                |              |
+|        |       Scrollable Response      |          [|] |
+|        |            Text Area           |              |
+|        |                                |          [|] |
+|        +--------------------------------+              |
+|                                                    [ ] |
+|        +--------------------------------------------+  |
+|        | Ask AI...                       [Ripple]   |  |
+|        +--------------------------------------------+  |
++--------------------------------------------------------+
+```
+
+1. **Host Panel Window Controller** ([ConversationWindowController](file:///Users/suvasanketrout/Developer/Nerw/Sources/NerwUI/Conversation/ConversationWindowController.swift)):
+   - Manages the lifecycle of a borderless `ConversationPanel` window.
+   - Sizes the window to match the exact dimensions of the search panel (`GlobalLayout.mainWidth` by `GlobalLayout.mainHeight`).
+   - Positions it overlapping the search panel's location using `NerwPanelContext.shared.exactOrigin`.
+
+2. **Frosted Glass Backdrop**:
+   - Built using `NerwPanelView(style: .main)` as the root view.
+   - Automatically supports dynamic liquid glass aesthetics (utilizing `NSGlassEffectView` with `.vibrantDark` on macOS 26.0+) and classic frosted glass blending (`NSVisualEffectView` behind window).
+
+3. **Right Indicator Timeline** (`SegmentBarView`):
+   - A vertical stack of thin, rounded segment bars representing the query history turns, positioned between the right edge of the card and the right window edge.
+   - The active turn's indicator lights up using the theme's accent selection color, while inactive turns are dimmed.
+   - Clicking a segment switches the active card view content to that turn.
+
+4. **Translucent Response Card**:
+   - The main response display area is wrapped in a rounded card view (`layer.cornerRadius = 16`).
+   - Styled dynamically using the active theme's selection color (`selectionBackgroundColorHex`) made translucent (`0.18` opacity) with matching border accents (`0.35` opacity).
+
+5. **User Query Text**:
+   - A translucent, bold, right-aligned text label placed at the top-right above the response card that displays the current query context. It gracefully truncates if it exceeds the midpoint of the screen.
+
+6. **Scrollable Response Area** (`NSTextView`):
+   - A read-only, selectable text area wrapped inside `NSScrollView`.
+   - Initialized with a default non-zero frame size `(100x100)` to ensure proper wrapping and layout computations.
+   - Uses the theme's foreground color (`foregroundColorHex` or `.labelColor` fallback) for high-contrast visibility.
+
+7. **Floating Prompt Input** (`PromptTextField`):
+   - A rounded glass container at the bottom holding a custom `NSTextField`.
+   - Pressing `Enter` triggers submission (`onSubmit`), `Esc` dismisses the panel, and `Cmd+Backspace` completely clears the chat history.
+
+8. **Stream Parsing & Generation UI Hooks**:
+   - The raw stream from `AIService` is piped through the `AIStreamParser`.
+   - Instead of raw strings reaching the text view, the parser extracts hidden `<think>` and `<action>` tags.
+   - Triggers UI state changes such as replacing the prompt input area's state with a pulsing `RippleAnimationView` and displaying `"Generating..."` text dynamically.
+
+9. **Disabled Subsystem Warnings**:
+   - If the AI assistant is disabled in settings, the prompt and scroll fields are hidden.
+   - Renders a warning panel displaying a glassmorphic **"Configure AI..."** button. Clicking this dismisses the chat view and deep-links to **Settings > AI** via notification observers.
+
+---
+
+## 7. Middle-End Parser & Action Hooks
+
+To grant the AI autonomy (e.g., setting timers, interacting with macOS natively) without exposing ugly JSON syntax to the user, the app uses a stateful streaming interceptor called `AIStreamParser`.
+
+### System Prompt Injection
+The `BYOKModelHandler` injects a hidden schema into the base system prompt:
+```xml
+You can perform actions by outputting special XML tags.
+To show that you are thinking, wrap your thoughts in <think>...</think>.
+To perform an action, output an <action>JSON_PAYLOAD</action>.
+Supported actions:
+- timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
+...
+```
+
+### Stream Parser Mechanics
+The `AIStreamParser` consumes token chunks as they arrive from the backend and maintains an internal buffer:
+- **Thinking Hook**: Detects `<think>...</think>` bounds. It invokes `onThinkingStateChanged(true)` when entering a block and `(false)` when exiting. The text inside the block is swallowed and never reaches the user interface.
+- **Action Hook**: Detects `<action>...</action>` tags containing JSON payloads. It buffers the JSON text internally, parses it upon the closing tag, and fires `onActionDetected(type, payload)` to execute native system commands (like launching a timer notification or hitting a calendar API).
+- **Text Safety**: When a partial tag (like `<thi`) is buffering, it gracefully halts text output until the tag either completes or resolves to raw text, preventing UI flickering.

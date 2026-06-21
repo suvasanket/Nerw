@@ -322,11 +322,12 @@ A minimal, card-based chat layout utilizing `AIService` directly inside the app,
 | File | Purpose |
 |---|---|
 | `ConversationManager.swift` | Exposes the builtin search action trigger (`ai`, `chat`, `ask`, `assistant`) in the main aggregation list |
-| `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card using theme's selection color, single-line user query capsule, scrollable text area, floating liquid glass input, and streaming Task management |
+| `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card, user query capsule placed outside the card, scrollable text area, floating glassmorphic prompt input (containing an active generation spinner), a floating circular trash button at the bottom left, a large sparkles placeholder for empty chat history, and streaming Task management |
 | `ConversationWindowController.swift` | Manages the floating, non-activating `NSPanel` (`ConversationPanel`) overlapping the main panel's exact position |
 
 ### Flow & Navigation
 - **Opening**: User selects the "AI Chat" search result. The search panel hides, and the conversation panel is centered directly over the main panel frame.
+- **Empty State**: Renders a large translucent sparkles symbol in the center.
 - **Timeline Paging**: The vertical stack of bars on the left lets users click on past queries to swap the response card content dynamically.
 - **Subsystem Disabled State**: Renders a custom warning view with a glassy "Configure AI..." button. Clicking this dismisses the panel and posts the settings notification targeting the AI configuration tab.
 

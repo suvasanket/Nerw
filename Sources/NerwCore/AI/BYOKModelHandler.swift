@@ -51,8 +51,23 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         var messages: [[String: Any]] = []
-        if !aiConfig.systemPrompt.isEmpty {
-            messages.append(["role": "system", "content": aiConfig.systemPrompt])
+        var finalSystemPrompt = aiConfig.systemPrompt
+        let actionInstructions = """
+
+            You can perform actions by outputting special XML tags.
+            To show that you are thinking, wrap your thoughts in <think>...</think>.
+            To perform an action, output an <action>JSON_PAYLOAD</action>.
+            Supported actions:
+            - timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
+            - reminder: { "type": "reminder", "title": "Buy milk" }
+            - calendar: { "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }
+            - memory: { "type": "memory", "action": "save", "content": "User likes blue" }
+            Do not output action tags for things you cannot do.
+            """
+        finalSystemPrompt += actionInstructions
+
+        if !finalSystemPrompt.isEmpty {
+            messages.append(["role": "system", "content": finalSystemPrompt])
         }
         messages.append(["role": "user", "content": userContent])
 
