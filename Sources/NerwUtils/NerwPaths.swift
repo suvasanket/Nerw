@@ -56,6 +56,11 @@ public struct NerwPaths {
         configDirectory.appendingPathComponent("run")
     }
 
+    /// Path for the AI backend socket (`~/.nerw/run/ai.sock`).
+    public static var aiSocketPath: URL {
+        daemonRunDirectory.appendingPathComponent("ai.sock")
+    }
+
     /// Per-extension persistent data directory (`~/.nerw/extensions/<id>/data`).
     /// Survives restarts; cleaned on extension uninstall.
     public static func daemonDataDir(for extensionId: String) -> URL {

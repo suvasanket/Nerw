@@ -27,6 +27,20 @@ public struct LayoutConfig: Codable {
     public init() {}
 }
 
+public struct AIConfig: Codable {
+    public var isEnabled: Bool = false
+    public var selectedModelType: String = "byok"  // "foundation" or "byok"
+    public var byokApiKey: String = ""
+    public var byokApiUrl: String = "https://api.openai.com/v1/chat/completions"
+    public var byokModelName: String = "gpt-4o"
+    public var supportsImages: Bool = true
+    public var systemPrompt: String = "You are a helpful macOS assistant."
+    public var temperature: Double = 0.7
+    public var maxTokens: Int = 1024
+
+    public init() {}
+}
+
 public struct Config: Codable {
     public var fallbackActions: [String] = ["engine:Google"]
     public var searchModMapper: [String: String] = [:]
@@ -39,6 +53,7 @@ public struct Config: Codable {
     public var clipboardEnabled: Bool = true
     public var menubarSearchEnabled: Bool = true
     public var navigationStyle: String = "unix"
+    public var aiConfig: AIConfig = AIConfig()
 
     private enum CodingKeys: String, CodingKey {
         case fallbackActions
@@ -52,6 +67,7 @@ public struct Config: Codable {
         case clipboardEnabled
         case menubarSearchEnabled
         case navigationStyle
+        case aiConfig
     }
 
     private enum OldCodingKeys: String, CodingKey {
@@ -108,6 +124,8 @@ public struct Config: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .menubarSearchEnabled) ?? true
         navigationStyle =
             try container.decodeIfPresent(String.self, forKey: .navigationStyle) ?? "unix"
+        aiConfig =
+            try container.decodeIfPresent(AIConfig.self, forKey: .aiConfig) ?? AIConfig()
     }
 }
 

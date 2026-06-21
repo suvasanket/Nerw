@@ -85,7 +85,8 @@ public class DaemonManager {
                 at: runDir, includingPropertiesForKeys: nil
             )
         else { return }
-        for item in items where item.pathExtension == "sock" {
+        for item in items where item.pathExtension == "sock" && item.lastPathComponent != "ai.sock"
+        {
             try? fm.removeItem(at: item)
         }
     }

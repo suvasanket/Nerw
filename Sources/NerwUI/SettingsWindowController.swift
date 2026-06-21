@@ -139,6 +139,17 @@ class SettingsTabViewController: NSTabViewController {
             accessibilityDescription: "Extensions Settings")
         self.addTabViewItem(extensionsItem)
 
+        // 5. AI Tab
+        let aiVC = AISettingsViewController()
+        aiVC.title = "AI"
+        aiVC.preferredContentSize = Self.windowSize
+        let aiItem = NSTabViewItem(viewController: aiVC)
+        aiItem.label = "AI"
+        aiItem.image = NSImage(
+            systemSymbolName: "cpu",
+            accessibilityDescription: "AI Settings")
+        self.addTabViewItem(aiItem)
+
         // Set initial size
         self.preferredContentSize = Self.windowSize
 

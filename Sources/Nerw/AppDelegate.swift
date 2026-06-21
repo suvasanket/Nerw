@@ -69,6 +69,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DaemonManager.shared.startAllApproved()
         }
 
+        // Start AI Socket Server if enabled
+        if ConfigManager.shared.config.aiConfig.isEnabled {
+            AISocketServer.shared.start()
+        }
+
         // Listen for daemon approval requests from installer
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleDaemonApprovalRequired(_:)),
@@ -84,6 +89,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        AISocketServer.shared.stop()
         DaemonManager.shared.stopAll()
         ExtensionEngine.shared.terminateAllLongRunning()
         Logger.shared.info("AppDelegate: applicationWillTerminate")
@@ -117,6 +123,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ClipboardManager.shared.start()
         } else {
             ClipboardManager.shared.stop()
+        }
+
+        if ConfigManager.shared.config.aiConfig.isEnabled {
+            AISocketServer.shared.start()
+        } else {
+            AISocketServer.shared.stop()
         }
     }
 

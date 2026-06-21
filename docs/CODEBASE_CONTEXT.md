@@ -293,3 +293,22 @@ A system-wide text expansion utility allowing users to define triggers that expa
 - Mirrors `ClipboardController` pattern.
 - Uses `SplitPaneViewController` to display a searchable list of snippets.
 - `Cmd+K` exposes Edit (re-opens form), Delete, and Type actions.
+
+---
+
+## 11. AI Integration & Local Socket Server (`NerwCore/AI/` & `NerwUI/AISettingsViewController.swift`)
+
+A modular backend AI subsystem orchestrating queries to foundation on-device models or custom Bring-Your-Own-Key (BYOK) endpoints over a line-delimited socket connection.
+
+### Files
+| File | Purpose |
+|---|---|
+| `AIService.swift` | The central router that reads the active config and delegates to model handlers |
+| `FoundationModelHandler.swift` | Implements Apple Intelligence (`FoundationModels`) with runtime availability checks and simulated fallback |
+| `BYOKModelHandler.swift` | Formats OpenAI-compatible chat completions JSON payloads (supporting base64 images) over URLSession |
+| `AISocketServer.swift` | Unix Domain Socket server at `~/.nerw/run/ai.sock` that processes NDJSON requests/responses |
+| `AISettingsViewController.swift` | Tabbed Settings UI controller utilizing `SettingsSection` to configure AI state and options |
+
+### IPC & Socket Connection
+Clients (e.g. frontends) communicate with Nerw's background server by connecting to `~/.nerw/run/ai.sock` and writing/reading JSON envelopes framed by `\n` characters.
+
