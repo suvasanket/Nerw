@@ -171,8 +171,11 @@ public final class AISocketServer {
 
         Task {
             do {
+                var messages: [AIChatMessage] = reqPayload.history ?? []
+                messages.append(AIChatMessage(role: .user, content: reqPayload.prompt))
+
                 let stream = try await AIService.shared.generateResponse(
-                    prompt: reqPayload.prompt,
+                    messages: messages,
                     images: imagesData,
                     isStreaming: reqPayload.isStreaming
                 )
@@ -234,13 +237,33 @@ public struct AISocketMessage: Codable {
     }
 }
 
+public struct AIChatMessage: Codable {
+    public enum Role: String, Codable {
+        case user
+        case assistant
+        case system
+    }
+    public let role: Role
+    public let content: String
+
+    public init(role: Role, content: String) {
+        self.role = role
+        self.content = content
+    }
+}
+
 public struct AIChatRequestPayload: Codable {
     public let prompt: String
+    public let history: [AIChatMessage]?
     public let images: [String]  // Base64 encoded image strings
     public let isStreaming: Bool
 
-    public init(prompt: String, images: [String] = [], isStreaming: Bool = true) {
+    public init(
+        prompt: String, history: [AIChatMessage]? = nil, images: [String] = [],
+        isStreaming: Bool = true
+    ) {
         self.prompt = prompt
+        self.history = history
         self.images = images
         self.isStreaming = isStreaming
     }

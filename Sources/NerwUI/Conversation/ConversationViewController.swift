@@ -851,15 +851,28 @@ public class ConversationViewController: NSViewController {
             parser.onActionDetected = { type, payload in
                 Logger.shared.info(
                     "ConversationViewController: Detected action \(type) with payload: \(payload)")
-                DispatchQueue.main.async {
-                    Nerw.notify("AI Action: \(type)\n\(payload)", level: .info)
-                }
+                AIActionManager.shared.handleAction(type: type, payload: payload)
             }
 
             do {
-                let stream = try await AIService.shared.generateResponse(
-                    prompt: text, isStreaming: true)
+                guard let self = self else { return }
+                var messages: [AIChatMessage] = []
 
+                // Add history context
+                // dropLast() because the last item is the newly appended "Generating..." turn
+                for turn in self.turns.dropLast() {
+                    messages.append(AIChatMessage(role: .user, content: turn.query))
+                    let responseText = turn.response.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !responseText.isEmpty && !responseText.hasPrefix("Generating") {
+                        messages.append(AIChatMessage(role: .assistant, content: responseText))
+                    }
+                }
+
+                // Add the current query
+                messages.append(AIChatMessage(role: .user, content: text))
+
+                let stream = try await AIService.shared.generateResponse(
+                    messages: messages, isStreaming: true)
                 Logger.shared.info(
                     "ConversationViewController: Stream successfully returned from AIService, starting loop."
                 )

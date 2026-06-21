@@ -4,7 +4,8 @@ import NerwUtils
 public class BYOKModelHandler: AIModelHandler {
     public init() {}
 
-    public func generateResponse(prompt: String, images: [Data], isStreaming: Bool) async throws
+    public func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool)
+        async throws
         -> AsyncThrowingStream<String, Error>
     {
         let aiConfig = ConfigManager.shared.config.aiConfig
@@ -31,26 +32,9 @@ public class BYOKModelHandler: AIModelHandler {
             Logger.shared.warning("BYOKModelHandler: No API Key provided in config.")
         }
 
-        // Build payload
-        var userContent: Any
-        if aiConfig.supportsImages && !images.isEmpty {
-            var contentArray: [[String: Any]] = []
-            contentArray.append(["type": "text", "text": prompt])
-            for imageData in images {
-                let base64 = imageData.base64EncodedString()
-                contentArray.append([
-                    "type": "image_url",
-                    "image_url": [
-                        "url": "data:image/jpeg;base64,\(base64)"
-                    ],
-                ])
-            }
-            userContent = contentArray
-        } else {
-            userContent = prompt
-        }
+        // Not building a single user content here. We will build it inside the messages loop.
 
-        var messages: [[String: Any]] = []
+        var apiMessages: [[String: Any]] = []
         var finalSystemPrompt = aiConfig.systemPrompt
         let actionInstructions = """
 
@@ -67,13 +51,33 @@ public class BYOKModelHandler: AIModelHandler {
         finalSystemPrompt += actionInstructions
 
         if !finalSystemPrompt.isEmpty {
-            messages.append(["role": "system", "content": finalSystemPrompt])
+            apiMessages.append(["role": "system", "content": finalSystemPrompt])
         }
-        messages.append(["role": "user", "content": userContent])
+
+        for (index, msg) in messages.enumerated() {
+            if msg.role == .user && index == messages.count - 1 && aiConfig.supportsImages
+                && !images.isEmpty
+            {
+                var contentArray: [[String: Any]] = []
+                contentArray.append(["type": "text", "text": msg.content])
+                for imageData in images {
+                    let base64 = imageData.base64EncodedString()
+                    contentArray.append([
+                        "type": "image_url",
+                        "image_url": [
+                            "url": "data:image/jpeg;base64,\(base64)"
+                        ],
+                    ])
+                }
+                apiMessages.append(["role": msg.role.rawValue, "content": contentArray])
+            } else {
+                apiMessages.append(["role": msg.role.rawValue, "content": msg.content])
+            }
+        }
 
         var payload: [String: Any] = [
             "model": aiConfig.byokModelName,
-            "messages": messages,
+            "messages": apiMessages,
             "stream": isStreaming,
             "temperature": aiConfig.temperature,
         ]

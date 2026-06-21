@@ -28,7 +28,7 @@ SWIFT = DYLD_FRAMEWORK_PATH=$(SWIFT_FW_PATH) $(SWIFT_BIN)
 
 main:
 	@swift-format format -rip .
-	swift-format lint -r . || true
+	# swift-format lint -r . || true
 	$(SWIFT) run --disable-sandbox SearchServiceTests
 	$(SWIFT) build --disable-sandbox
 

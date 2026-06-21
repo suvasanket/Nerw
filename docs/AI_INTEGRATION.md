@@ -85,6 +85,10 @@ Sent by the client to request prompt completion.
 ```json
 {
   "prompt": "Explain quantum computing in simple terms.",
+  "history": [
+    { "role": "user", "content": "What is 2+2?" },
+    { "role": "assistant", "content": "It is 4." }
+  ],
   "images": [
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
   ],
@@ -93,6 +97,7 @@ Sent by the client to request prompt completion.
 ```
 
 *   **`prompt`**: The main user text query.
+*   **`history`**: (Optional) An array of previous message turns (`role` and `content`) to preserve conversation context.
 *   **`images`**: An array of Base64-encoded image data strings (JPEG or PNG). Empty array if text-only.
 *   **`isStreaming`**: If `true`, response chunks are streamed in real-time. If `false`, the server returns a single response block.
 
@@ -255,11 +260,15 @@ To show that you are thinking, wrap your thoughts in <think>...</think>.
 To perform an action, output an <action>JSON_PAYLOAD</action>.
 Supported actions:
 - timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
-...
+- reminder: { "type": "reminder", "title": "Buy milk" }
+- calendar: { "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }
+- memory: { "type": "memory", "action": "save", "content": "User likes blue" }
+Do not output action tags for things you cannot do.
 ```
 
 ### Stream Parser Mechanics
 The `AIStreamParser` consumes token chunks as they arrive from the backend and maintains an internal buffer:
 - **Thinking Hook**: Detects `<think>...</think>` bounds. It invokes `onThinkingStateChanged(true)` when entering a block and `(false)` when exiting. The text inside the block is swallowed and never reaches the user interface.
-- **Action Hook**: Detects `<action>...</action>` tags containing JSON payloads. It buffers the JSON text internally, parses it upon the closing tag, and fires `onActionDetected(type, payload)` to execute native system commands (like launching a timer notification or hitting a calendar API).
+- **Action Hook**: Detects `<action>...</action>` tags containing JSON payloads. It buffers the JSON text internally, parses it upon the closing tag, and fires `onActionDetected(type, payload)`.
+- **Native Execution**: Detected actions are routed to `AIActionManager.swift`, which natively integrates with macOS APIs. Currently supported capabilities include setting system notifications for **timers** (via `UNUserNotificationCenter`), creating Apple **Reminders**, and scheduling **Calendar** events (via `EventKit`).
 - **Text Safety**: When a partial tag (like `<thi`) is buffering, it gracefully halts text output until the tag either completes or resolves to raw text, preventing UI flickering.

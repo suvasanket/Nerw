@@ -30,6 +30,10 @@
 	<string>Nerw needs access to your reminders to display them via extensions.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Nerw needs access to your reminders to display them via extensions.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Nerw needs access to your calendar to schedule events via AI Actions.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Nerw needs full access to your calendar to schedule events via AI Actions.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Nerw requires access to your Downloads folder to search and display files stored there.</string>
 	<key>NSDocumentsFolderUsageDescription</key>

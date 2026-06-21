@@ -2,7 +2,7 @@ import Foundation
 import NerwUtils
 
 public protocol AIModelHandler {
-    func generateResponse(prompt: String, images: [Data], isStreaming: Bool) async throws
+    func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool) async throws
         -> AsyncThrowingStream<String, Error>
 }
 
@@ -12,11 +12,13 @@ public class AIService {
     private init() {}
 
     /// Dynamically routes the generation request to the selected model provider based on configuration.
-    public func generateResponse(prompt: String, images: [Data] = [], isStreaming: Bool = true)
+    public func generateResponse(
+        messages: [AIChatMessage], images: [Data] = [], isStreaming: Bool = true
+    )
         async throws -> AsyncThrowingStream<String, Error>
     {
         Logger.shared.info(
-            "AIService: generateResponse called. Prompt length: \(prompt.count), images count: \(images.count), isStreaming: \(isStreaming)"
+            "AIService: generateResponse called. Messages count: \(messages.count), images count: \(images.count), isStreaming: \(isStreaming)"
         )
         let config = ConfigManager.shared.config.aiConfig
 
@@ -41,7 +43,7 @@ public class AIService {
         }
 
         return try await handler.generateResponse(
-            prompt: prompt, images: images, isStreaming: isStreaming)
+            messages: messages, images: images, isStreaming: isStreaming)
     }
 
     /// Checks if the Foundation (Apple Intelligence) language model is available at runtime.
