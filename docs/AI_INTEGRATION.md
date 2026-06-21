@@ -54,7 +54,7 @@ Settings are stored in the root `~/.nerw/config.json` inside the `aiConfig` bloc
 
 ## 3. IPC Socket & NDJSON Protocol
 
-A client (such as a future frontend window or terminal script) connects to the Unix socket at:
+A client (such as a frontend window or terminal script) connects to the Unix socket at:
 `~/.nerw/run/ai.sock`
 
 The socket communicates using a line-delimited NDJSON protocol. Every packet sent or received is a single-line JSON structure followed by a `\n` character.
@@ -218,24 +218,30 @@ The visual layout is implemented programmatically using Auto Layout inside [Conv
 
 3. **Right Indicator Timeline** (`SegmentBarView`):
    - A vertical stack of thin, rounded segment bars representing the query history turns, positioned between the right edge of the card and the right window edge.
+   - It is vertically centered relative to the entire panel height.
    - The active turn's indicator lights up using the theme's accent selection color, while inactive turns are dimmed.
    - Clicking a segment switches the active card view content to that turn.
 
 4. **Translucent Response Card**:
    - The main response display area is wrapped in a rounded card view (`layer.cornerRadius = 16`).
    - Styled dynamically using the active theme's selection color (`selectionBackgroundColorHex`) made translucent (`0.18` opacity) with matching border accents (`0.35` opacity).
+   - Horizontal scrolling is completely disabled; text is strictly wrapped and bounds to the container size, while allowing vertical scrolling.
 
 5. **User Query Text**:
-   - A translucent, bold, right-aligned text label placed at the top-right above the response card that displays the current query context. It gracefully truncates if it exceeds the midpoint of the screen.
+   - The user query container rests just above the prompt input, beginning from the horizontal middle of the panel.
+   - A translucent, bold text label that displays the current query context.
+   - If the query exceeds the container length, an arrow button appears which expands to show the full query upon clicking.
 
 6. **Scrollable Response Area** (`NSTextView`):
    - A read-only, selectable text area wrapped inside `NSScrollView`.
    - Initialized with a default non-zero frame size `(100x100)` to ensure proper wrapping and layout computations.
    - Uses the theme's foreground color (`foregroundColorHex` or `.labelColor` fallback) for high-contrast visibility.
 
-7. **Floating Prompt Input** (`PromptTextField`):
+7. **Floating Prompt Input** (`PromptTextField` & Context Menu):
    - A rounded glass container at the bottom holding a custom `NSTextField`.
-   - Pressing `Enter` triggers submission (`onSubmit`), `Esc` dismisses the panel, and `Cmd+Backspace` completely clears the chat history.
+   - Features a 3-dots context menu button on the right edge. Clicking this button overlays an `ActionContextPanel` identical to the main UI, centered relative to the button.
+   - The context panel provides options like "Clear Chat" (`⌥⌘⌫`) and History Navigation ("Previous Message" / "Next Message" utilizing navigation style bindings, e.g., `⌃P`/`⌃N` or `⌃K`/`⌃J`).
+   - Pressing `Enter` triggers submission (`onSubmit`), `Esc` dismisses the panel, and `Cmd+K` toggles the context menu.
 
 8. **Stream Parsing & Generation UI Hooks**:
    - The raw stream from `AIService` is piped through the `AIStreamParser`.

@@ -46,6 +46,7 @@ The source code is organized into modular targets within `Sources/`:
     - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch - includes a dropdown to configure the fallback modifier key), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
     - `SettingsWindowController.swift`: Manages the tabbed settings interface.
     - `ExtensionInstallWindowController.swift`: Manages the `.nerw` extension installation flow and confirmation UI.
+    - **Conversation UI**: `ConversationViewController.swift` and `ConversationWindowController.swift`. A custom, premium card-based interface for AI chat, featuring history segments, translucent text cards, and dynamic UI elements like `PromptTextField` and context menus for chat clearing and navigation.
     - **UI Helpers**: `ColorExtensions.swift`, `NSColor+Hex.swift`, `SettingsSection.swift`, `GlobalLayout.swift` (Centralized UI Dimensions & Typography).
 
 ### `NerwBuiltin` (Features)

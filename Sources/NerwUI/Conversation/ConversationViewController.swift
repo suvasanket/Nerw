@@ -213,6 +213,9 @@ class PromptTextField: NSTextField {
     var onSubmit: (() -> Void)?
     var onCancel: (() -> Void)?
     var onClearChat: (() -> Void)?
+    var onMoveUp: (() -> Void)?
+    var onMoveDown: (() -> Void)?
+    var onToggleContextPanel: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -237,12 +240,12 @@ class PromptTextField: NSTextField {
             .font: NSFont.systemFont(ofSize: 14),
         ]
         self.placeholderAttributedString = NSAttributedString(
-            string: "Ask AI...", attributes: attributes)
+            string: "Ask anything", attributes: attributes)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let keyCode = event.keyCode
-        if keyCode == 51 && event.modifierFlags.contains(.command) {
+        if keyCode == 51 && event.modifierFlags.contains([.command, .option]) {
             onClearChat?()
             return true
         }
@@ -254,6 +257,42 @@ class PromptTextField: NSTextField {
             onCancel?()
             return true
         }
+
+        // Navigation bindings
+        if event.modifierFlags.contains(.control) {
+            guard let chars = event.charactersIgnoringModifiers?.lowercased() else {
+                return super.performKeyEquivalent(with: event)
+            }
+            let navStyle = ConfigManager.shared.config.navigationStyle
+            if navStyle == "vim" {
+                if chars == "k" {
+                    onMoveUp?()
+                    return true
+                } else if chars == "j" {
+                    onMoveDown?()
+                    return true
+                }
+            } else {
+                if chars == "p" {
+                    onMoveUp?()
+                    return true
+                } else if chars == "n" {
+                    onMoveDown?()
+                    return true
+                }
+            }
+        }
+
+        if event.modifierFlags.contains(.command) {
+            guard let chars = event.charactersIgnoringModifiers?.lowercased() else {
+                return super.performKeyEquivalent(with: event)
+            }
+            if chars == "k" {
+                onToggleContextPanel?()
+                return true
+            }
+        }
+
         return super.performKeyEquivalent(with: event)
     }
 }
@@ -376,10 +415,98 @@ class SettingsActionBubbleView: NSView {
     }
 }
 
+// MARK: - AIActionBubbleView
+class AIActionBubbleView: NSView {
+    private let iconView = NSImageView()
+    private let label = NSTextField()
+
+    init() {
+        super.init(frame: .zero)
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        wantsLayer = true
+        layer?.cornerRadius = 10
+
+        iconView.image = NSImage(
+            systemSymbolName: "wand.and.sparkles", accessibilityDescription: "Action")
+        iconView.image?.isTemplate = true
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iconView)
+
+        label.isEditable = false
+        label.isBordered = false
+        label.drawsBackground = false
+        label.backgroundColor = .clear
+        label.font = .systemFont(ofSize: 13, weight: .medium)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 16),
+            iconView.heightAnchor.constraint(equalToConstant: 16),
+
+            label.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    func update(actionType: String) {
+        let displayName: String
+        switch actionType.lowercased() {
+        case "timer":
+            displayName = "Timer"
+        case "reminder":
+            displayName = "Reminder"
+        case "calendar":
+            displayName = "Calendar"
+        case "memory":
+            displayName = "Memory"
+        default:
+            displayName = actionType.capitalized
+        }
+        label.stringValue = "Performed Action: \(displayName)"
+        updateColors()
+    }
+
+    func updateColors() {
+        let theme = NerwTheme.current()
+        let accentColor: NSColor
+        if let hex = theme.selectionBackgroundColorHex, let color = NSColor(hexString: hex) {
+            accentColor = color
+        } else {
+            accentColor = .controlAccentColor
+        }
+
+        layer?.backgroundColor = accentColor.withAlphaComponent(0.12).cgColor
+        layer?.borderColor = accentColor.withAlphaComponent(0.3).cgColor
+        layer?.borderWidth = 1.0
+
+        iconView.contentTintColor = accentColor
+
+        let textColor: NSColor
+        if let hex = theme.foregroundColorHex, let color = NSColor(hexString: hex) {
+            textColor = color
+        } else {
+            textColor = .labelColor
+        }
+        label.textColor = textColor
+    }
+}
+
 // MARK: - ChatTurn Model
 struct ChatTurn {
     let query: String
     var response: String
+    var actionType: String?
 }
 
 // MARK: - ConversationViewController
@@ -395,14 +522,34 @@ public class ConversationViewController: NSViewController {
     private let promptTextField = PromptTextField()
     private var warningView: SettingsActionBubbleView?
 
+    private lazy var expandArrowButton: HoverIconButton = {
+        let btn = HoverIconButton(
+            imageName: "chevron.down", isCircular: true, target: self,
+            action: #selector(toggleQueryExpansion))
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.isHidden = true
+        return btn
+    }()
+    private var isQueryExpanded = false
+
     // Upgraded UI components
     private let sparkleImageView = NSImageView()
     private let spinner = RippleAnimationView()
+    private let floatingContextButton = ContextHoverButton()
+    private let actionBubbleView = AIActionBubbleView()
     private var cardHeightConstraint: NSLayoutConstraint?
+    private var scrollViewBottomToCardConstraint: NSLayoutConstraint?
+    private var scrollViewBottomToActionConstraint: NSLayoutConstraint?
+    private var actionBubbleBottomConstraint: NSLayoutConstraint?
     private let contentPadding: CGFloat = 32
 
     private var generatingTimer: Timer?
     private var generatingDotCount = 0
+
+    // Context Panel state
+    private var actionContextWindow: ActionContextPanel?
+    private var actionContextOverlay: ActionContextOverlayView?
+    private var actionContextViewController: ActionContextViewController?
 
     private var turns: [ChatTurn] = []
     private var activeTurnIndex: Int = -1
@@ -452,8 +599,15 @@ public class ConversationViewController: NSViewController {
         promptContainer.translatesAutoresizingMaskIntoConstraints = false
         promptContainer.wantsLayer = true
         promptContainer.layer?.cornerRadius = 22
-        promptContainer.layer?.borderWidth = 1.0
+        promptContainer.layer?.borderWidth = 0.0
         contentView.addSubview(promptContainer)
+
+        floatingContextButton.imageView.image = ResultCellView.makeVerticalEllipsisImage()
+        floatingContextButton.translatesAutoresizingMaskIntoConstraints = false
+        floatingContextButton.onTapped = { [weak self] in
+            self?.toggleActionContext()
+        }
+        promptContainer.addSubview(floatingContextButton)
 
         promptTextField.onSubmit = { [weak self] in
             self?.sendCurrentPrompt()
@@ -463,6 +617,17 @@ public class ConversationViewController: NSViewController {
         }
         promptTextField.onClearChat = { [weak self] in
             self?.clearChat()
+        }
+        promptTextField.onMoveUp = { [weak self] in
+            guard let self = self, self.activeTurnIndex > 0 else { return }
+            self.selectTurn(at: self.activeTurnIndex - 1)
+        }
+        promptTextField.onMoveDown = { [weak self] in
+            guard let self = self, self.activeTurnIndex < self.turns.count - 1 else { return }
+            self.selectTurn(at: self.activeTurnIndex + 1)
+        }
+        promptTextField.onToggleContextPanel = { [weak self] in
+            self?.toggleActionContext()
         }
         promptTextField.translatesAutoresizingMaskIntoConstraints = false
         promptContainer.addSubview(promptTextField)
@@ -481,6 +646,8 @@ public class ConversationViewController: NSViewController {
         // 7. User Query label outside the card above
         queryContainer.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(queryContainer)
+
+        queryContainer.addSubview(expandArrowButton)
 
         queryLabel.isEditable = false
         queryLabel.isBordered = false
@@ -521,11 +688,18 @@ public class ConversationViewController: NSViewController {
         responseTextView.isVerticallyResizable = true
         responseTextView.isHorizontallyResizable = false
         responseTextView.autoresizingMask = [.width]
+        responseTextView.textContainer?.containerSize = NSSize(
+            width: responseScrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        responseTextView.textContainer?.widthTracksTextView = true
+        responseTextView.textContainer?.lineBreakMode = .byCharWrapping
 
-        // Set default non-zero frame size to prevent layout and wrapping computation bugs
-        responseTextView.frame = NSRect(x: 0, y: 0, width: 100, height: 100)
-
+        // Ensure no horizontal scroll
         responseScrollView.documentView = responseTextView
+
+        // Add action bubble view
+        actionBubbleView.translatesAutoresizingMaskIntoConstraints = false
+        actionBubbleView.isHidden = true
+        cardView.addSubview(actionBubbleView)
 
         // Card Height Constraint for dynamic sizing
         cardHeightConstraint = cardView.heightAnchor.constraint(equalToConstant: 100)
@@ -543,21 +717,27 @@ public class ConversationViewController: NSViewController {
             // Right Indicator bars floating horizontally between card and window edge
             indicatorContainer.centerXAnchor.constraint(
                 equalTo: contentView.trailingAnchor, constant: -16),
-            indicatorContainer.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            indicatorContainer.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             indicatorContainer.widthAnchor.constraint(equalToConstant: 16),
             indicatorContainer.topAnchor.constraint(
                 greaterThanOrEqualTo: contentView.topAnchor, constant: 24),
             indicatorContainer.bottomAnchor.constraint(
                 lessThanOrEqualTo: promptContainer.topAnchor, constant: -16),
 
-            // Prompt Container centered with 32pt padding on each side
+            // Prompt Container centered with `contentPadding` padding on each side
             promptContainer.leadingAnchor.constraint(
                 equalTo: contentView.leadingAnchor, constant: contentPadding),
             promptContainer.trailingAnchor.constraint(
                 equalTo: contentView.trailingAnchor, constant: -contentPadding),
             promptContainer.bottomAnchor.constraint(
-                equalTo: contentView.bottomAnchor, constant: -16),
+                equalTo: contentView.bottomAnchor, constant: -contentPadding),
             promptContainer.heightAnchor.constraint(equalToConstant: 44),
+
+            floatingContextButton.trailingAnchor.constraint(
+                equalTo: promptContainer.trailingAnchor, constant: -12),
+            floatingContextButton.centerYAnchor.constraint(equalTo: promptContainer.centerYAnchor),
+            floatingContextButton.widthAnchor.constraint(equalToConstant: 24),
+            floatingContextButton.heightAnchor.constraint(equalToConstant: 24),
 
             promptTextField.leadingAnchor.constraint(
                 equalTo: promptContainer.leadingAnchor, constant: 16),
@@ -567,29 +747,36 @@ public class ConversationViewController: NSViewController {
 
             // Generation Spinner inside prompt on the right
             spinner.trailingAnchor.constraint(
-                equalTo: promptContainer.trailingAnchor, constant: -16),
+                equalTo: floatingContextButton.leadingAnchor, constant: -8),
             spinner.centerYAnchor.constraint(equalTo: promptContainer.centerYAnchor),
             spinner.widthAnchor.constraint(equalToConstant: 16),
             spinner.heightAnchor.constraint(equalToConstant: 16),
 
-            // User Query (Above Card, Top Right)
-            queryContainer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
-            queryContainer.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
-            queryContainer.leadingAnchor.constraint(equalTo: contentView.centerXAnchor),
-            queryContainer.heightAnchor.constraint(equalToConstant: 20),
-
-            queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor),
-            queryLabel.trailingAnchor.constraint(equalTo: queryContainer.trailingAnchor),
-            queryLabel.centerYAnchor.constraint(equalTo: queryContainer.centerYAnchor),
-
-            // Response Card below Query Capsule, centered with 64pt padding
-            cardView.topAnchor.constraint(equalTo: queryContainer.bottomAnchor, constant: 12),
+            // Response Card below window top
+            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: contentPadding),
             cardView.leadingAnchor.constraint(
                 equalTo: contentView.leadingAnchor, constant: contentPadding),
             cardView.trailingAnchor.constraint(
                 equalTo: contentView.trailingAnchor, constant: -contentPadding),
             cardView.bottomAnchor.constraint(
-                lessThanOrEqualTo: promptContainer.topAnchor, constant: -16),
+                lessThanOrEqualTo: queryContainer.topAnchor, constant: -12),
+
+            // User Query (Just above prompt, start from middle)
+            queryContainer.bottomAnchor.constraint(
+                equalTo: promptContainer.topAnchor, constant: -12),
+            queryContainer.trailingAnchor.constraint(equalTo: promptContainer.trailingAnchor),
+            queryContainer.leadingAnchor.constraint(equalTo: promptContainer.centerXAnchor),
+
+            queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor),
+            queryLabel.trailingAnchor.constraint(
+                equalTo: expandArrowButton.leadingAnchor, constant: -4),
+            queryLabel.topAnchor.constraint(equalTo: queryContainer.topAnchor),
+            queryLabel.bottomAnchor.constraint(equalTo: queryContainer.bottomAnchor),
+
+            expandArrowButton.trailingAnchor.constraint(equalTo: queryContainer.trailingAnchor),
+            expandArrowButton.topAnchor.constraint(equalTo: queryContainer.topAnchor, constant: 0),
+            expandArrowButton.widthAnchor.constraint(equalToConstant: 16),
+            expandArrowButton.heightAnchor.constraint(equalToConstant: 16),
 
             // Response Scroll View in Card
             responseScrollView.topAnchor.constraint(
@@ -598,9 +785,23 @@ public class ConversationViewController: NSViewController {
                 equalTo: cardView.leadingAnchor, constant: 16),
             responseScrollView.trailingAnchor.constraint(
                 equalTo: cardView.trailingAnchor, constant: -16),
-            responseScrollView.bottomAnchor.constraint(
-                equalTo: cardView.bottomAnchor, constant: -16),
+
+            // Action Bubble View in Card
+            actionBubbleView.leadingAnchor.constraint(
+                equalTo: cardView.leadingAnchor, constant: 16),
+            actionBubbleView.trailingAnchor.constraint(
+                equalTo: cardView.trailingAnchor, constant: -16),
+            actionBubbleView.heightAnchor.constraint(equalToConstant: 32),
         ])
+
+        scrollViewBottomToCardConstraint = responseScrollView.bottomAnchor.constraint(
+            equalTo: cardView.bottomAnchor, constant: -16)
+        scrollViewBottomToActionConstraint = responseScrollView.bottomAnchor.constraint(
+            equalTo: actionBubbleView.topAnchor, constant: -12)
+        actionBubbleBottomConstraint = actionBubbleView.bottomAnchor.constraint(
+            equalTo: cardView.bottomAnchor, constant: -16)
+
+        scrollViewBottomToCardConstraint?.isActive = true
 
         updateColors()
         updateCard()
@@ -619,12 +820,12 @@ public class ConversationViewController: NSViewController {
         cardView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
         cardView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
 
-        // Prompt container becomes more glass-like (accent highlight and translucent white glow)
-        promptContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        promptContainer.layer?.borderColor = selectionColor.withAlphaComponent(0.30).cgColor
+        // Prompt container dark search style
+        promptContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+        promptContainer.layer?.borderColor = NSColor.clear.cgColor
 
         // Sparkle icon colors
-        sparkleImageView.contentTintColor = selectionColor.withAlphaComponent(0.15)
+        sparkleImageView.contentTintColor = NSColor.white.withAlphaComponent(0.35)
 
         // Apply foreground/text colors
         let textColor: NSColor
@@ -636,6 +837,9 @@ public class ConversationViewController: NSViewController {
 
         responseTextView.textColor = textColor
         promptTextField.textColor = textColor
+        floatingContextButton.imageView.contentTintColor = textColor.withAlphaComponent(0.8)
+
+        actionBubbleView.updateColors()
 
         Logger.shared.info(
             "ConversationViewController: updateColors applied. SelectionColor: \(selectionColor), TextColor: \(textColor)"
@@ -667,6 +871,17 @@ public class ConversationViewController: NSViewController {
 
     public func focusInput() {
         view.window?.makeFirstResponder(promptTextField)
+    }
+
+    @objc private func toggleQueryExpansion() {
+        isQueryExpanded.toggle()
+        queryLabel.maximumNumberOfLines = isQueryExpanded ? 0 : 1
+        queryLabel.cell?.lineBreakMode = isQueryExpanded ? .byWordWrapping : .byTruncatingTail
+        let imageName = isQueryExpanded ? "chevron.up" : "chevron.down"
+        expandArrowButton.image = NSImage(
+            systemSymbolName: imageName, accessibilityDescription: nil)
+
+        queryLabel.superview?.needsLayout = true
     }
 
     public func cancelActiveTask() {
@@ -718,8 +933,36 @@ public class ConversationViewController: NSViewController {
         } else {
             queryContainer.isHidden = false
             queryLabel.stringValue = turn.query
+
+            let font = queryLabel.font ?? .systemFont(ofSize: 13, weight: .bold)
+            let textWidth = turn.query.size(withAttributes: [.font: font]).width
+            let maxWidth: CGFloat = (GlobalLayout.mainWidth / 2.0) - contentPadding - 20
+
+            if textWidth > maxWidth {
+                expandArrowButton.isHidden = false
+            } else {
+                expandArrowButton.isHidden = true
+                if isQueryExpanded {
+                    toggleQueryExpansion()
+                }
+            }
         }
         responseTextView.string = turn.response
+
+        if let actionType = turn.actionType {
+            actionBubbleView.isHidden = false
+            actionBubbleView.update(actionType: actionType)
+
+            scrollViewBottomToCardConstraint?.isActive = false
+            scrollViewBottomToActionConstraint?.isActive = true
+            actionBubbleBottomConstraint?.isActive = true
+        } else {
+            actionBubbleView.isHidden = true
+
+            scrollViewBottomToActionConstraint?.isActive = false
+            actionBubbleBottomConstraint?.isActive = false
+            scrollViewBottomToCardConstraint?.isActive = true
+        }
 
         // Dynamic Height Calculation for Response Card
         if let layoutManager = responseTextView.layoutManager,
@@ -727,7 +970,10 @@ public class ConversationViewController: NSViewController {
         {
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
-            let neededHeight = usedRect.height + 32  // top + bottom padding of card (16 each)
+            var neededHeight = usedRect.height + 32  // top + bottom padding of card (16 each)
+            if turn.actionType != nil {
+                neededHeight += 32 /* action bubble height */ + 12 /* spacing */
+            }
             let maxCardHeight = GlobalLayout.mainHeight - 160  // Leave space for query, prompt and padding
             cardHeightConstraint?.constant = min(neededHeight, maxCardHeight)
         }
@@ -807,7 +1053,7 @@ public class ConversationViewController: NSViewController {
         spinner.startAnimation()
 
         // Add turn to list
-        let newTurn = ChatTurn(query: text, response: "Generating...")
+        let newTurn = ChatTurn(query: text, response: "Generating...", actionType: nil)
         turns.append(newTurn)
         activeTurnIndex = turns.count - 1
 
@@ -852,6 +1098,17 @@ public class ConversationViewController: NSViewController {
                 Logger.shared.info(
                     "ConversationViewController: Detected action \(type) with payload: \(payload)")
                 AIActionManager.shared.handleAction(type: type, payload: payload)
+
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    if self.activeTurnIndex == self.turns.count - 1 {
+                        self.turns[self.activeTurnIndex].actionType = type
+                        if self.turns[self.activeTurnIndex].response.hasPrefix("Generating") {
+                            self.turns[self.activeTurnIndex].response = ""
+                        }
+                        self.updateCard()
+                    }
+                }
             }
 
             do {
@@ -948,5 +1205,218 @@ public class ConversationViewController: NSViewController {
             warning.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
             warning.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
         ])
+    }
+
+    // MARK: - Context Menu
+    private func toggleActionContext() {
+        if actionContextWindow?.isVisible == true {
+            dismissActionContext()
+            return
+        }
+        showActionContext()
+    }
+
+    private func showActionContext() {
+        let navStyle = ConfigManager.shared.config.navigationStyle
+        let upKeybind = navStyle == "vim" ? "⌃K" : "⌃P"
+        let downKeybind = navStyle == "vim" ? "⌃J" : "⌃N"
+
+        let clearChatOp = NerwActionContext.Operation(
+            id: "clearChat",
+            kind: .custom("clearChat"),
+            title: "Clear Thread",
+            subtitle: "Deletes the current conversation thread",
+            icon: .system("trash"),
+            interaction: .execute,
+            detailText: "⌥⌘⌫"
+        )
+
+        let moveUpOp = NerwActionContext.Operation(
+            id: "moveUp",
+            kind: .custom("moveUp"),
+            title: "Previous Message",
+            subtitle: "Navigate to the older message",
+            icon: .system("arrow.up"),
+            interaction: .execute,
+            detailText: upKeybind
+        )
+
+        let moveDownOp = NerwActionContext.Operation(
+            id: "moveDown",
+            kind: .custom("moveDown"),
+            title: "Next Message",
+            subtitle: "Navigate to the newer message",
+            icon: .system("arrow.down"),
+            interaction: .execute,
+            detailText: downKeybind
+        )
+
+        let section = NerwActionContext.Section(
+            id: "conversation",
+            title: "Conversation",
+            operations: [clearChatOp, moveUpOp, moveDownOp]
+        )
+
+        let context = NerwActionContext(
+            actionID: "conversationContext",
+            actionTitle: "Conversation",
+            actionSubtitle: "Manage current thread",
+            sections: [section]
+        )
+
+        let controller = actionContextViewController ?? ActionContextViewController()
+        controller.delegate = self
+        controller.isInlineMode = true
+        controller.setConnectorSelectionHeight(0)
+        controller.render(context: context)
+        actionContextViewController = controller
+
+        let overlay = ActionContextOverlayView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.onBackgroundClick = { [weak self] in
+            self?.dismissActionContext()
+        }
+        panelView.contentView.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: panelView.contentView.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: panelView.contentView.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: panelView.contentView.bottomAnchor),
+        ])
+        actionContextOverlay = overlay
+
+        overlay.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1.0)
+            overlay.animator().alphaValue = 1.0
+        }
+
+        controller.view.layoutSubtreeIfNeeded()
+        let contentSize = controller.preferredContentSize
+
+        let panel = ActionContextPanel(
+            contentRect: NSRect(origin: .zero, size: contentSize),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.contentViewController = controller
+        actionContextWindow = panel
+
+        let buttonBounds = floatingContextButton.bounds
+        let anchorPoint = NSPoint(x: buttonBounds.maxX, y: buttonBounds.midY)  // Align panel center to button center
+        guard let window = view.window else { return }
+        let pointInWindow = floatingContextButton.convert(anchorPoint, to: nil)
+        var screenPoint = window.convertPoint(toScreen: pointInWindow)
+
+        screenPoint.x += 8
+        screenPoint.y -= contentSize.height / 2
+
+        panel.setFrameOrigin(screenPoint)
+
+        window.addChildWindow(panel, ordered: .above)
+        panel.makeKeyAndOrderFront(nil)
+
+        let contextView = controller.view
+        contextView.wantsLayer = true
+        contextView.alphaValue = 1.0
+        contextView.layer?.removeAllAnimations()
+
+        let scaleAnim = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 0.82
+        scaleAnim.toValue = 1.0
+        scaleAnim.damping = 14
+        scaleAnim.stiffness = 280
+        scaleAnim.mass = 0.75
+        scaleAnim.duration = scaleAnim.settlingDuration
+        contextView.layer?.add(scaleAnim, forKey: "popIn")
+        contextView.layer?.transform = CATransform3DIdentity
+
+        let opacityAnim = CABasicAnimation(keyPath: "opacity")
+        opacityAnim.fromValue = 0.0
+        opacityAnim.toValue = 1.0
+        opacityAnim.duration = 0.15
+        opacityAnim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        contextView.layer?.add(opacityAnim, forKey: "opacity")
+
+        DispatchQueue.main.async {
+            controller.focusForInteraction()
+        }
+    }
+
+    private func dismissActionContext(animated: Bool = true) {
+        let cleanup: () -> Void = { [weak self] in
+            self?.actionContextOverlay?.removeFromSuperview()
+            self?.actionContextOverlay = nil
+
+            if let panel = self?.actionContextWindow {
+                panel.parent?.removeChildWindow(panel)
+                panel.close()
+                self?.actionContextWindow = nil
+            }
+        }
+
+        guard animated, let overlay = actionContextOverlay,
+            let contextView = actionContextWindow?.contentViewController?.view
+        else {
+            cleanup()
+            return
+        }
+
+        contextView.wantsLayer = true
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = 0.15
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                overlay.animator().alphaValue = 0
+                contextView.animator().alphaValue = 0
+            }, completionHandler: cleanup)
+
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnim.fromValue = 1.0
+        scaleAnim.toValue = 0.88
+        scaleAnim.duration = 0.15
+        scaleAnim.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        scaleAnim.fillMode = .forwards
+        scaleAnim.isRemovedOnCompletion = false
+        contextView.layer?.add(scaleAnim, forKey: "popOut")
+    }
+}
+
+// MARK: - ActionContextViewControllerDelegate
+extension ConversationViewController: ActionContextViewControllerDelegate {
+    func actionContext(
+        _ controller: ActionContextViewController, didInvoke operation: NerwActionContext.Operation,
+        in context: NerwActionContext
+    ) {
+        dismissActionContext()
+        if case .custom(let customId) = operation.kind {
+            switch customId {
+            case "clearChat":
+                clearChat()
+            case "moveUp":
+                if activeTurnIndex > 0 {
+                    selectTurn(at: activeTurnIndex - 1)
+                }
+            case "moveDown":
+                if activeTurnIndex < turns.count - 1 {
+                    selectTurn(at: activeTurnIndex + 1)
+                }
+            default:
+                break
+            }
+        }
+    }
+
+    func actionContext(
+        _ controller: ActionContextViewController, didUpdatePreferencesFor actionID: String
+    ) {}
+    func actionContextDidRequestClose(_ controller: ActionContextViewController) {
+        dismissActionContext()
     }
 }
