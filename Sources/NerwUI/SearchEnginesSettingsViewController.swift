@@ -12,7 +12,7 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     private var enginesListStack: NSStackView!
     private var fallbackTableView = NSTableView()
-    private let fallbackModifierPopUp = NSPopUpButton()
+    private var searchModMapperStack: NSStackView!
 
     private struct FallbackItem {
         let id: String
@@ -119,56 +119,10 @@ class SearchEnginesSettingsViewController: NSViewController {
         buttonStack.addArrangedSubview(addFallbackBtn)
         buttonStack.addArrangedSubview(removeFallbackBtn)
 
-        // Fallback modifier selector
-        let modifierLabel = NSTextField(labelWithString: "Fallback Modifier:")
-        modifierLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-        modifierLabel.textColor = .labelColor
-        modifierLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        fallbackModifierPopUp.pullsDown = false
-        fallbackModifierPopUp.bezelStyle = .rounded
-        fallbackModifierPopUp.controlSize = .small
-        fallbackModifierPopUp.translatesAutoresizingMaskIntoConstraints = false
-
-        let modifiers: [(title: String, val: String)] = [
-            ("Command (⌘)", "cmd"),
-            ("Option (⌥)", "opt"),
-            ("Control (⌃)", "ctrl"),
-            ("Shift (⇧)", "shift"),
-        ]
-        for mod in modifiers {
-            let item = NSMenuItem(title: mod.title, action: nil, keyEquivalent: "")
-            item.representedObject = mod.val
-            fallbackModifierPopUp.menu?.addItem(item)
-        }
-        fallbackModifierPopUp.target = self
-        fallbackModifierPopUp.action = #selector(fallbackModifierChanged(_:))
-
-        let modifierStack = NSStackView()
-        modifierStack.orientation = .horizontal
-        modifierStack.spacing = 8
-        modifierStack.alignment = .centerY
-        modifierStack.addArrangedSubview(modifierLabel)
-        modifierStack.addArrangedSubview(fallbackModifierPopUp)
-
-        let modifierDescLabel = NSTextField(
-            labelWithString:
-                "Hold this modifier key to swap search results with fallbacks. While holding, you can navigate using Mod+N/P (Unix) or Mod+J/K (Vim) based on your navigation style, and press Mod+Enter to execute."
-        )
-        modifierDescLabel.font = .systemFont(ofSize: 11)
-        modifierDescLabel.textColor = .secondaryLabelColor
-        modifierDescLabel.lineBreakMode = .byWordWrapping
-        modifierDescLabel.translatesAutoresizingMaskIntoConstraints = false
-        modifierDescLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
         fallbacksStack.addArrangedSubview(fallbackScrollView)
         fallbacksStack.addArrangedSubview(buttonStack)
-        fallbacksStack.addArrangedSubview(modifierStack)
-        fallbacksStack.addArrangedSubview(modifierDescLabel)
 
         fallbackScrollView.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
-            true
-        modifierDescLabel.widthAnchor.constraint(equalTo: fallbacksStack.widthAnchor).isActive =
             true
 
         let fallbacksSection = SettingsSection(
@@ -177,6 +131,50 @@ class SearchEnginesSettingsViewController: NSViewController {
         )
         stackView.addArrangedSubview(fallbacksSection)
         fallbacksSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
+
+        // --- 1.5 Search Mod Mapper Section ---
+        searchModMapperStack = NSStackView()
+        searchModMapperStack.orientation = .vertical
+        searchModMapperStack.spacing = 0
+        searchModMapperStack.alignment = .leading
+        searchModMapperStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let addMapperBtn = NSButton(
+            title: "Add New Mapping", target: self, action: #selector(addModMapperClicked))
+        addMapperBtn.bezelStyle = .rounded
+        addMapperBtn.translatesAutoresizingMaskIntoConstraints = false
+
+        let modMapperStackWrapper = NSStackView()
+        modMapperStackWrapper.orientation = .vertical
+        modMapperStackWrapper.spacing = 12
+        modMapperStackWrapper.alignment = .leading
+        modMapperStackWrapper.addArrangedSubview(searchModMapperStack)
+        modMapperStackWrapper.addArrangedSubview(addMapperBtn)
+
+        searchModMapperStack.widthAnchor.constraint(equalTo: modMapperStackWrapper.widthAnchor)
+            .isActive = true
+
+        let modMapperDescLabel = NSTextField(
+            labelWithString:
+                "Map a modifier key (Cmd, Opt, Ctrl, Shift) to a specific search. While holding the modifier, only the mapped search will be shown and executed."
+        )
+        modMapperDescLabel.font = .systemFont(ofSize: 11)
+        modMapperDescLabel.textColor = .secondaryLabelColor
+        modMapperDescLabel.lineBreakMode = .byWordWrapping
+        modMapperDescLabel.translatesAutoresizingMaskIntoConstraints = false
+        modMapperDescLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        modMapperStackWrapper.addArrangedSubview(modMapperDescLabel)
+        modMapperDescLabel.widthAnchor.constraint(equalTo: modMapperStackWrapper.widthAnchor)
+            .isActive = true
+
+        let searchModMapperSection = SettingsSection(
+            title: "Search Mod Mapper",
+            contentViews: [modMapperStackWrapper]
+        )
+
+        stackView.addArrangedSubview(searchModMapperSection)
+        searchModMapperSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
         // --- 2. Custom Bangs List ---
@@ -290,21 +288,19 @@ class SearchEnginesSettingsViewController: NSViewController {
             row.widthAnchor.constraint(equalTo: enginesListStack.widthAnchor).isActive = true
         }
 
-        // Update fallback modifier selection
-        let currentMod = ConfigManager.shared.config.fallbackModifier
-        if let idx = fallbackModifierPopUp.menu?.items.firstIndex(where: {
-            ($0.representedObject as? String) == currentMod
-        }) {
-            fallbackModifierPopUp.selectItem(at: idx)
+        // Clear search mod mapper list
+        for subview in searchModMapperStack.arrangedSubviews {
+            subview.removeFromSuperview()
         }
-    }
 
-    @objc private func fallbackModifierChanged(_ sender: NSPopUpButton) {
-        guard let selectedVal = sender.selectedItem?.representedObject as? String else { return }
-        var config = ConfigManager.shared.config
-        config.fallbackModifier = selectedVal
-        ConfigManager.shared.config = config
-        ConfigManager.shared.save()
+        // Rebuild search mod mapper list
+        let mapper = ConfigManager.shared.config.searchModMapper
+        for (mod, actionId) in mapper {
+            let row = createModMapperRow(modifier: mod, actionId: actionId)
+            searchModMapperStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: searchModMapperStack.widthAnchor).isActive = true
+        }
+
     }
 
     @objc private func refreshUI() {
@@ -338,7 +334,7 @@ class SearchEnginesSettingsViewController: NSViewController {
             if !action.supportsArguments || action.id.starts(with: "nerw.web.search.") { continue }
             let shouldInclude: Bool
             switch action.type {
-            case .inlineArg, .args, .arg:
+            case .inlineArg:
                 shouldInclude = true
             default:
                 shouldInclude = false
@@ -592,6 +588,201 @@ class SearchEnginesSettingsViewController: NSViewController {
 
     @objc private func addBangClicked() {
         showEngineSheet(editing: nil)
+    }
+
+    // MARK: - Search Mod Mapper Logic
+
+    private func createModMapperRow(modifier: String, actionId: String) -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 12
+        row.alignment = .centerY
+        row.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.heightAnchor.constraint(equalToConstant: 36).isActive = true
+
+        let modLabelStr: String
+        switch modifier {
+        case "cmd": modLabelStr = "Command (⌘)"
+        case "opt": modLabelStr = "Option (⌥)"
+        case "ctrl": modLabelStr = "Control (⌃)"
+        case "shift": modLabelStr = "Shift (⇧)"
+        default: modLabelStr = modifier
+        }
+
+        let modLabel = NSTextField(labelWithString: modLabelStr)
+        modLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        row.addArrangedSubview(modLabel)
+
+        let arrowLabel = NSTextField(labelWithString: "→")
+        arrowLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        arrowLabel.textColor = .secondaryLabelColor
+        row.addArrangedSubview(arrowLabel)
+
+        // Find Action/Engine details
+        var title = actionId
+        var iconImage: NSImage? = NSImage(
+            systemSymbolName: "puzzlepiece", accessibilityDescription: nil)
+
+        if actionId.starts(with: "engine:") {
+            let engineName = String(actionId.dropFirst("engine:".count))
+            title = engineName
+            if let engine = engines.first(where: { $0.name == engineName }) {
+                let domain =
+                    URL(string: engine.urlTemplate.replacingOccurrences(of: "%@", with: ""))?.host
+                    ?? engine.name
+                if let key = engine.icon {
+                    iconImage =
+                        IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+                }
+                if iconImage == nil {
+                    iconImage =
+                        IconManager.shared.icon(for: domain)
+                        ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+                }
+            }
+        } else if actionId.starts(with: "action:") {
+            let pureId = String(actionId.dropFirst("action:".count))
+            if let action = SearchService.shared.getCandidates().first(where: { $0.id == pureId }) {
+                title = action.title
+                if let actionIcon = action.icon {
+                    switch actionIcon {
+                    case .system(let name):
+                        iconImage = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                    case .image(let img): iconImage = img
+                    case .file(let url): iconImage = NSWorkspace.shared.icon(forFile: url.path)
+                    case .none: break
+                    }
+                }
+            }
+        }
+
+        let iconView = NSImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        iconView.image = iconImage
+        row.addArrangedSubview(iconView)
+
+        let actionLabel = NSTextField(labelWithString: title)
+        actionLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        row.addArrangedSubview(actionLabel)
+
+        row.addArrangedSubview(NSView())  // Spacer
+
+        let deleteBtn = NSButton(
+            image: NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")!,
+            target: self, action: #selector(deleteModMapperRowClicked(_:)))
+        deleteBtn.isBordered = false
+        deleteBtn.bezelStyle = .recessed
+        deleteBtn.controlSize = .small
+        deleteBtn.contentTintColor = .systemRed
+        deleteBtn.identifier = NSUserInterfaceItemIdentifier(modifier)
+        row.addArrangedSubview(deleteBtn)
+
+        let line = NSBox()
+        line.boxType = .separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSStackView()
+        container.orientation = .vertical
+        container.spacing = 0
+        container.addArrangedSubview(row)
+        container.addArrangedSubview(line)
+
+        container.translatesAutoresizingMaskIntoConstraints = false
+        row.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+        line.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+
+        return container
+    }
+
+    @objc private func deleteModMapperRowClicked(_ sender: NSButton) {
+        guard let modifier = sender.identifier?.rawValue else { return }
+        var config = ConfigManager.shared.config
+        config.searchModMapper.removeValue(forKey: modifier)
+        ConfigManager.shared.config = config
+        ConfigManager.shared.save()
+        reloadData()
+    }
+
+    @objc private func addModMapperClicked() {
+        guard let window = self.view.window else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Add Mod Mapper"
+        alert.informativeText = "Map a modifier to a search."
+
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 300, height: 110))
+        stack.orientation = .vertical
+        stack.spacing = 10
+        stack.alignment = .leading
+
+        let modPopUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 25))
+        modPopUp.pullsDown = false
+        let modifiers: [(title: String, val: String)] = [
+            ("Command (⌘)", "cmd"),
+            ("Option (⌥)", "opt"),
+            ("Control (⌃)", "ctrl"),
+            ("Shift (⇧)", "shift"),
+        ]
+        for mod in modifiers {
+            let item = NSMenuItem(title: mod.title, action: nil, keyEquivalent: "")
+            item.representedObject = mod.val
+            modPopUp.menu?.addItem(item)
+        }
+
+        let actionPopUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 25))
+        actionPopUp.pullsDown = false
+
+        var availableOptions: [(title: String, id: String)] = []
+        for engine in engines {
+            if engine.isEnabled {
+                availableOptions.append((title: engine.name, id: "engine:\(engine.name)"))
+            }
+        }
+        let candidates = SearchService.shared.getCandidates()
+        var seenTitles = Set<String>()
+        for action in candidates {
+            if !action.supportsArguments || action.id.starts(with: "nerw.web.search.") { continue }
+            let shouldInclude: Bool
+            switch action.type {
+            case .inlineArg: shouldInclude = true
+            default: shouldInclude = false
+            }
+            if shouldInclude && !seenTitles.contains(action.title) {
+                seenTitles.insert(action.title)
+                availableOptions.append((title: action.title, id: "action:\(action.id)"))
+            }
+        }
+
+        for option in availableOptions {
+            let item = NSMenuItem(title: option.title, action: nil, keyEquivalent: "")
+            item.representedObject = option.id
+            actionPopUp.menu?.addItem(item)
+        }
+
+        stack.addArrangedSubview(NSTextField(labelWithString: "Modifier:"))
+        stack.addArrangedSubview(modPopUp)
+        stack.addArrangedSubview(NSTextField(labelWithString: "Search Action:"))
+        stack.addArrangedSubview(actionPopUp)
+
+        alert.accessoryView = stack
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn,
+                let selectedMod = modPopUp.selectedItem?.representedObject as? String,
+                let selectedActionId = actionPopUp.selectedItem?.representedObject as? String
+            {
+                var config = ConfigManager.shared.config
+                config.searchModMapper[selectedMod] = selectedActionId
+                ConfigManager.shared.config = config
+                ConfigManager.shared.save()
+                self.reloadData()
+            }
+        }
     }
 
     @objc private func toggleEngineClicked(_ sender: NSSwitch) {

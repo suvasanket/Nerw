@@ -125,6 +125,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     private var actions: [NerwAction] = []
     private var cachedFallbacks: [NerwAction] = []
+    private var mappedFallbacks: [String: NerwAction] = [:]
     private var preModifierActions: [NerwAction]? = nil
     private var activeAction: NerwAction?
     private var previousSearchText: String = ""
@@ -453,29 +454,39 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             guard let self = self else { return event }
 
             if case .search = self.inputState {
-                let modConfig = ConfigManager.shared.config.fallbackModifier
-                let isHoldingFallbackMod: Bool
-                switch modConfig {
-                case "cmd": isHoldingFallbackMod = event.modifierFlags.contains(.command)
-                case "opt": isHoldingFallbackMod = event.modifierFlags.contains(.option)
-                case "ctrl": isHoldingFallbackMod = event.modifierFlags.contains(.control)
-                case "shift": isHoldingFallbackMod = event.modifierFlags.contains(.shift)
-                default: isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                let currentFlags = event.modifierFlags
+                var activeMod: String? = nil
+                if currentFlags.contains(.command) && self.mappedFallbacks["cmd"] != nil {
+                    activeMod = "cmd"
+                } else if currentFlags.contains(.option) && self.mappedFallbacks["opt"] != nil {
+                    activeMod = "opt"
+                } else if currentFlags.contains(.control) && self.mappedFallbacks["ctrl"] != nil {
+                    activeMod = "ctrl"
+                } else if currentFlags.contains(.shift) && self.mappedFallbacks["shift"] != nil {
+                    activeMod = "shift"
                 }
 
                 let isInFallbackMode = self.preModifierActions != nil
 
-                if isHoldingFallbackMod && !isInFallbackMode && !self.cachedFallbacks.isEmpty {
-                    // Enter fallback mode
+                if let mod = activeMod, !isInFallbackMode {
+                    // Enter mapped fallback mode
                     self.preModifierActions = self.actions
-                    self.actions = self.cachedFallbacks
+                    self.actions = [self.mappedFallbacks[mod]!]
                     self.selectedIndex = 0
                     self.userHasNavigated = false
                     self.updateActions()
-                } else if !isHoldingFallbackMod && isInFallbackMode {
+                } else if activeMod == nil && isInFallbackMode {
                     // Exit fallback mode
                     self.actions = self.preModifierActions ?? []
                     self.preModifierActions = nil
+                    self.selectedIndex = 0
+                    self.userHasNavigated = false
+                    self.updateActions()
+                } else if let mod = activeMod, isInFallbackMode,
+                    self.actions.first?.id != self.mappedFallbacks[mod]?.id
+                {
+                    // Changed modifier while already in fallback mode
+                    self.actions = [self.mappedFallbacks[mod]!]
                     self.selectedIndex = 0
                     self.userHasNavigated = false
                     self.updateActions()
@@ -497,17 +508,19 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             guard let self = self else { return event }
 
             if case .search = self.inputState, self.preModifierActions != nil {
-                let modConfig = ConfigManager.shared.config.fallbackModifier
-                let isHoldingFallbackMod: Bool
-                switch modConfig {
-                case "cmd": isHoldingFallbackMod = event.modifierFlags.contains(.command)
-                case "opt": isHoldingFallbackMod = event.modifierFlags.contains(.option)
-                case "ctrl": isHoldingFallbackMod = event.modifierFlags.contains(.control)
-                case "shift": isHoldingFallbackMod = event.modifierFlags.contains(.shift)
-                default: isHoldingFallbackMod = event.modifierFlags.contains(.command)
+                let currentFlags = event.modifierFlags
+                var activeMod: String? = nil
+                if currentFlags.contains(.command) && self.mappedFallbacks["cmd"] != nil {
+                    activeMod = "cmd"
+                } else if currentFlags.contains(.option) && self.mappedFallbacks["opt"] != nil {
+                    activeMod = "opt"
+                } else if currentFlags.contains(.control) && self.mappedFallbacks["ctrl"] != nil {
+                    activeMod = "ctrl"
+                } else if currentFlags.contains(.shift) && self.mappedFallbacks["shift"] != nil {
+                    activeMod = "shift"
                 }
 
-                if isHoldingFallbackMod {
+                if activeMod != nil {
                     let chars = event.charactersIgnoringModifiers?.lowercased()
                     let navStyle = ConfigManager.shared.config.navigationStyle
 
@@ -1774,22 +1787,37 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 // Verify text hasn't changed (though Service handles cancellation best effort)
                 if self.inputField.stringValue == query {
                     self.cachedFallbacks = fallbacks
+
+                    var newMappedFallbacks: [String: NerwAction] = [:]
+                    let mapper = ConfigManager.shared.config.searchModMapper
+                    let candidates = SearchService.shared.getCandidates()
+                    for (mod, id) in mapper {
+                        if let action = FallbackSearchService.shared.getFallbackAction(
+                            for: id, query: query, allCandidates: candidates)
+                        {
+                            newMappedFallbacks[mod] = action
+                        }
+                    }
+                    self.mappedFallbacks = newMappedFallbacks
                     self.preModifierActions = nil
 
                     let currentFlags = NSApp.currentEvent?.modifierFlags ?? []
-                    let modConfig = ConfigManager.shared.config.fallbackModifier
-                    let isHoldingFallbackMod: Bool
-                    switch modConfig {
-                    case "cmd": isHoldingFallbackMod = currentFlags.contains(.command)
-                    case "opt": isHoldingFallbackMod = currentFlags.contains(.option)
-                    case "ctrl": isHoldingFallbackMod = currentFlags.contains(.control)
-                    case "shift": isHoldingFallbackMod = currentFlags.contains(.shift)
-                    default: isHoldingFallbackMod = currentFlags.contains(.command)
+                    var activeMod: String? = nil
+                    if currentFlags.contains(.command) && self.mappedFallbacks["cmd"] != nil {
+                        activeMod = "cmd"
+                    } else if currentFlags.contains(.option) && self.mappedFallbacks["opt"] != nil {
+                        activeMod = "opt"
+                    } else if currentFlags.contains(.control) && self.mappedFallbacks["ctrl"] != nil
+                    {
+                        activeMod = "ctrl"
+                    } else if currentFlags.contains(.shift) && self.mappedFallbacks["shift"] != nil
+                    {
+                        activeMod = "shift"
                     }
 
-                    if isHoldingFallbackMod && !fallbacks.isEmpty {
+                    if let mod = activeMod {
                         self.preModifierActions = results
-                        self.actions = fallbacks
+                        self.actions = [self.mappedFallbacks[mod]!]
                     } else {
                         self.actions = results
                     }

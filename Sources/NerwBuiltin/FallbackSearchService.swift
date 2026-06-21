@@ -64,4 +64,23 @@ public class FallbackSearchService {
             })
         )
     }
+
+    public func getFallbackAction(for id: String, query: String, allCandidates: [NerwAction])
+        -> NerwAction?
+    {
+        if id.starts(with: "engine:") {
+            let engineName = String(id.dropFirst("engine:".count))
+            if let engine = SearchEngine.shared.engines.first(where: {
+                $0.name == engineName && $0.isEnabled
+            }) {
+                return WebSearchService.shared.createWebSearchAction(query: query, engine: engine)
+            }
+        } else if id.starts(with: "action:") {
+            let actionID = String(id.dropFirst("action:".count))
+            if let action = allCandidates.first(where: { $0.id == actionID }) {
+                return self.createActionFallback(query: query, action: action)
+            }
+        }
+        return nil
+    }
 }
