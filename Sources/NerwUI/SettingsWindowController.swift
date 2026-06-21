@@ -66,6 +66,22 @@ public class SettingsWindowController: NSWindowController, NSWindowDelegate {
     public func windowWillClose(_ notification: Notification) {
         SearchService.shared.clearCache()
     }
+
+    public func selectTab(named name: String) {
+        guard let tabViewController = contentViewController as? SettingsTabViewController else {
+            return
+        }
+        switch name.lowercased() {
+        case "general": tabViewController.selectedTabViewItemIndex = 0
+        case "appearance": tabViewController.selectedTabViewItemIndex = 1
+        case "features": tabViewController.selectedTabViewItemIndex = 2
+        case "search": tabViewController.selectedTabViewItemIndex = 3
+        case "actions": tabViewController.selectedTabViewItemIndex = 4
+        case "extensions": tabViewController.selectedTabViewItemIndex = 5
+        case "ai": tabViewController.selectedTabViewItemIndex = 6
+        default: break
+        }
+    }
 }
 
 class SettingsTabViewController: NSTabViewController {

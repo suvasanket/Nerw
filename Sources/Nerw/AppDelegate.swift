@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var extensionInstallController: ExtensionInstallWindowController?
     private var clipboardController = ClipboardController()
     private var snippetController = SnippetController()
+    private var conversationWindowController: ConversationWindowController!
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -45,6 +46,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             TextExpansionEngine.shared.start()
         }
 
+        conversationWindowController = ConversationWindowController()
+
+        ConversationManager.shared.showWindowCallback = { [weak self] in
+            self?.popupController.hide(restoreFocus: false)
+            self?.conversationWindowController.show()
+        }
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
             name: Notification.Name("NerwConfigDidUpdate"),
@@ -56,7 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil)
 
         NotificationCenter.default.addObserver(
-            self, selector: #selector(openSettings),
+            self, selector: #selector(handleOpenSettingsNotification(_:)),
             name: Notification.Name("NerwOpenSettings"),
             object: nil)
 
@@ -263,16 +271,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             snippetController.didCancel()
             return
         }
+        if conversationWindowController != nil && conversationWindowController.isVisible {
+            conversationWindowController.hide()
+            return
+        }
         popupController.toggle()
     }
 
     @objc private func openSettings() {
+        showSettingsWindow(tabName: nil)
+    }
+
+    private func showSettingsWindow(tabName: String?) {
         if settingsController == nil {
             settingsController = SettingsWindowController()
+        }
+        if let tab = tabName {
+            settingsController?.selectTab(named: tab)
         }
         settingsController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         settingsController?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func handleOpenSettingsNotification(_ notification: Notification) {
+        let tabName = notification.object as? String
+        showSettingsWindow(tabName: tabName)
+    }
+
+    public func hideConversation() {
+        conversationWindowController.hide()
     }
 
     @objc private func terminateApp() {

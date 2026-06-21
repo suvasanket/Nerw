@@ -50,7 +50,6 @@ let package = Package(
             name: "NerwSearchBackend",
             dependencies: ["NerwUtils"],
             path: "Sources/NerwSearchBackend",
-            exclude: ["Classes/Fuse_LICENSE"]
         ),
         .target(
             name: "NerwUtils",

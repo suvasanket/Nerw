@@ -15,9 +15,13 @@ public class AIService {
     public func generateResponse(prompt: String, images: [Data] = [], isStreaming: Bool = true)
         async throws -> AsyncThrowingStream<String, Error>
     {
+        Logger.shared.info(
+            "AIService: generateResponse called. Prompt length: \(prompt.count), images count: \(images.count), isStreaming: \(isStreaming)"
+        )
         let config = ConfigManager.shared.config.aiConfig
 
         guard config.isEnabled else {
+            Logger.shared.error("AIService: AI integration is currently disabled in settings.")
             throw NSError(
                 domain: "NerwAI", code: 403,
                 userInfo: [
@@ -27,8 +31,12 @@ public class AIService {
 
         let handler: AIModelHandler
         if config.selectedModelType == "foundation" {
+            Logger.shared.info("AIService: Selected FoundationModelHandler")
             handler = FoundationModelHandler()
         } else {
+            Logger.shared.info(
+                "AIService: Selected BYOKModelHandler (API URL: \(config.byokApiUrl), Model: \(config.byokModelName))"
+            )
             handler = BYOKModelHandler()
         }
 

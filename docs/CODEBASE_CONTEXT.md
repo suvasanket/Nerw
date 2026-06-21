@@ -312,3 +312,21 @@ A modular backend AI subsystem orchestrating queries to foundation on-device mod
 ### IPC & Socket Connection
 Clients (e.g. frontends) communicate with Nerw's background server by connecting to `~/.nerw/run/ai.sock` and writing/reading JSON envelopes framed by `\n` characters.
 
+---
+
+## 12. AI Conversation Layout System (`NerwUI/Conversation/`)
+
+A minimal, card-based chat layout utilizing `AIService` directly inside the app, with identical dimensions to the main panel and supporting live streaming.
+
+### Files
+| File | Purpose |
+|---|---|
+| `ConversationManager.swift` | Exposes the builtin search action trigger (`ai`, `chat`, `ask`, `assistant`) in the main aggregation list |
+| `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card using theme's selection color, single-line user query capsule, scrollable text area, floating liquid glass input, and streaming Task management |
+| `ConversationWindowController.swift` | Manages the floating, non-activating `NSPanel` (`ConversationPanel`) overlapping the main panel's exact position |
+
+### Flow & Navigation
+- **Opening**: User selects the "AI Chat" search result. The search panel hides, and the conversation panel is centered directly over the main panel frame.
+- **Timeline Paging**: The vertical stack of bars on the left lets users click on past queries to swap the response card content dynamically.
+- **Subsystem Disabled State**: Renders a custom warning view with a glassy "Configure AI..." button. Clicking this dismisses the panel and posts the settings notification targeting the AI configuration tab.
+

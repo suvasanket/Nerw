@@ -143,6 +143,7 @@ public class SearchService {
             if ConfigManager.shared.config.snippetExpansionEnabled {
                 candidates.append(contentsOf: SnippetManager.builtinActions())
             }
+            candidates.append(contentsOf: ConversationManager.builtinActions())
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts

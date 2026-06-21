@@ -1,4 +1,5 @@
 import Foundation
+import NerwUtils
 
 public class BYOKModelHandler: AIModelHandler {
     public init() {}
@@ -9,6 +10,7 @@ public class BYOKModelHandler: AIModelHandler {
         let aiConfig = ConfigManager.shared.config.aiConfig
 
         guard let url = URL(string: aiConfig.byokApiUrl) else {
+            Logger.shared.error("BYOKModelHandler: Invalid API URL: \(aiConfig.byokApiUrl)")
             throw NSError(
                 domain: "NerwAI", code: 400,
                 userInfo: [
@@ -22,7 +24,11 @@ public class BYOKModelHandler: AIModelHandler {
 
         // Add Bearer Token authorization if key is provided
         if !aiConfig.byokApiKey.isEmpty {
+            let maskedKey = aiConfig.byokApiKey.prefix(4) + "..." + aiConfig.byokApiKey.suffix(4)
+            Logger.shared.info("BYOKModelHandler: Authorization header set (Key: \(maskedKey))")
             request.setValue("Bearer \(aiConfig.byokApiKey)", forHTTPHeaderField: "Authorization")
+        } else {
+            Logger.shared.warning("BYOKModelHandler: No API Key provided in config.")
         }
 
         // Build payload
@@ -62,20 +68,29 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        Logger.shared.info(
+            "BYOKModelHandler: Request payload prepared. Model: \(aiConfig.byokModelName), stream: \(isStreaming)"
+        )
 
         return AsyncThrowingStream<String, Error> {
             (continuation: AsyncThrowingStream<String, Error>.Continuation) in
             let task = Task {
                 do {
+                    Logger.shared.info("BYOKModelHandler: Starting URLSession request to \(url)...")
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
                     guard let httpResponse = response as? HTTPURLResponse else {
+                        Logger.shared.error(
+                            "BYOKModelHandler: Invalid response type from URLSession.")
                         throw NSError(
                             domain: "NerwAI", code: 500,
                             userInfo: [
                                 NSLocalizedDescriptionKey: "Invalid response from API endpoint"
                             ])
                     }
+
+                    Logger.shared.info(
+                        "BYOKModelHandler: HTTP Status Code = \(httpResponse.statusCode)")
 
                     guard httpResponse.statusCode == 200 else {
                         // Attempt to read the error body
@@ -86,14 +101,21 @@ public class BYOKModelHandler: AIModelHandler {
                         let errorMsg =
                             errorBody.isEmpty
                             ? "HTTP error status \(httpResponse.statusCode)" : errorBody
+                        Logger.shared.error("BYOKModelHandler: API Error body: \(errorMsg)")
                         throw NSError(
                             domain: "NerwAI", code: httpResponse.statusCode,
                             userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorMsg)"])
                     }
 
                     if isStreaming {
+                        Logger.shared.info("BYOKModelHandler: Starting stream consumption...")
+                        var chunkCount = 0
                         for try await line in bytes.lines {
-                            if Task.isCancelled { break }
+                            if Task.isCancelled {
+                                Logger.shared.info(
+                                    "BYOKModelHandler: Stream task cancelled by client.")
+                                break
+                            }
 
                             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { continue }
@@ -103,6 +125,8 @@ public class BYOKModelHandler: AIModelHandler {
                                     in: .whitespacesAndNewlines)
 
                                 if dataContent == "[DONE]" {
+                                    Logger.shared.info(
+                                        "BYOKModelHandler: Stream [DONE] marker received.")
                                     break
                                 }
 
@@ -111,23 +135,48 @@ public class BYOKModelHandler: AIModelHandler {
                                     ChatCompletionChunk.self, from: data)
                                 {
                                     if let delta = chunk.choices.first?.delta.content {
+                                        chunkCount += 1
+                                        if chunkCount % 10 == 0 || chunkCount < 5 {
+                                            Logger.shared.info(
+                                                "BYOKModelHandler: Received chunk #\(chunkCount): '\(delta.replacingOccurrences(of: "\n", with: "\\n"))'"
+                                            )
+                                        }
                                         continuation.yield(delta)
                                     }
+                                } else {
+                                    Logger.shared.warning(
+                                        "BYOKModelHandler: Failed to decode stream line: \(trimmed)"
+                                    )
                                 }
+                            } else {
+                                Logger.shared.info(
+                                    "BYOKModelHandler: Non-data stream line received: \(trimmed)")
                             }
                         }
+                        Logger.shared.info(
+                            "BYOKModelHandler: Stream finished successfully. Total chunks: \(chunkCount)"
+                        )
                     } else {
                         var responseBody = Data()
                         for try await byte in bytes {
-                            if Task.isCancelled { break }
+                            if Task.isCancelled {
+                                Logger.shared.info(
+                                    "BYOKModelHandler: Non-stream task cancelled by client.")
+                                break
+                            }
                             responseBody.append(byte)
                         }
 
                         let responseObj = try JSONDecoder().decode(
                             ChatCompletionResponse.self, from: responseBody)
                         if let fullText = responseObj.choices.first?.message.content {
+                            Logger.shared.info(
+                                "BYOKModelHandler: Received full non-stream response length: \(fullText.count)"
+                            )
                             continuation.yield(fullText)
                         } else {
+                            Logger.shared.error(
+                                "BYOKModelHandler: Failed to extract text from API response.")
                             throw NSError(
                                 domain: "NerwAI", code: 500,
                                 userInfo: [
@@ -138,12 +187,15 @@ public class BYOKModelHandler: AIModelHandler {
                     }
                     continuation.finish()
                 } catch {
+                    Logger.shared.error(
+                        "BYOKModelHandler: Caught exception: \(error.localizedDescription)")
                     continuation.finish(throwing: error)
                 }
             }
 
             continuation.onTermination = { termination in
                 if case .cancelled = termination {
+                    Logger.shared.info("BYOKModelHandler: Continuation terminated (cancelled).")
                     task.cancel()
                 }
             }
