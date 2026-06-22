@@ -517,7 +517,15 @@ public class ConversationViewController: NSViewController {
     private let queryContainer = NSView()
     private let queryLabel = NSTextField()
     private let responseScrollView = NSScrollView()
-    private let responseTextView = NSTextView()
+    private let responseTextView: NSTextView = {
+        let storage = NSTextStorage()
+        let layoutManager = RoundedBackgroundLayoutManager()
+        storage.addLayoutManager(layoutManager)
+        let container = NSTextContainer()
+        layoutManager.addTextContainer(container)
+        let tv = NSTextView(frame: .zero, textContainer: container)
+        return tv
+    }()
     private let promptContainer = NSView()
     private let promptTextField = PromptTextField()
     private var warningView: SettingsActionBubbleView?
@@ -679,8 +687,9 @@ public class ConversationViewController: NSViewController {
         responseTextView.isRichText = false
         responseTextView.importsGraphics = false
 
-        responseTextView.textContainer?.lineFragmentPadding = 0
+        responseTextView.textContainer?.lineFragmentPadding = 12
         responseTextView.textContainer?.widthTracksTextView = true
+        responseTextView.textContainerInset = NSSize(width: 0, height: 12)
 
         responseTextView.minSize = NSSize(width: 0, height: 0)
         responseTextView.maxSize = NSSize(
@@ -918,7 +927,7 @@ public class ConversationViewController: NSViewController {
             queryContainer.isHidden = true
             cardView.isHidden = true
             sparkleImageView.isHidden = false
-            responseTextView.string = ""
+            setResponseText("")
             return
         }
 
@@ -947,7 +956,7 @@ public class ConversationViewController: NSViewController {
                 }
             }
         }
-        responseTextView.string = turn.response
+        setResponseText(turn.response)
 
         if let actionType = turn.actionType {
             actionBubbleView.isHidden = false
@@ -970,13 +979,48 @@ public class ConversationViewController: NSViewController {
         {
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
-            var neededHeight = usedRect.height + 32  // top + bottom padding of card (16 each)
+            // Include textContainerInset (top + bottom) in the height so the card is never
+            // smaller than the text view's full frame, preventing the first line from clipping.
+            let insetHeight = responseTextView.textContainerInset.height * 2
+            var neededHeight = usedRect.height + insetHeight + 32  // 32 = card top+bottom padding
             if turn.actionType != nil {
                 neededHeight += 32 /* action bubble height */ + 12 /* spacing */
             }
             let maxCardHeight = GlobalLayout.mainHeight - 160  // Leave space for query, prompt and padding
             cardHeightConstraint?.constant = min(neededHeight, maxCardHeight)
         }
+    }
+
+    private func setResponseText(_ text: String) {
+        if text.isEmpty {
+            responseTextView.textStorage?.setAttributedString(NSAttributedString())
+            return
+        }
+
+        let theme = NerwTheme.current()
+        let textColor: NSColor
+        if let hex = theme.foregroundColorHex, let color = NSColor(hexString: hex) {
+            textColor = color
+        } else {
+            textColor = .labelColor
+        }
+
+        let accentColor: NSColor
+        if let hex = theme.selectionBackgroundColorHex, let color = NSColor(hexString: hex) {
+            accentColor = color
+        } else {
+            accentColor = .controlAccentColor
+        }
+
+        let font = responseTextView.font ?? .systemFont(ofSize: 14)
+
+        let attrString = MarkdownParser.parse(
+            markdown: text,
+            baseFont: font,
+            textColor: textColor,
+            accentColor: accentColor
+        )
+        responseTextView.textStorage?.setAttributedString(attrString)
     }
 
     private func rebuildIndicatorBars() {
@@ -1018,7 +1062,7 @@ public class ConversationViewController: NSViewController {
                     if self.turns[self.activeTurnIndex].response.hasPrefix("Generating") {
                         let text = "Generating" + dots
                         self.turns[self.activeTurnIndex].response = text
-                        self.responseTextView.string = text
+                        self.setResponseText(text)
                         self.updateCard()
                     }
                 }
@@ -1073,7 +1117,7 @@ public class ConversationViewController: NSViewController {
                     self.stopGeneratingAnimation()
                     if self.activeTurnIndex == self.turns.count - 1 {
                         self.turns[self.activeTurnIndex].response = text
-                        self.responseTextView.string = text
+                        self.setResponseText(text)
                         self.updateCard()
                     }
                 }
@@ -1087,7 +1131,7 @@ public class ConversationViewController: NSViewController {
                     } else {
                         self.stopGeneratingAnimation()
                         if self.activeTurnIndex == self.turns.count - 1 && !fullResponse.isEmpty {
-                            self.responseTextView.string = fullResponse
+                            self.setResponseText(fullResponse)
                             self.updateCard()
                         }
                     }
@@ -1164,7 +1208,7 @@ public class ConversationViewController: NSViewController {
                         self.spinner.stopAnimation()
                         self.turns[self.turns.count - 1].response = errMsg
                         if self.activeTurnIndex == self.turns.count - 1 {
-                            self.responseTextView.string = errMsg
+                            self.setResponseText(errMsg)
                             self.updateCard()
                         }
                     }

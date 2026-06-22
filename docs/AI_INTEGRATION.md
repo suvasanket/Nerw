@@ -236,6 +236,8 @@ The visual layout is implemented programmatically using Auto Layout inside [Conv
    - A read-only, selectable text area wrapped inside `NSScrollView`.
    - Initialized with a default non-zero frame size `(100x100)` to ensure proper wrapping and layout computations.
    - Uses the theme's foreground color (`foregroundColorHex` or `.labelColor` fallback) for high-contrast visibility.
+   - Utilizes a custom, real-time Regex-based **Markdown Parser** (`MarkdownParser.swift`) that formats text chunks incrementally as they stream. This preserves literal line breaks, preventing Apple's native `AttributedString` from accidentally stripping block spacing.
+   - Powered by a custom **TextKit Layout Manager** (`RoundedBackgroundLayoutManager`) that dynamically computes and draws unified, properly padded backgrounds with rounded corners behind code blocks, preventing standard AppKit line gaps.
 
 7. **Floating Prompt Input** (`PromptTextField` & Context Menu):
    - A rounded glass container at the bottom holding a custom `NSTextField`.
