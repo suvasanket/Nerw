@@ -1,6 +1,19 @@
 import Cocoa
 import Foundation
 
+public let NerwNodeKey = NSAttributedString.Key("NerwNode")
+
+public enum NerwNodeType: String {
+    case bold
+    case codeBlock
+    case link
+}
+
+public struct NerwMarkdownNode {
+    public let type: NerwNodeType
+    public let content: String
+}
+
 public struct MarkdownParser {
 
     public static func parse(
@@ -67,6 +80,7 @@ public struct MarkdownParser {
                 attributes: [
                     .font: codeFont,
                     NerwCodeBlockBackgroundKey: textColor.withAlphaComponent(0.08),
+                    NerwNodeKey: NerwMarkdownNode(type: .codeBlock, content: trimmedBody),
                     .foregroundColor: accentColor,
                     .paragraphStyle: paragraphStyle,
                 ])
@@ -121,8 +135,12 @@ public struct MarkdownParser {
             let currentFont =
                 content.attribute(.font, at: 0, effectiveRange: nil) as? NSFont ?? baseFont
             let boldFont = NSFontManager.shared.convert(currentFont, toHaveTrait: .boldFontMask)
+            let rawText = content.string
             content.addAttribute(
                 .font, value: boldFont, range: NSRange(location: 0, length: content.length))
+            content.addAttribute(
+                NerwNodeKey, value: NerwMarkdownNode(type: .bold, content: rawText),
+                range: NSRange(location: 0, length: content.length))
             str.replaceCharacters(in: match.range, with: content)
         }
 
@@ -220,6 +238,7 @@ public struct MarkdownParser {
                         .font: baseFont,
                         .foregroundColor: accentColor,
                         .link: url,
+                        NerwNodeKey: NerwMarkdownNode(type: .link, content: urlString),
                         .underlineStyle: NSUnderlineStyle.single.rawValue,
                         .paragraphStyle: paragraphStyle,
                     ])

@@ -217,6 +217,11 @@ class PromptTextField: NSTextField {
     var onMoveDown: (() -> Void)?
     var onToggleContextPanel: (() -> Void)?
 
+    var onTab: (() -> Void)?
+    var onShiftTab: (() -> Void)?
+    var onExecuteNode: (() -> Bool)?
+    var onCancelSelection: (() -> Bool)?
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setup()
@@ -249,11 +254,25 @@ class PromptTextField: NSTextField {
             onClearChat?()
             return true
         }
+        if keyCode == 48 {  // Tab
+            if event.modifierFlags.contains(.shift) {
+                onShiftTab?()
+            } else {
+                onTab?()
+            }
+            return true
+        }
         if keyCode == 36 || keyCode == 76 {  // Enter/Return
+            if let onExecuteNode = onExecuteNode, onExecuteNode() {
+                return true
+            }
             onSubmit?()
             return true
         }
         if keyCode == 53 {  // Esc
+            if let onCancelSelection = onCancelSelection, onCancelSelection() {
+                return true
+            }
             onCancel?()
             return true
         }
@@ -530,6 +549,10 @@ public class ConversationViewController: NSViewController {
     private let promptTextField = PromptTextField()
     private var warningView: SettingsActionBubbleView?
 
+    private let nodeSelectionPill = NSView()
+    private var markdownNodes: [(range: NSRange, node: NerwMarkdownNode)] = []
+    private var selectedNodeIndex: Int? = nil
+
     private lazy var expandArrowButton: HoverIconButton = {
         let btn = HoverIconButton(
             imageName: "chevron.down", isCircular: true, target: self,
@@ -637,6 +660,12 @@ public class ConversationViewController: NSViewController {
         promptTextField.onToggleContextPanel = { [weak self] in
             self?.toggleActionContext()
         }
+        promptTextField.onTab = { [weak self] in self?.handleTab(shift: false) }
+        promptTextField.onShiftTab = { [weak self] in self?.handleTab(shift: true) }
+        promptTextField.onExecuteNode = { [weak self] in self?.handleExecuteNode() ?? false }
+        promptTextField.onCancelSelection = { [weak self] in self?.handleCancelSelection() ?? false
+        }
+        promptTextField.delegate = self
         promptTextField.translatesAutoresizingMaskIntoConstraints = false
         promptContainer.addSubview(promptTextField)
 
@@ -704,6 +733,11 @@ public class ConversationViewController: NSViewController {
 
         // Ensure no horizontal scroll
         responseScrollView.documentView = responseTextView
+
+        nodeSelectionPill.wantsLayer = true
+        nodeSelectionPill.layer?.cornerRadius = 6
+        nodeSelectionPill.isHidden = true
+        responseTextView.addSubview(nodeSelectionPill)
 
         // Add action bubble view
         actionBubbleView.translatesAutoresizingMaskIntoConstraints = false
@@ -850,6 +884,8 @@ public class ConversationViewController: NSViewController {
 
         actionBubbleView.updateColors()
 
+        nodeSelectionPill.layer?.backgroundColor = selectionColor.withAlphaComponent(0.25).cgColor
+
         Logger.shared.info(
             "ConversationViewController: updateColors applied. SelectionColor: \(selectionColor), TextColor: \(textColor)"
         )
@@ -992,6 +1028,9 @@ public class ConversationViewController: NSViewController {
     }
 
     private func setResponseText(_ text: String) {
+        selectedNodeIndex = nil
+        updateNodeSelectionPill()
+
         if text.isEmpty {
             responseTextView.textStorage?.setAttributedString(NSAttributedString())
             return
@@ -1020,7 +1059,119 @@ public class ConversationViewController: NSViewController {
             textColor: textColor,
             accentColor: accentColor
         )
-        responseTextView.textStorage?.setAttributedString(attrString)
+        let mutableString = NSMutableAttributedString(attributedString: attrString)
+        mutableString.removeAttribute(
+            .link, range: NSRange(location: 0, length: mutableString.length))  // Remove native link clickability to allow our keyboard handling to take precedence or just rely on pill
+        responseTextView.textStorage?.setAttributedString(mutableString)
+    }
+
+    private func updateMarkdownNodes() {
+        guard let textStorage = responseTextView.textStorage else { return }
+        markdownNodes.removeAll()
+        textStorage.enumerateAttribute(
+            NerwNodeKey, in: NSRange(location: 0, length: textStorage.length), options: []
+        ) { value, range, _ in
+            if let node = value as? NerwMarkdownNode {
+                markdownNodes.append((range: range, node: node))
+            }
+        }
+    }
+
+    private func handleTab(shift: Bool) {
+        updateMarkdownNodes()
+        guard !markdownNodes.isEmpty else { return }
+
+        if let current = selectedNodeIndex {
+            if shift {
+                selectedNodeIndex = (current - 1 + markdownNodes.count) % markdownNodes.count
+            } else {
+                selectedNodeIndex = (current + 1) % markdownNodes.count
+            }
+        } else {
+            selectedNodeIndex = shift ? markdownNodes.count - 1 : 0
+        }
+        updateNodeSelectionPill()
+    }
+
+    private func handleExecuteNode() -> Bool {
+        guard let index = selectedNodeIndex, index < markdownNodes.count else { return false }
+        let node = markdownNodes[index].node
+        executeNode(node)
+        return true
+    }
+
+    private func handleCancelSelection() -> Bool {
+        guard selectedNodeIndex != nil else { return false }
+        selectedNodeIndex = nil
+        updateNodeSelectionPill()
+        return true
+    }
+
+    private func updateNodeSelectionPill() {
+        guard let index = selectedNodeIndex, index < markdownNodes.count,
+            let layoutManager = responseTextView.layoutManager,
+            let textContainer = responseTextView.textContainer
+        else {
+            nodeSelectionPill.isHidden = true
+            return
+        }
+
+        let range = markdownNodes[index].range
+        let glyphRange = layoutManager.glyphRange(
+            forCharacterRange: range, actualCharacterRange: nil)
+        var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+
+        rect.origin.x -= 4
+        rect.origin.y -= 2
+        rect.size.width += 8
+        rect.size.height += 4
+        rect.origin.x += responseTextView.textContainerOrigin.x
+        rect.origin.y += responseTextView.textContainerOrigin.y
+
+        if nodeSelectionPill.isHidden {
+            nodeSelectionPill.frame = rect
+            nodeSelectionPill.isHidden = false
+            nodeSelectionPill.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                nodeSelectionPill.animator().alphaValue = 1
+            }
+        } else {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                nodeSelectionPill.animator().frame = rect
+            }
+        }
+        responseTextView.scrollToVisible(rect)
+    }
+
+    private func executeNode(_ node: NerwMarkdownNode) {
+        switch node.type {
+        case .link:
+            if let url = URL(string: node.content) {
+                NSWorkspace.shared.open(url)
+                dismissController()
+            }
+        case .bold, .codeBlock:
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(node.content, forType: .string)
+
+            dismissController()
+            NSApp.hide(nil)
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                let source = CGEventSource(stateID: .hidSystemState)
+                let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
+                vDown?.flags = .maskCommand
+                let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+                vUp?.flags = .maskCommand
+
+                vDown?.post(tap: .cghidEventTap)
+                vUp?.post(tap: .cghidEventTap)
+            }
+        }
     }
 
     private func rebuildIndicatorBars() {
@@ -1462,5 +1613,22 @@ extension ConversationViewController: ActionContextViewControllerDelegate {
     ) {}
     func actionContextDidRequestClose(_ controller: ActionContextViewController) {
         dismissActionContext()
+    }
+}
+
+// MARK: - NSTextFieldDelegate
+extension ConversationViewController: NSTextFieldDelegate {
+    public func control(
+        _ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector
+    ) -> Bool {
+        if commandSelector == #selector(insertTab(_:)) {
+            handleTab(shift: false)
+            return true
+        }
+        if commandSelector == #selector(insertBacktab(_:)) {
+            handleTab(shift: true)
+            return true
+        }
+        return false
     }
 }
