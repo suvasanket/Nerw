@@ -447,6 +447,7 @@ public class ConversationViewController: NSViewController {
     private let indicatorContainer = NSStackView()
     private let cardView = NSView()
     private let queryContainer = NSView()
+    private let queryPlaceholder = NSView()
     private let queryLabel = NSTextField()
     private let responseScrollView = NSScrollView()
     private let responseTextView: NSTextView = {
@@ -591,6 +592,9 @@ public class ConversationViewController: NSViewController {
         contentView.addSubview(cardView)
 
         // 7. User Query label outside the card above
+        queryPlaceholder.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(queryPlaceholder)
+
         queryContainer.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(queryContainer)
 
@@ -605,7 +609,10 @@ public class ConversationViewController: NSViewController {
         queryLabel.alignment = .right
         queryLabel.maximumNumberOfLines = 1
         queryLabel.cell?.lineBreakMode = .byTruncatingTail
+        queryLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         queryLabel.translatesAutoresizingMaskIntoConstraints = false
+        queryContainer.wantsLayer = true
+        queryContainer.layer?.cornerRadius = 8
         queryContainer.addSubview(queryLabel)
 
         // Response text scroll view inside card
@@ -707,22 +714,29 @@ public class ConversationViewController: NSViewController {
             cardView.trailingAnchor.constraint(
                 equalTo: contentView.trailingAnchor, constant: -contentPadding),
             cardView.bottomAnchor.constraint(
-                lessThanOrEqualTo: queryContainer.topAnchor, constant: -12),
+                lessThanOrEqualTo: queryPlaceholder.topAnchor, constant: -12),
 
-            // User Query (Just above prompt, start from middle)
-            queryContainer.bottomAnchor.constraint(
+            // User Query Placeholder (Fixed height to prevent pushing cardView up)
+            queryPlaceholder.bottomAnchor.constraint(
                 equalTo: promptContainer.topAnchor, constant: -12),
-            queryContainer.trailingAnchor.constraint(equalTo: promptContainer.trailingAnchor),
-            queryContainer.leadingAnchor.constraint(equalTo: promptContainer.centerXAnchor),
+            queryPlaceholder.trailingAnchor.constraint(equalTo: promptContainer.trailingAnchor),
+            queryPlaceholder.leadingAnchor.constraint(equalTo: promptContainer.centerXAnchor),
+            queryPlaceholder.heightAnchor.constraint(equalToConstant: 24),
 
-            queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor),
+            // User Query Container (Overlay, grows upwards over cardView)
+            queryContainer.bottomAnchor.constraint(equalTo: queryPlaceholder.bottomAnchor),
+            queryContainer.trailingAnchor.constraint(equalTo: queryPlaceholder.trailingAnchor),
+            queryContainer.leadingAnchor.constraint(equalTo: queryPlaceholder.leadingAnchor),
+
+            queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor, constant: 8),
             queryLabel.trailingAnchor.constraint(
                 equalTo: expandArrowButton.leadingAnchor, constant: -4),
-            queryLabel.topAnchor.constraint(equalTo: queryContainer.topAnchor),
-            queryLabel.bottomAnchor.constraint(equalTo: queryContainer.bottomAnchor),
+            queryLabel.topAnchor.constraint(equalTo: queryContainer.topAnchor, constant: 4),
+            queryLabel.bottomAnchor.constraint(equalTo: queryContainer.bottomAnchor, constant: -4),
 
-            expandArrowButton.trailingAnchor.constraint(equalTo: queryContainer.trailingAnchor),
-            expandArrowButton.topAnchor.constraint(equalTo: queryContainer.topAnchor, constant: 0),
+            expandArrowButton.trailingAnchor.constraint(
+                equalTo: queryContainer.trailingAnchor, constant: -4),
+            expandArrowButton.topAnchor.constraint(equalTo: queryContainer.topAnchor, constant: 4),
             expandArrowButton.widthAnchor.constraint(equalToConstant: 16),
             expandArrowButton.heightAnchor.constraint(equalToConstant: 16),
 
@@ -818,6 +832,18 @@ public class ConversationViewController: NSViewController {
         expandArrowButton.image = NSImage(
             systemSymbolName: imageName, accessibilityDescription: nil)
 
+        if isQueryExpanded {
+            let theme = NerwTheme.current()
+            let bgColor =
+                theme.tintColorHex.flatMap { NSColor(hexString: $0) } ?? .windowBackgroundColor
+            queryContainer.layer?.backgroundColor = bgColor.withAlphaComponent(0.95).cgColor
+            queryContainer.layer?.borderWidth = 1.0
+            queryContainer.layer?.borderColor = NSColor.separatorColor.cgColor
+        } else {
+            queryContainer.layer?.backgroundColor = NSColor.clear.cgColor
+            queryContainer.layer?.borderWidth = 0.0
+        }
+
         queryLabel.superview?.needsLayout = true
     }
 
@@ -867,8 +893,10 @@ public class ConversationViewController: NSViewController {
 
         if turn.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             queryContainer.isHidden = true
+            queryPlaceholder.isHidden = true
         } else {
             queryContainer.isHidden = false
+            queryPlaceholder.isHidden = false
             queryLabel.stringValue = turn.query
 
             let font = queryLabel.font ?? .systemFont(ofSize: 13, weight: .bold)
