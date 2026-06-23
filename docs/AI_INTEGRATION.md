@@ -296,7 +296,7 @@ The Precise Context Injection (PCI) subsystem dynamically injects relevant local
 ### Intent Classification
 Before calling the backend model handler, the user's latest query is passed through the `ContextIntentClassifier`.
 - It uses Apple's `NaturalLanguage` framework (`NLTagger`) alongside keyword heuristics to determine the required `ContextIntent`.
-- Supported intents include: `.clipboard`, `.activeApp`, `.calendar`, `.reminder`, and `.system`.
+- Supported intents include: `.clipboard`, `.activeAppAndScreen`, `.calendar`, `.reminder`, and `.system`.
 - **TimeFrame Detection**: For intents like Calendar and Reminders, the classifier extracts timeframes (e.g., "today", "this week", "this month") directly from the query to narrow down the context window.
 
 ### Context Fetching Pipeline
@@ -305,6 +305,7 @@ The `ContextInjectionManager` orchestrates fetching data across different source
 - **ClipboardContextFetcher**: Injects the last 3 entries from the `ClipboardManager`.
 - **CalendarContextFetcher**: Integrates with `EventKit` to fetch upcoming events filtered by the detected timeframe.
 - **ReminderContextFetcher**: Integrates with `EventKit` to fetch incomplete tasks.
-- **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome, Arc, etc.) or the name of the foreground application. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters.
+- **ScreenCaptureManager**: A background singleton that asynchronously grabs a screenshot of the main display (`CGWindowListCreateImage`) at the exact moment Nerw is invoked via its global hotkey. This prevents any UI lag and guarantees the screenshot does not capture Nerw's own UI.
+- **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome, Arc, etc.) or the name of the foreground application. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters. It also fetches the image data from `ScreenCaptureManager.shared.latestCapture` to feed visual context alongside the text.
 
 The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.

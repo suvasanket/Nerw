@@ -23,6 +23,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         popupController = MainPanelWindowController()
 
+        ScreenCaptureManager.shared.captureAsync()
+
         setupStatusItem()
 
         registerGlobalHotkey()
@@ -108,6 +110,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ExtensionEngine.shared.terminateAllLongRunning()
         Logger.shared.info("AppDelegate: applicationWillTerminate")
         Logger.shared.flush()
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        ScreenCaptureManager.shared.clear()
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
@@ -328,6 +334,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             identifier: "nerw.global.toggle", keyCode: keyCode, modifiers: modifiers
         ) { [weak self] in
             DispatchQueue.main.async {
+                if self?.popupController.isVisible == false {
+                    ScreenCaptureManager.shared.captureAsync()
+                }
                 self?.popupController.toggle()
             }
         }

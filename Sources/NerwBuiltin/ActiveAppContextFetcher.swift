@@ -11,17 +11,21 @@ public class ActiveAppContextFetcher: ContextFetching {
     public init() {}
 
     public func canHandle(intent: ContextIntent) -> Bool {
-        if case .activeApp = intent { return true }
+        if case .activeAppAndScreen = intent { return true }
         return false
     }
 
-    public func fetchContext(for intent: ContextIntent) async -> String? {
-        guard case .activeApp = intent else { return nil }
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard case .activeAppAndScreen = intent else { return nil }
+
+        let screenData = ScreenCaptureManager.shared.latestCapture
+        let images = screenData.map { [$0] } ?? []
 
         guard let frontApp = System.shared.lastActiveApp ?? NSWorkspace.shared.frontmostApplication,
             let appName = frontApp.localizedName
         else {
-            return "[Active Context]\nCannot determine active application."
+            return FetchedContext(
+                text: "[Active Context]\nCannot determine active application.", images: images)
         }
 
         // Check if the frontmost app is a known browser
@@ -47,11 +51,12 @@ public class ActiveAppContextFetcher: ContextFetching {
                 contextStr += "\n\n(Could not fetch website content natively)"
             }
 
-            return contextStr
+            return FetchedContext(text: contextStr, images: images)
         }
 
         // Fallback for non-browser apps
-        return "[Active Application Context]\nApplication Name: \(appName)"
+        return FetchedContext(
+            text: "[Active Application Context]\nApplication Name: \(appName)", images: images)
     }
 
     private func fetchHTML(from urlString: String) async -> String? {
@@ -106,4 +111,5 @@ public class ActiveAppContextFetcher: ContextFetching {
 
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
 }

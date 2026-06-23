@@ -43,18 +43,20 @@ public class AIService {
         }
 
         var updatedMessages = messages
+        var allImages = images
         if let lastUserMsg = messages.last(where: { $0.role == .user }) {
             let intents = ContextIntentClassifier.shared.classify(lastUserMsg.content)
-            let contextStr = await ContextInjectionManager.shared.fetchAllContext(for: intents)
-            if !contextStr.isEmpty {
-                let ctxMessage = AIChatMessage(role: .system, content: contextStr)
+            let injectedCtx = await ContextInjectionManager.shared.fetchAllContext(for: intents)
+            if !injectedCtx.text.isEmpty {
+                let ctxMessage = AIChatMessage(role: .system, content: injectedCtx.text)
                 // Insert right before the last user message
                 updatedMessages.insert(ctxMessage, at: updatedMessages.count - 1)
             }
+            allImages.append(contentsOf: injectedCtx.images)
         }
 
         return try await handler.generateResponse(
-            messages: updatedMessages, images: images, isStreaming: isStreaming)
+            messages: updatedMessages, images: allImages, isStreaming: isStreaming)
     }
 
     /// Checks if the Foundation (Apple Intelligence) language model is available at runtime.

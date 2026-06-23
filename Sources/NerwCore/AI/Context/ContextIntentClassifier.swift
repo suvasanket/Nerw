@@ -12,7 +12,7 @@ public enum ContextIntent: Hashable {
     case calendar(TimeFrame: ContextTimeFrame)
     case reminder(TimeFrame: ContextTimeFrame)
     case clipboard
-    case activeApp
+    case activeAppAndScreen
     case system
 }
 
@@ -37,13 +37,15 @@ public class ContextIntentClassifier {
             intents.insert(.clipboard)
         }
 
-        // Active App / Screen / Website
+        // Active App / Screen / Website / Visual
         let activeAppKeywords = [
             "this page", "current screen", "current app", "frontmost app", "this site",
-            "this website", "this article",
+            "this website", "this article", "look", "screen", "see", "what is this",
+            "this thing", "visual", "image", "sum up the total usage", "this chart",
+            "this graph", "screenshot",
         ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
-            intents.insert(.activeApp)
+            intents.insert(.activeAppAndScreen)
         }
 
         // Calendar

@@ -12,7 +12,7 @@ public class ClipboardContextFetcher: ContextFetching {
         return false
     }
 
-    public func fetchContext(for intent: ContextIntent) async -> String? {
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
         let entries = ClipboardManager.shared.entries.prefix(3)
         guard !entries.isEmpty else { return nil }
 
@@ -24,7 +24,7 @@ public class ClipboardContextFetcher: ContextFetching {
             }
         }
 
-        return contextStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
 
@@ -39,7 +39,7 @@ public class CalendarContextFetcher: ContextFetching {
         return false
     }
 
-    public func fetchContext(for intent: ContextIntent) async -> String? {
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
         guard case .calendar(let timeFrame) = intent else { return nil }
 
         // Ensure we have access
@@ -52,7 +52,8 @@ public class CalendarContextFetcher: ContextFetching {
         }
 
         guard isAuthorized else {
-            return "[Calendar Context]\nCannot access calendar. Access denied or not requested."
+            return FetchedContext(
+                text: "[Calendar Context]\nCannot access calendar. Access denied or not requested.")
         }
 
         let now = Date()
@@ -73,8 +74,10 @@ public class CalendarContextFetcher: ContextFetching {
         let events = eventStore.events(matching: predicate).sorted { $0.startDate < $1.startDate }
 
         guard !events.isEmpty else {
-            return
-                "[Calendar Context]\nNo upcoming events in the requested timeframe (\(timeFrame.rawValue))."
+            return FetchedContext(
+                text:
+                    "[Calendar Context]\nNo upcoming events in the requested timeframe (\(timeFrame.rawValue))."
+            )
         }
 
         let formatter = DateFormatter()
@@ -88,7 +91,7 @@ public class CalendarContextFetcher: ContextFetching {
             contextStr += "- \(event.title ?? "Untitled") (\(start) to \(end))\n"
         }
 
-        return contextStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
 
@@ -103,7 +106,7 @@ public class ReminderContextFetcher: ContextFetching {
         return false
     }
 
-    public func fetchContext(for intent: ContextIntent) async -> String? {
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
         guard case .reminder(_) = intent else { return nil }
 
         let status = EKEventStore.authorizationStatus(for: .reminder)
@@ -115,7 +118,9 @@ public class ReminderContextFetcher: ContextFetching {
         }
 
         guard isAuthorized else {
-            return "[Reminders Context]\nCannot access reminders. Access denied or not requested."
+            return FetchedContext(
+                text:
+                    "[Reminders Context]\nCannot access reminders. Access denied or not requested.")
         }
 
         let predicate = eventStore.predicateForIncompleteReminders(
@@ -124,7 +129,9 @@ public class ReminderContextFetcher: ContextFetching {
         return await withCheckedContinuation { continuation in
             eventStore.fetchReminders(matching: predicate) { reminders in
                 guard let reminders = reminders, !reminders.isEmpty else {
-                    continuation.resume(returning: "[Reminders Context]\nNo incomplete reminders.")
+                    continuation.resume(
+                        returning: FetchedContext(
+                            text: "[Reminders Context]\nNo incomplete reminders."))
                     return
                 }
 
@@ -143,7 +150,8 @@ public class ReminderContextFetcher: ContextFetching {
                     contextStr += "- \(title) \(priority) \(due)\n"
                 }
                 continuation.resume(
-                    returning: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
+                    returning: FetchedContext(
+                        text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines)))
             }
         }
     }

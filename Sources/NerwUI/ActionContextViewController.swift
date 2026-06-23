@@ -629,6 +629,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         editorHintLabel.textColor = .secondaryLabelColor
         editorHintLabel.lineBreakMode = .byWordWrapping
         editorHintLabel.maximumNumberOfLines = 0
+        editorHintLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         editorStack.addArrangedSubview(editorHintLabel)
 
         editorInputHost.wantsLayer = true
