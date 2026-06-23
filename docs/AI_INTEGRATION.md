@@ -254,6 +254,12 @@ The visual layout is implemented programmatically using Auto Layout inside [Conv
    - If the AI assistant is disabled in settings, the prompt and scroll fields are hidden.
    - Renders a warning panel displaying a glassmorphic **"Configure AI..."** button. Clicking this dismisses the chat view and deep-links to **Settings > AI** via notification observers.
 
+10. **Interactive Markdown Nodes & Keyboard Navigation**:
+    - The custom Markdown Parser attaches metadata (`NerwNodeKey`) to interactive elements like bold text, inline code, code blocks, and links, treating them as selectable "Nodes".
+    - Users can navigate sequentially between these Nodes using `Tab` and `Shift+Tab` directly from the prompt input field (intercepted via `NSTextFieldDelegate`).
+    - The currently active Node is highlighted with a floating, liquid glass "pill" (`nodeSelectionPill`) that smoothly slides over the text without disrupting layout spacing.
+    - Pressing `Enter` executes the active Node: Links are opened in the default browser, while codeblocks and bold text are copied to the clipboard, the Nerw app yields focus (`NSApp.hide()`), and a `Cmd+V` paste event is simulated to paste the text directly into the user's previous foreground application. Pressing `Esc` cancels the active selection.
+
 ---
 
 ## 7. Middle-End Parser & Action Hooks
@@ -280,3 +286,24 @@ The `AIStreamParser` consumes token chunks as they arrive from the backend and m
 - **Action Hook**: Detects `<action>...</action>` tags containing JSON payloads. It buffers the JSON text internally, parses it upon the closing tag, and fires `onActionDetected(type, payload)`.
 - **Native Execution**: Detected actions are routed to `AIActionManager.swift`, which natively integrates with macOS APIs. Currently supported capabilities include setting system notifications for **timers** (via `UNUserNotificationCenter`), creating Apple **Reminders**, and scheduling **Calendar** events (via `EventKit`).
 - **Text Safety**: When a partial tag (like `<thi`) is buffering, it gracefully halts text output until the tag either completes or resolves to raw text, preventing UI flickering.
+
+---
+
+## 8. Precise Context Injection (PCI)
+
+The Precise Context Injection (PCI) subsystem dynamically injects relevant local context into the AI model's system prompt right before a query is executed. This prevents token waste and maintains privacy by only passing data that the user's prompt explicitly or implicitly asks for.
+
+### Intent Classification
+Before calling the backend model handler, the user's latest query is passed through the `ContextIntentClassifier`.
+- It uses Apple's `NaturalLanguage` framework (`NLTagger`) alongside keyword heuristics to determine the required `ContextIntent`.
+- Supported intents include: `.clipboard`, `.activeApp`, `.calendar`, `.reminder`, and `.system`.
+- **TimeFrame Detection**: For intents like Calendar and Reminders, the classifier extracts timeframes (e.g., "today", "this week", "this month") directly from the query to narrow down the context window.
+
+### Context Fetching Pipeline
+The `ContextInjectionManager` orchestrates fetching data across different sources based on the identified intents:
+- **SystemContextFetcher**: Always runs. Injects current date, time, and OS version.
+- **ClipboardContextFetcher**: Injects the last 3 entries from the `ClipboardManager`.
+- **CalendarContextFetcher**: Integrates with `EventKit` to fetch upcoming events filtered by the detected timeframe.
+- **ReminderContextFetcher**: Integrates with `EventKit` to fetch incomplete tasks.
+
+The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.

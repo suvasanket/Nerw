@@ -82,6 +82,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AISocketServer.shared.start()
         }
 
+        // Register AI Context Fetchers
+        ContextInjectionManager.shared.register(ClipboardContextFetcher())
+        ContextInjectionManager.shared.register(CalendarContextFetcher())
+        ContextInjectionManager.shared.register(ReminderContextFetcher())
+
         // Listen for daemon approval requests from installer
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleDaemonApprovalRequired(_:)),
