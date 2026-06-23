@@ -305,5 +305,6 @@ The `ContextInjectionManager` orchestrates fetching data across different source
 - **ClipboardContextFetcher**: Injects the last 3 entries from the `ClipboardManager`.
 - **CalendarContextFetcher**: Integrates with `EventKit` to fetch upcoming events filtered by the detected timeframe.
 - **ReminderContextFetcher**: Integrates with `EventKit` to fetch incomplete tasks.
+- **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome, Arc, etc.) or the name of the foreground application. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters.
 
 The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.

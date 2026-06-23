@@ -37,8 +37,11 @@ public class ContextIntentClassifier {
             intents.insert(.clipboard)
         }
 
-        // Active App / Screen
-        let activeAppKeywords = ["this page", "current screen", "current app", "frontmost app"]
+        // Active App / Screen / Website
+        let activeAppKeywords = [
+            "this page", "current screen", "current app", "frontmost app", "this site",
+            "this website", "this article",
+        ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
             intents.insert(.activeApp)
         }

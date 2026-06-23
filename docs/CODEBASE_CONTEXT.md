@@ -313,6 +313,9 @@ A modular backend AI subsystem orchestrating queries to foundation on-device mod
 ### IPC & Socket Connection
 Clients (e.g. frontends) communicate with Nerw's background server by connecting to `~/.nerw/run/ai.sock` and writing/reading JSON envelopes framed by `\n` characters.
 
+### Precise Context Injection (PCI)
+The AI backend automatically detects intents (e.g., active website, clipboard, calendar, reminders) from the user's prompt using `ContextIntentClassifier` and dynamically injects the relevant local data using `ContextInjectionManager` before querying the model.
+
 ---
 
 ## 12. AI Conversation Layout System (`NerwUI/Conversation/`)

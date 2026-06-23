@@ -40,6 +40,8 @@
 	<string>Nerw requires access to your Documents folder to search and display files stored there.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Nerw requires access to your Desktop folder to search and display files stored there.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Nerw needs permission to control your web browser to fetch the active website's URL for AI context.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

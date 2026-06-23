@@ -83,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Register AI Context Fetchers
+        ContextInjectionManager.shared.register(ActiveAppContextFetcher())
         ContextInjectionManager.shared.register(ClipboardContextFetcher())
         ContextInjectionManager.shared.register(CalendarContextFetcher())
         ContextInjectionManager.shared.register(ReminderContextFetcher())
