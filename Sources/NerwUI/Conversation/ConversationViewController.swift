@@ -434,93 +434,6 @@ class SettingsActionBubbleView: NSView {
     }
 }
 
-// MARK: - AIActionBubbleView
-class AIActionBubbleView: NSView {
-    private let iconView = NSImageView()
-    private let label = NSTextField()
-
-    init() {
-        super.init(frame: .zero)
-        setupViews()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupViews() {
-        wantsLayer = true
-        layer?.cornerRadius = 10
-
-        iconView.image = NSImage(
-            systemSymbolName: "wand.and.sparkles", accessibilityDescription: "Action")
-        iconView.image?.isTemplate = true
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(iconView)
-
-        label.isEditable = false
-        label.isBordered = false
-        label.drawsBackground = false
-        label.backgroundColor = .clear
-        label.font = .systemFont(ofSize: 13, weight: .medium)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(label)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 16),
-            iconView.heightAnchor.constraint(equalToConstant: 16),
-
-            label.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-    }
-
-    func update(actionType: String) {
-        let displayName: String
-        switch actionType.lowercased() {
-        case "timer":
-            displayName = "Timer"
-        case "reminder":
-            displayName = "Reminder"
-        case "calendar":
-            displayName = "Calendar"
-        case "memory":
-            displayName = "Memory"
-        default:
-            displayName = actionType.capitalized
-        }
-        label.stringValue = "Performed Action: \(displayName)"
-        updateColors()
-    }
-
-    func updateColors() {
-        let theme = NerwTheme.current()
-        let accentColor: NSColor
-        if let hex = theme.selectionBackgroundColorHex, let color = NSColor(hexString: hex) {
-            accentColor = color
-        } else {
-            accentColor = .controlAccentColor
-        }
-
-        layer?.backgroundColor = accentColor.withAlphaComponent(0.12).cgColor
-        layer?.borderColor = accentColor.withAlphaComponent(0.3).cgColor
-        layer?.borderWidth = 1.0
-
-        iconView.contentTintColor = accentColor
-
-        let textColor: NSColor
-        if let hex = theme.foregroundColorHex, let color = NSColor(hexString: hex) {
-            textColor = color
-        } else {
-            textColor = .labelColor
-        }
-        label.textColor = textColor
-    }
-}
-
 // MARK: - ChatTurn Model
 struct ChatTurn {
     let query: String
@@ -567,11 +480,8 @@ public class ConversationViewController: NSViewController {
     private let sparkleImageView = NSImageView()
     private let spinner = RippleAnimationView()
     private let floatingContextButton = ContextHoverButton()
-    private let actionBubbleView = AIActionBubbleView()
     private var cardHeightConstraint: NSLayoutConstraint?
     private var scrollViewBottomToCardConstraint: NSLayoutConstraint?
-    private var scrollViewBottomToActionConstraint: NSLayoutConstraint?
-    private var actionBubbleBottomConstraint: NSLayoutConstraint?
     private let contentPadding: CGFloat = 32
 
     private var generatingTimer: Timer?
@@ -739,11 +649,6 @@ public class ConversationViewController: NSViewController {
         nodeSelectionPill.isHidden = true
         responseTextView.addSubview(nodeSelectionPill)
 
-        // Add action bubble view
-        actionBubbleView.translatesAutoresizingMaskIntoConstraints = false
-        actionBubbleView.isHidden = true
-        cardView.addSubview(actionBubbleView)
-
         // Card Height Constraint for dynamic sizing
         cardHeightConstraint = cardView.heightAnchor.constraint(equalToConstant: 100)
         cardHeightConstraint?.isActive = true
@@ -828,20 +733,9 @@ public class ConversationViewController: NSViewController {
                 equalTo: cardView.leadingAnchor, constant: 16),
             responseScrollView.trailingAnchor.constraint(
                 equalTo: cardView.trailingAnchor, constant: -16),
-
-            // Action Bubble View in Card
-            actionBubbleView.leadingAnchor.constraint(
-                equalTo: cardView.leadingAnchor, constant: 16),
-            actionBubbleView.trailingAnchor.constraint(
-                equalTo: cardView.trailingAnchor, constant: -16),
-            actionBubbleView.heightAnchor.constraint(equalToConstant: 32),
         ])
 
         scrollViewBottomToCardConstraint = responseScrollView.bottomAnchor.constraint(
-            equalTo: cardView.bottomAnchor, constant: -16)
-        scrollViewBottomToActionConstraint = responseScrollView.bottomAnchor.constraint(
-            equalTo: actionBubbleView.topAnchor, constant: -12)
-        actionBubbleBottomConstraint = actionBubbleView.bottomAnchor.constraint(
             equalTo: cardView.bottomAnchor, constant: -16)
 
         scrollViewBottomToCardConstraint?.isActive = true
@@ -881,8 +775,6 @@ public class ConversationViewController: NSViewController {
         responseTextView.textColor = textColor
         promptTextField.textColor = textColor
         floatingContextButton.imageView.contentTintColor = textColor.withAlphaComponent(0.8)
-
-        actionBubbleView.updateColors()
 
         nodeSelectionPill.layer?.backgroundColor = selectionColor.withAlphaComponent(0.25).cgColor
 
@@ -994,20 +886,7 @@ public class ConversationViewController: NSViewController {
         }
         setResponseText(turn.response)
 
-        if let actionType = turn.actionType {
-            actionBubbleView.isHidden = false
-            actionBubbleView.update(actionType: actionType)
-
-            scrollViewBottomToCardConstraint?.isActive = false
-            scrollViewBottomToActionConstraint?.isActive = true
-            actionBubbleBottomConstraint?.isActive = true
-        } else {
-            actionBubbleView.isHidden = true
-
-            scrollViewBottomToActionConstraint?.isActive = false
-            actionBubbleBottomConstraint?.isActive = false
-            scrollViewBottomToCardConstraint?.isActive = true
-        }
+        scrollViewBottomToCardConstraint?.isActive = true
 
         // Dynamic Height Calculation for Response Card
         if let layoutManager = responseTextView.layoutManager,

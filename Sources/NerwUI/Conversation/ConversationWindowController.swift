@@ -94,7 +94,6 @@ public class ConversationWindowController: NSObject {
         panel.setContentSize(size)
         panel.setFrameOrigin(exactOrig)
 
-        NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         contentViewController.focusInput()
     }

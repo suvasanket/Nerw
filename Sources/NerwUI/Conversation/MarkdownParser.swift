@@ -2,6 +2,8 @@ import Cocoa
 import Foundation
 
 public let NerwNodeKey = NSAttributedString.Key("NerwNode")
+public let NerwInlineActionBackgroundKey = NSAttributedString.Key("NerwInlineActionBackground")
+public let NerwInlineActionBorderKey = NSAttributedString.Key("NerwInlineActionBorder")
 
 public enum NerwNodeType: String {
     case bold
@@ -244,6 +246,71 @@ public struct MarkdownParser {
                     ])
                 str.replaceCharacters(in: match.range, with: linkContent)
             }
+        }
+
+        // 7. Action Pills
+        let actionPattern = "!\\[action:(.+?)\\]"
+        replaceMatches(pattern: actionPattern, in: attrStr) { match, str in
+            guard match.range.location < str.length else { return }
+            if str.attribute(
+                NerwCodeBlockBackgroundKey, at: match.range.location, effectiveRange: nil) != nil
+            {
+                return
+            }
+            if str.attribute(
+                NerwInlineCodeBackgroundKey, at: match.range.location, effectiveRange: nil) != nil
+            {
+                return
+            }
+
+            let actionType = (str.string as NSString).substring(with: match.range(at: 1))
+            let displayName: String
+            switch actionType.lowercased() {
+            case "timer": displayName = "Timer"
+            case "reminder": displayName = "Reminder"
+            case "calendar": displayName = "Calendar"
+            case "memory": displayName = "Memory"
+            default: displayName = actionType.capitalized
+            }
+
+            let pillContent = NSMutableAttributedString()
+
+            // Icon attachment
+            if let image = NSImage(
+                systemSymbolName: "wand.and.sparkles", accessibilityDescription: nil)
+            {
+                image.isTemplate = true
+                let attachment = NSTextAttachment()
+                attachment.image = image
+                attachment.bounds = NSRect(x: 0, y: -2, width: 14, height: 14)
+                let iconAttr = NSMutableAttributedString(attachment: attachment)
+                iconAttr.addAttributes(
+                    [
+                        .foregroundColor: accentColor,
+                        .font: baseFont,
+                    ], range: NSRange(location: 0, length: iconAttr.length))
+                pillContent.append(iconAttr)
+            }
+
+            // Text
+            let textFont = NSFont.systemFont(ofSize: baseFont.pointSize - 1, weight: .medium)
+            let textAttr = NSAttributedString(
+                string: " Action: \(displayName)",
+                attributes: [
+                    .font: textFont,
+                    .foregroundColor: accentColor,
+                ])
+            pillContent.append(textAttr)
+
+            // Apply background and border keys
+            pillContent.addAttributes(
+                [
+                    NerwInlineActionBackgroundKey: accentColor.withAlphaComponent(0.12),
+                    NerwInlineActionBorderKey: accentColor.withAlphaComponent(0.3),
+                    .paragraphStyle: paragraphStyle,
+                ], range: NSRange(location: 0, length: pillContent.length))
+
+            str.replaceCharacters(in: match.range, with: pillContent)
         }
 
         return attrStr

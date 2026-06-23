@@ -54,6 +54,8 @@ public class AIStreamParser {
                         let type = json["type"] as? String
                     {
                         onActionDetected?(type, json)
+                        currentText += "![action:\(type)]\n"
+                        onTextReady?(currentText)
                     } else {
                         Logger.shared.warning(
                             "AIStreamParser: Failed to parse action JSON: \(actionPayloadBuffer)")

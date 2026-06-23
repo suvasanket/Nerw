@@ -107,5 +107,40 @@ public class RoundedBackgroundLayoutManager: NSLayoutManager {
                 NSBezierPath(roundedRect: r, xRadius: 4, yRadius: 4).fill()
             }
         }
+
+        // 3. Action Pills Backgrounds
+        textStorage.enumerateAttribute(NerwInlineActionBackgroundKey, in: charRange, options: []) {
+            value, range, _ in
+            guard let bgColor = value as? NSColor else { return }
+            let borderColor =
+                textStorage.attribute(
+                    NerwInlineActionBorderKey, at: range.location, effectiveRange: nil) as? NSColor
+
+            let glRange = self.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            bgColor.setFill()
+
+            self.enumerateLineFragments(forGlyphRange: glRange) {
+                _, _, textContainer, lineGlyphRange, _ in
+                let intersection = NSIntersectionRange(glRange, lineGlyphRange)
+                guard intersection.length > 0 else { return }
+
+                var r = self.boundingRect(forGlyphRange: intersection, in: textContainer)
+                r.origin.x -= 8
+                r.origin.y -= 2
+                r.size.width += 16
+                r.size.height += 4
+                r.origin.x += origin.x
+                r.origin.y += origin.y
+
+                let path = NSBezierPath(roundedRect: r, xRadius: 10, yRadius: 10)
+                path.fill()
+
+                if let border = borderColor {
+                    border.setStroke()
+                    path.lineWidth = 1.0
+                    path.stroke()
+                }
+            }
+        }
     }
 }
