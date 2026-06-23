@@ -390,6 +390,8 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private let strokesLayer = CAShapeLayer()
     private let tableView = ActionContextTableView()
     private let scrollView = NSScrollView()
+    let searchContainer = NSView()
+    let searchField = ThemedTextField()
     private let editorContainer = NSView()
     private let editorTitleLabel = NSTextField(labelWithString: "")
     private let editorHintLabel = NSTextField(labelWithString: "")
@@ -399,6 +401,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private var hotkeyRecorder: KeybindRecorder?
     private var context: NerwActionContext?
     private var operations: [OperationEntry] = []
+    private var allOperations: [OperationEntry] = []
     private var editingOperation: NerwActionContext.Operation?
     private var selectedIndex: Int = -1
     private var isSynchronizingSelection = false
@@ -417,6 +420,21 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         "Enter Arguments",
         "Open Form",
     ]
+
+    override var preferredContentSize: NSSize {
+        didSet {
+            guard let window = view.window else { return }
+            var frame = window.frame
+            let oldHeight = frame.size.height
+            let newHeight = preferredContentSize.height
+            let delta = newHeight - oldHeight
+
+            frame.origin.y -= delta
+            frame.size.width = preferredContentSize.width
+            frame.size.height = preferredContentSize.height
+            window.setFrame(frame, display: true, animate: false)
+        }
+    }
 
     private var rootView: ActionContextRootView {
         guard let rootView = view as? ActionContextRootView else {
@@ -454,7 +472,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         _ = view
         self.context = context
 
-        operations = context.sections.enumerated().flatMap { sectionIndex, section in
+        allOperations = context.sections.enumerated().flatMap { sectionIndex, section in
             section.operations.enumerated().map { operationIndex, operation in
                 let detailText = menuDetailText(for: operation, in: context)
                 return OperationEntry(
@@ -472,16 +490,16 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             }
         }
 
+        searchField.stringValue = ""
         clearTypeSelectState()
         editingOperation = nil
         editorContainer.isHidden = true
         scrollView.isHidden = false
-        selectedIndex = operations.isEmpty ? -1 : 0
+        searchContainer.isHidden = false
+
+        filterOperations(for: "")
 
         applyBackgroundStyling()
-        syncSelection()
-        updatePreferredContentSize()
-        updateConnectorLineHeight()
         applyInlineMode()
 
         DispatchQueue.main.async { [weak self] in
@@ -570,6 +588,21 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         tableView.doubleAction = #selector(doubleClickSelection)
         tableView.target = self
 
+        searchContainer.wantsLayer = true
+        searchContainer.layer?.cornerRadius = 14
+        searchContainer.layer?.masksToBounds = true
+        searchContainer.translatesAutoresizingMaskIntoConstraints = false
+        backgroundContainer.addSubview(searchContainer)
+
+        searchField.isBordered = false
+        searchField.drawsBackground = false
+        searchField.focusRingType = .none
+        searchField.font = .systemFont(ofSize: 12, weight: .regular)
+        searchField.usesSingleLineMode = true
+        searchField.delegate = self
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchContainer.addSubview(searchField)
+
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = false
         scrollView.documentView = tableView
@@ -643,8 +676,22 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
                 equalToConstant: LayoutMetrics.connectorLineWidth),
             connectorHeightConstraint,
 
+            searchContainer.topAnchor.constraint(
+                equalTo: backgroundContainer.topAnchor, constant: 10),
+            searchContainer.leadingAnchor.constraint(
+                equalTo: backgroundContainer.leadingAnchor, constant: 12),
+            searchContainer.trailingAnchor.constraint(
+                equalTo: backgroundContainer.trailingAnchor, constant: -12),
+            searchContainer.heightAnchor.constraint(equalToConstant: 28),
+
+            searchField.leadingAnchor.constraint(
+                equalTo: searchContainer.leadingAnchor, constant: 10),
+            searchField.trailingAnchor.constraint(
+                equalTo: searchContainer.trailingAnchor, constant: -10),
+            searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
+
             scrollView.topAnchor.constraint(
-                equalTo: backgroundContainer.topAnchor, constant: LayoutMetrics.popupVerticalInset),
+                equalTo: searchContainer.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(
                 equalTo: backgroundContainer.leadingAnchor,
                 constant: LayoutMetrics.popupHorizontalInset),
@@ -695,6 +742,18 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         backgroundTintView.layer?.backgroundColor = tintColor.cgColor
         connectorLineView.layer?.cornerRadius = LayoutMetrics.connectorLineWidth / 2
         connectorLineView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.45).cgColor
+
+        let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
+        searchField.textColor = mainTextColor
+
+        let secondaryColor =
+            NSColor(hex: config?.mainForegroundColor ?? "")?.withAlphaComponent(0.5)
+            ?? .secondaryLabelColor
+        searchField.placeholderColor = secondaryColor
+
+        searchContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        searchContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        searchContainer.layer?.borderWidth = 0.5
     }
 
     func applyInlineMode() {
@@ -753,11 +812,11 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
             return
         }
 
-        window.makeFirstResponder(rootView)
+        window.makeFirstResponder(searchField)
     }
 
     private func updatePreferredContentSize() {
-        let width: CGFloat = 332 + (isInlineMode ? 0 : LayoutMetrics.connectorGapWidth)
+        let width: CGFloat = 260 + (isInlineMode ? 0 : LayoutMetrics.connectorGapWidth)
 
         if editingOperation != nil {
             preferredContentSize = NSSize(width: width, height: 140)
@@ -765,7 +824,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
         }
 
         let visibleRows = CGFloat(min(max(operations.count, 1), 6))
-        let height = max(96, 26 + visibleRows * LayoutMetrics.rowHeight)
+        let height = 50 + visibleRows * LayoutMetrics.rowHeight
         preferredContentSize = NSSize(width: width, height: height)
     }
 
@@ -961,6 +1020,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     ) {
         editingOperation = operation
         scrollView.isHidden = true
+        searchContainer.isHidden = true
         editorContainer.isHidden = false
         editorTitleLabel.stringValue = "Set Alias"
         editorHintLabel.stringValue = "Separate multiple aliases with spaces. Press Enter to save."
@@ -985,6 +1045,7 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private func showHotkeyEditor(operation: NerwActionContext.Operation, value: String) {
         editingOperation = operation
         scrollView.isHidden = true
+        searchContainer.isHidden = true
         editorContainer.isHidden = false
         editorTitleLabel.stringValue = "Set Hotkey"
         editorHintLabel.stringValue =
@@ -1025,6 +1086,11 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     private func returnToContextList() {
         guard let context else { return }
         editingOperation = nil
+        editorContainer.isHidden = true
+        scrollView.isHidden = false
+        searchContainer.isHidden = false
+        updatePreferredContentSize()
+        focusCurrentMode()
         delegate?.actionContext(self, didUpdatePreferencesFor: context.actionID)
     }
 
@@ -1136,19 +1202,121 @@ final class ActionContextViewController: NSViewController, NSTableViewDataSource
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
         -> Bool
     {
-        guard control === aliasField else { return false }
+        if control === aliasField {
+            switch commandSelector {
+            case #selector(NSResponder.insertNewline(_:)),
+                #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
+                #selector(NSResponder.insertLineBreak(_:)):
+                commitAliasEdit()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                returnToContextList()
+                return true
+            default:
+                return false
+            }
+        }
 
-        switch commandSelector {
-        case #selector(NSResponder.insertNewline(_:)),
-            #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
-            #selector(NSResponder.insertLineBreak(_:)):
-            commitAliasEdit()
-            return true
-        case #selector(NSResponder.cancelOperation(_:)):
-            returnToContextList()
-            return true
-        default:
-            return false
+        if control === searchField {
+            if let event = NSApp.currentEvent, event.modifierFlags.contains(.control) {
+                let chars = event.charactersIgnoringModifiers?.lowercased()
+                let navStyle = ConfigManager.shared.config.navigationStyle
+
+                if navStyle == "vim" {
+                    if chars == "j" {
+                        moveSelection(by: 1)
+                        return true
+                    } else if chars == "k" {
+                        moveSelection(by: -1)
+                        return true
+                    } else if chars == "n" || chars == "p" {
+                        return true
+                    }
+                } else {  // unix
+                    if chars == "n" {
+                        moveSelection(by: 1)
+                        return true
+                    } else if chars == "p" {
+                        moveSelection(by: -1)
+                        return true
+                    } else if chars == "j" || chars == "k" {
+                        return true
+                    }
+                }
+            }
+
+            switch commandSelector {
+            case #selector(NSResponder.moveUp(_:)):
+                moveSelection(by: -1)
+                return true
+            case #selector(NSResponder.moveDown(_:)):
+                moveSelection(by: 1)
+                return true
+            case #selector(NSResponder.insertNewline(_:)),
+                #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
+                #selector(NSResponder.insertLineBreak(_:)):
+                activateSelectedOperation()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                delegate?.actionContextDidRequestClose(self)
+                return true
+            default:
+                return false
+            }
+        }
+
+        return false
+    }
+
+    private func filterOperations(for query: String) {
+        if query.isEmpty {
+            operations = allOperations
+        } else {
+            let searchStrings = allOperations.map { entry in
+                let parts =
+                    [entry.operation.title, entry.sectionTitle, entry.detailText ?? ""]
+                    + entry.searchKeywords
+                return parts.joined(separator: " ")
+            }
+            let fuse = Fuse()
+            let results = fuse.searchSync(query, in: searchStrings)
+            let sortedResults = results.sorted { $0.score < $1.score }
+            let validResults = sortedResults.filter {
+                $0.score < 0.6 && $0.index < allOperations.count
+            }
+            operations = validResults.map { allOperations[$0.index] }
+        }
+
+        selectedIndex = operations.isEmpty ? -1 : 0
+        syncSelection()
+        updatePreferredContentSize()
+        updateConnectorLineHeight()
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        guard let textField = obj.object as? NSTextField else { return }
+        if textField === searchField {
+            filterOperations(for: textField.stringValue)
+        }
+    }
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        guard let textField = obj.object as? NSTextField else { return }
+        if textField === searchField {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                searchContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+            }
+        }
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let textField = obj.object as? NSTextField else { return }
+        if textField === searchField {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                searchContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
+            }
         }
     }
 }

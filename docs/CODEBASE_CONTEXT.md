@@ -127,7 +127,7 @@ The source code is organized into modular targets within `Sources/`:
 - **No Interface Builder**: All UI is built in code using Auto Layout anchors.
 - **Theming & NerwTheme**: Colors and fonts are dynamic, driven by `ConfigManager.shared.config.uiConfig` and computed into a `NerwTheme` snapshot. `NerwPanelView` automatically applies this theme and listens for `NerwConfigDidUpdate`.
 - **Navigation**: Uses `doCommandBy` selectors for robust keyboard handling (Arrows, Tab, Esc, Enter).
-    - Exception: `ActionContextViewController` routes popup keyboard events from its root view because the popup no longer has a text field as its primary responder in list mode.
+    - Note: `ActionContextViewController` focuses its search field as the primary responder when browsing context operations. Keyboard navigation commands are routed from the search field delegate to the table view selection.
 
 ### Search & Execution Flow
 1. **Input**: User types in `MainPanelContentViewController`.
@@ -139,7 +139,7 @@ The source code is organized into modular targets within `Sources/`:
 7. **Selection**: User selects a result.
 8. **Action Context (Optional)**: `Cmd+K` or clicking the 3-dot icon on the selected row opens an inline overlay panel centered on the trigger point. The overlay uses liquid glass styling and appears with a pop-in spring animation. It enumerates operations for the selected action only, including modifier actions and global action configuration like alias/hotkey assignment. Clicking outside the overlay dismisses it.
     - UI shape: compact, glassy menu list with grouped separators, rendered inline over the parent panel (not in a separate window).
-    - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` (Unix Style) / `Ctrl-J / Ctrl-K` (Vim Style) move selection, typing letters or initials type-selects rows, `Enter` executes, `Esc` and `Cmd+K` close.
+    - Intended keyboard behavior: first row selected by default, `↑ / ↓` or `Ctrl-P / Ctrl-N` (Unix Style) / `Ctrl-J / Ctrl-K` (Vim Style) move selection, typing characters into the search field filters operations fuzzily using Fuse, `Enter` executes, `Esc` and `Cmd+K` close.
 9. **Execution**: `NerwAction.type` determines the next step (Execute instantly, ask for arguments, open a form, or drill into a hybrid secondary action).
 10. **Fallback Modifier**: When the configured modifier (default: `⌘ Cmd`) is held, search results are swapped with fallback searches. Pressing `Enter` while holding the modifier executes the selected fallback search. Releasing the modifier restores the original search results list.
 

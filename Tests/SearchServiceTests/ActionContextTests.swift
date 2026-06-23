@@ -1,9 +1,11 @@
+import Cocoa
 import Foundation
 import NerwAction
 import NerwCore
 import NerwSearchBackend
-import NerwUI
 import NerwUtils
+
+@testable import NerwUI
 
 func runActionContextTests() {
     print("[Testing] Starting Action Context tests...")
@@ -15,6 +17,7 @@ func runActionContextTests() {
     testActionContextSelectionMovement()
     testActionContextTypeSelect()
     testActionContextVisualBridgeHeight()
+    testActionContextFuzzySearch()
 
     print("[Testing] All Action Context tests PASSED.")
 }
@@ -404,4 +407,52 @@ func testActionContextVisualBridgeHeight() {
     }
 
     print("  ✓ testActionContextVisualBridgeHeight passed.")
+}
+
+func testActionContextFuzzySearch() {
+    let action = NerwAction(
+        id: "test.search.context",
+        title: "Search Google",
+        subtitle: "Search the web",
+        icon: .system("globe"),
+        modifiers: [
+            .shift: NerwAction.ModifierAction(
+                title: "Lucky Search",
+                subtitle: "Jump straight to the best result",
+                perform: { _ in }
+            )
+        ],
+        type: .instant(perform: { _ in })
+    )
+    let context = NerwActionContextBuilder.build(for: action)
+    let controller = ActionContextViewController()
+
+    // Trigger view loading
+    _ = controller.view
+
+    controller.render(context: context)
+
+    let initialCount = controller.numberOfRows(in: NSTableView())
+    if initialCount <= 0 {
+        fatalError("FAIL: Initial operations should not be empty")
+    }
+
+    // Search for "Alias"
+    controller.searchField.stringValue = "Alias"
+    let notification = Notification(
+        name: NSControl.textDidChangeNotification, object: controller.searchField)
+    controller.controlTextDidChange(notification)
+
+    let filteredCount = controller.numberOfRows(in: NSTableView())
+    if filteredCount == 0 {
+        fatalError("FAIL: Search for 'Alias' should return at least one result")
+    }
+
+    if filteredCount >= initialCount {
+        fatalError(
+            "FAIL: Filtered count (\(filteredCount)) should be less than initial count (\(initialCount))"
+        )
+    }
+
+    print("  ✓ testActionContextFuzzySearch passed.")
 }
