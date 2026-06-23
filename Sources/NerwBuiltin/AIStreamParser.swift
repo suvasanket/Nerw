@@ -21,10 +21,35 @@ public class AIStreamParser {
 
     public func flush() {
         if !isThinking && !isAction && !buffer.isEmpty {
-            currentText += buffer
+            appendToCurrentText(buffer)
             buffer = ""
+        }
+
+        let trimmed = currentText.replacingOccurrences(
+            of: "\\s+$", with: "", options: .regularExpression)
+        if trimmed != currentText {
+            currentText = trimmed
             onTextReady?(currentText)
         }
+    }
+
+    private func appendToCurrentText(_ text: String) {
+        var strToAppend = text
+
+        if currentText.isEmpty {
+            strToAppend = strToAppend.replacingOccurrences(
+                of: "^\\s+", with: "", options: .regularExpression)
+            if strToAppend.isEmpty { return }
+        }
+
+        for char in strToAppend {
+            if char == "\n", currentText.hasSuffix("\n\n") {
+                continue
+            }
+            currentText.append(char)
+        }
+
+        onTextReady?(currentText)
     }
 
     private func processBuffer() {
@@ -54,8 +79,7 @@ public class AIStreamParser {
                         let type = json["type"] as? String
                     {
                         onActionDetected?(type, json)
-                        currentText += "![action:\(type)]\n"
-                        onTextReady?(currentText)
+                        appendToCurrentText("![action:\(type)]\n")
                     } else {
                         Logger.shared.warning(
                             "AIStreamParser: Failed to parse action JSON: \(actionPayloadBuffer)")
@@ -75,8 +99,7 @@ public class AIStreamParser {
                 if let nextTagRange = buffer.range(of: "<") {
                     let beforeTag = String(buffer[buffer.startIndex..<nextTagRange.lowerBound])
                     if !beforeTag.isEmpty {
-                        currentText += beforeTag
-                        onTextReady?(currentText)
+                        appendToCurrentText(beforeTag)
                     }
 
                     buffer.removeSubrange(buffer.startIndex..<nextTagRange.lowerBound)
@@ -98,15 +121,13 @@ public class AIStreamParser {
                             // Wait for more data
                             break
                         } else {
-                            currentText += String(buffer.first!)
+                            appendToCurrentText(String(buffer.first!))
                             buffer.removeFirst()
-                            onTextReady?(currentText)
                         }
                     }
                 } else {
-                    currentText += buffer
+                    appendToCurrentText(buffer)
                     buffer = ""
-                    onTextReady?(currentText)
                 }
             }
         }
