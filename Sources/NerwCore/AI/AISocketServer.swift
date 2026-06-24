@@ -257,15 +257,17 @@ public struct AIChatRequestPayload: Codable {
     public let history: [AIChatMessage]?
     public let images: [String]  // Base64 encoded image strings
     public let isStreaming: Bool
+    public let searchTool: String?
 
     public init(
         prompt: String, history: [AIChatMessage]? = nil, images: [String] = [],
-        isStreaming: Bool = true
+        isStreaming: Bool = true, searchTool: String? = nil
     ) {
         self.prompt = prompt
         self.history = history
         self.images = images
         self.isStreaming = isStreaming
+        self.searchTool = searchTool
     }
 }
 

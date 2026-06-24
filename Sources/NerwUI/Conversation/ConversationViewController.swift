@@ -1368,6 +1368,29 @@ public class ConversationViewController: NSViewController {
         let upKeybind = navStyle == "vim" ? "⌃K" : "⌃P"
         let downKeybind = navStyle == "vim" ? "⌃J" : "⌃N"
 
+        var modelOps: [NerwActionContext.Operation] = []
+        let aiConfig = ConfigManager.shared.config.aiConfig
+        for provider in aiConfig.providers {
+            let isSelected = provider.id == aiConfig.selectedProviderId
+            let detailText = isSelected ? "✓" : nil
+            let op = NerwActionContext.Operation(
+                id: "selectModel_\(provider.id)",
+                kind: .custom("selectModel_\(provider.id)"),
+                title: provider.name,
+                subtitle: provider.modelName.isEmpty ? provider.type : provider.modelName,
+                icon: .system(isSelected ? "checkmark.circle.fill" : "circle"),
+                interaction: .execute,
+                detailText: detailText
+            )
+            modelOps.append(op)
+        }
+
+        let modelSection = NerwActionContext.Section(
+            id: "models",
+            title: "Models",
+            operations: modelOps
+        )
+
         let clearChatOp = NerwActionContext.Operation(
             id: "clearChat",
             kind: .custom("clearChat"),
@@ -1408,7 +1431,7 @@ public class ConversationViewController: NSViewController {
             actionID: "conversationContext",
             actionTitle: "Conversation",
             actionSubtitle: "Manage current thread",
-            sections: [section]
+            sections: [modelSection, section]
         )
 
         let controller = actionContextViewController ?? ActionContextViewController()
@@ -1543,6 +1566,13 @@ extension ConversationViewController: ActionContextViewControllerDelegate {
     ) {
         dismissActionContext()
         if case .custom(let customId) = operation.kind {
+            if customId.hasPrefix("selectModel_") {
+                let providerId = String(customId.dropFirst("selectModel_".count))
+                ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
+                ConfigManager.shared.save()
+                return
+            }
+
             switch customId {
             case "clearChat":
                 clearChat()

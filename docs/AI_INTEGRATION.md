@@ -103,7 +103,8 @@ Sent by the client to request prompt completion.
   "images": [
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
   ],
-  "isStreaming": true
+  "isStreaming": true,
+  "searchTool": "googleSearch"
 }
 ```
 
@@ -111,6 +112,7 @@ Sent by the client to request prompt completion.
 *   **`history`**: (Optional) An array of previous message turns (`role` and `content`) to preserve conversation context.
 *   **`images`**: An array of Base64-encoded image data strings (JPEG or PNG). Empty array if text-only.
 *   **`isStreaming`**: If `true`, response chunks are streamed in real-time. If `false`, the server returns a single response block.
+*   **`searchTool`**: (Optional) Name of the search tool to use for provider-native grounding.
 
 ---
 
