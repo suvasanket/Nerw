@@ -153,59 +153,6 @@ class AppearanceSettingsViewController: NSViewController {
         stackView.addArrangedSubview(colorSection)
         colorSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
-
-        // Layout Settings
-        var layoutRows: [NSView] = []
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Window Width", subtitle: "Main panel and split pane width",
-                value: ConfigManager.shared.config.layoutConfig.mainWidth,
-                action: #selector(mainWidthChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Window Height", subtitle: "Standard height for split panes",
-                value: ConfigManager.shared.config.layoutConfig.mainHeight,
-                action: #selector(mainHeightChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Corner Radius", subtitle: "Radius for all primary UI panels",
-                value: ConfigManager.shared.config.layoutConfig.cornerRadius,
-                action: #selector(cornerRadiusChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Horizontal Margin", subtitle: "Margins for UI elements",
-                value: ConfigManager.shared.config.layoutConfig.horizontalMargin,
-                action: #selector(horizontalMarginChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Search Font Size", subtitle: "Font size for primary input",
-                value: ConfigManager.shared.config.layoutConfig.fontSizeSearch,
-                action: #selector(fontSizeSearchChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Result Title Size", subtitle: "Font size for result titles",
-                value: ConfigManager.shared.config.layoutConfig.fontSizeResultTitle,
-                action: #selector(fontSizeResultTitleChanged(_:))))
-
-        layoutRows.append(
-            createNumberRow(
-                title: "Icon Size", subtitle: "Primary search icon size",
-                value: ConfigManager.shared.config.layoutConfig.iconSizeMain,
-                action: #selector(iconSizeMainChanged(_:))))
-
-        let layoutSection = SettingsSection(
-            title: "Layout",
-            contentViews: layoutRows
-        )
-        stackView.addArrangedSubview(layoutSection)
-        layoutSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
     }
 
     /// Creates and returns a row view for color settings
@@ -246,64 +193,6 @@ class AppearanceSettingsViewController: NSViewController {
         row.addArrangedSubview(textStack)
         row.addArrangedSubview(spacer)
         row.addArrangedSubview(colorWell)
-
-        return row
-    }
-
-    /// Creates and returns a row view for numeric settings
-    private func createNumberRow(
-        title: String, subtitle: String, value: Double, action: Selector
-    ) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.spacing = 10
-        row.alignment = .centerY
-
-        // Text Stack (Title + Subtitle)
-        let textStack = NSStackView()
-        textStack.orientation = .vertical
-        textStack.spacing = 2
-        textStack.alignment = .leading
-
-        let label = NSTextField(labelWithString: title)
-        let subLabel = NSTextField(labelWithString: subtitle)
-        subLabel.font = .systemFont(ofSize: 11)
-        subLabel.textColor = .secondaryLabelColor
-
-        textStack.addArrangedSubview(label)
-        textStack.addArrangedSubview(subLabel)
-
-        let textField = NSTextField()
-        textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.widthAnchor.constraint(equalToConstant: 60).isActive = true
-        textField.stringValue = String(format: "%.0f", value)
-        textField.target = self
-        textField.action = action
-
-        let stepper = NSStepper()
-        stepper.minValue = 0
-        stepper.maxValue = 2000
-        stepper.doubleValue = value
-        stepper.valueWraps = false
-        stepper.target = self
-        stepper.action = action
-
-        // Connect stepper to textfield via tag or similar if needed,
-        // but here we just use the same action and sender check
-
-        let controlStack = NSStackView()
-        controlStack.orientation = .horizontal
-        controlStack.spacing = 4
-        controlStack.addArrangedSubview(textField)
-        controlStack.addArrangedSubview(stepper)
-
-        // Spacer
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        row.addArrangedSubview(textStack)
-        row.addArrangedSubview(spacer)
-        row.addArrangedSubview(controlStack)
 
         return row
     }
@@ -383,60 +272,6 @@ class AppearanceSettingsViewController: NSViewController {
         ConfigManager.shared.save()
 
         selectionBGColorWell?.isEnabled = !useSystem
-    }
-
-    // MARK: - Layout Actions
-
-    @objc private func mainWidthChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.mainWidth = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func mainHeightChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.mainHeight = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func cornerRadiusChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.cornerRadius = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func horizontalMarginChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.horizontalMargin = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func fontSizeSearchChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.fontSizeSearch = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func fontSizeResultTitleChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.fontSizeResultTitle = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    @objc private func iconSizeMainChanged(_ sender: NSControl) {
-        ConfigManager.shared.config.layoutConfig.iconSizeMain = sender.doubleValue
-        syncLayoutControls(sender)
-        ConfigManager.shared.save()
-    }
-
-    private func syncLayoutControls(_ sender: NSControl) {
-        // Sync TextField and Stepper if they are in the same stack
-        guard let stack = sender.superview as? NSStackView else { return }
-        for view in stack.arrangedSubviews {
-            if let control = view as? NSControl, control != sender {
-                control.doubleValue = sender.doubleValue
-            }
-        }
     }
 
     private func ensureUIConfig() {
