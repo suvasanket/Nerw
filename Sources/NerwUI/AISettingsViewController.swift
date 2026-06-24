@@ -24,26 +24,27 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
     }()
 
     // General AI UI elements
-    private let enableAICheckbox = NSButton()
-    private let enableMemoryCheckbox = NSButton()
+    private let enableAISwitch = NSSwitch()
+    private let enableMemorySwitch = NSSwitch()
     private let memoryRow = NSStackView()
-    private let modelTypePopUp = NSPopUpButton()
-    private let modelTypeRow = NSStackView()
     private let warningContainer = NSView()
     private let warningLabel = NSTextField()
 
-    // BYOK configuration UI elements
-    private let apiUrlField = NSTextField()
-    private let apiKeyField = NSSecureTextField()
-    private let modelNameField = NSTextField()
-    private let supportsImagesCheckbox = NSButton()
-    private let systemPromptField = NSTextField()
-    private let temperatureField = NSTextField()
-    private let maxTokensField = NSTextField()
+    // Global Configuration elements
+    private let systemPromptField = PasteableTextField()
+    private let temperatureField = PasteableTextField()
+    private let maxTokensField = PasteableTextField()
 
-    // Sections for dynamic show/hide
+    // Providers Section elements
+    private let providersListStack = NSStackView()
+    private let addProviderBtn = NSButton()
+
+    // Sections
     private var activationSection: SettingsSection!
-    private var byokSection: SettingsSection!
+    private var providersSection: SettingsSection!
+    private var globalSettingsSection: SettingsSection!
+
+    private var activeAlertTarget: AnyObject?
 
     override func loadView() {
         self.view = NSView()
@@ -66,63 +67,75 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         view.addSubview(scrollView)
         scrollView.documentView = stackView
 
-        // --- 1. AI Activation & Backend ---
-        enableAICheckbox.setButtonType(.switch)
-        enableAICheckbox.title = "Enable AI Assistant Subsystem"
-        enableAICheckbox.font = .systemFont(ofSize: 13, weight: .medium)
-        enableAICheckbox.target = self
-        enableAICheckbox.action = #selector(enableAICheckboxToggled(_:))
-        enableAICheckbox.translatesAutoresizingMaskIntoConstraints = false
+        // --- 1. General ---
+        let enableTextStack = NSStackView()
+        enableTextStack.orientation = .vertical
+        enableTextStack.alignment = .leading
+        enableTextStack.spacing = 2
+        enableTextStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let enableLabel = NSTextField(labelWithString: "Nerw AI")
+        enableLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        enableLabel.textColor = .labelColor
+
+        let enableSubtext = NSTextField(
+            labelWithString: "Activate the system-wide AI assistant sub-system.")
+        enableSubtext.font = .systemFont(ofSize: 11)
+        enableSubtext.textColor = .secondaryLabelColor
+        enableSubtext.cell?.wraps = true
+        enableSubtext.cell?.isScrollable = false
+
+        enableTextStack.addArrangedSubview(enableLabel)
+        enableTextStack.addArrangedSubview(enableSubtext)
+
+        enableAISwitch.controlSize = .mini
+        enableAISwitch.target = self
+        enableAISwitch.action = #selector(enableAICheckboxToggled(_:))
+        enableAISwitch.translatesAutoresizingMaskIntoConstraints = false
 
         let enableRow = NSStackView()
         enableRow.orientation = .horizontal
         enableRow.alignment = .centerY
-        enableRow.addArrangedSubview(enableAICheckbox)
-        enableRow.addArrangedSubview(NSView())  // Spacer
+        enableRow.distribution = .fill
+        enableRow.addArrangedSubview(enableTextStack)
+        let spacer1 = NSView()
+        spacer1.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        enableRow.addArrangedSubview(spacer1)
+        enableRow.addArrangedSubview(enableAISwitch)
 
-        enableMemoryCheckbox.setButtonType(.switch)
-        enableMemoryCheckbox.title = "Enable AI Long-Term Memory"
-        enableMemoryCheckbox.font = .systemFont(ofSize: 13, weight: .medium)
-        enableMemoryCheckbox.target = self
-        enableMemoryCheckbox.action = #selector(enableMemoryCheckboxToggled(_:))
-        enableMemoryCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        let memoryTextStack = NSStackView()
+        memoryTextStack.orientation = .vertical
+        memoryTextStack.alignment = .leading
+        memoryTextStack.spacing = 2
+        memoryTextStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let memoryLabel = NSTextField(labelWithString: "Memory")
+        memoryLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        memoryLabel.textColor = .labelColor
+
+        let memorySubtext = NSTextField(
+            labelWithString: "Enable local long-term memory for persistent context.")
+        memorySubtext.font = .systemFont(ofSize: 11)
+        memorySubtext.textColor = .secondaryLabelColor
+        memorySubtext.cell?.wraps = true
+        memorySubtext.cell?.isScrollable = false
+
+        memoryTextStack.addArrangedSubview(memoryLabel)
+        memoryTextStack.addArrangedSubview(memorySubtext)
+
+        enableMemorySwitch.controlSize = .mini
+        enableMemorySwitch.target = self
+        enableMemorySwitch.action = #selector(enableMemoryCheckboxToggled(_:))
+        enableMemorySwitch.translatesAutoresizingMaskIntoConstraints = false
 
         memoryRow.orientation = .horizontal
         memoryRow.alignment = .centerY
-        memoryRow.addArrangedSubview(enableMemoryCheckbox)
-        memoryRow.addArrangedSubview(NSView())  // Spacer
-
-        // Model Type Selector
-        modelTypePopUp.pullsDown = false
-        modelTypePopUp.bezelStyle = .rounded
-        modelTypePopUp.controlSize = .regular
-        modelTypePopUp.translatesAutoresizingMaskIntoConstraints = false
-
-        let types = [
-            ("Foundation (Apple Intelligence On-Device)", "foundation"),
-            ("BYOK (Bring Your Own Key / Custom API)", "byok"),
-        ]
-        for (title, val) in types {
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.representedObject = val
-            modelTypePopUp.menu?.addItem(item)
-        }
-        modelTypePopUp.target = self
-        modelTypePopUp.action = #selector(modelTypeChanged(_:))
-
-        let modelTypeLabel = NSTextField(labelWithString: "Model Backend:")
-        modelTypeLabel.font = .systemFont(ofSize: 13)
-        modelTypeLabel.textColor = .labelColor
-        modelTypeLabel.translatesAutoresizingMaskIntoConstraints = false
-        modelTypeLabel.widthAnchor.constraint(equalToConstant: 120).isActive = true
-
-        modelTypeRow.orientation = .horizontal
-        modelTypeRow.alignment = .centerY
-        modelTypeRow.spacing = 10
-        modelTypeRow.translatesAutoresizingMaskIntoConstraints = false
-        modelTypeRow.addArrangedSubview(modelTypeLabel)
-        modelTypeRow.addArrangedSubview(modelTypePopUp)
-        modelTypeRow.addArrangedSubview(NSView())  // Spacer
+        memoryRow.distribution = .fill
+        memoryRow.addArrangedSubview(memoryTextStack)
+        let spacer2 = NSView()
+        spacer2.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        memoryRow.addArrangedSubview(spacer2)
+        memoryRow.addArrangedSubview(enableMemorySwitch)
 
         // Warning Container
         warningContainer.wantsLayer = true
@@ -174,81 +187,87 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         ])
 
         activationSection = SettingsSection(
-            title: "AI Activation & Backend",
-            contentViews: [enableRow, memoryRow, modelTypeRow, warningContainer]
+            title: "General",
+            contentViews: [enableRow, memoryRow, warningContainer]
         )
         stackView.addArrangedSubview(activationSection)
         activationSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
             .isActive = true
 
-        // --- 2. BYOK Config Form ---
-        setupBYOKFormFields()
+        // --- 2. Providers List & Management ---
+        providersListStack.orientation = .vertical
+        providersListStack.spacing = 4
+        providersListStack.alignment = .leading
+        providersListStack.translatesAutoresizingMaskIntoConstraints = false
 
-        let byokLabelWidth: CGFloat = 120
-        let byokControlWidth: CGFloat = 320
+        addProviderBtn.title = "Add"
+        addProviderBtn.bezelStyle = .rounded
+        addProviderBtn.controlSize = .small
+        addProviderBtn.target = self
+        addProviderBtn.action = #selector(addProviderClicked(_:))
 
-        let urlRow = createFormRow(
-            label: "API Endpoint URL:", control: apiUrlField, width: byokControlWidth,
-            labelWidth: byokLabelWidth,
-            subtext:
-                "e.g., https://openrouter.ai/api/v1/chat/completions or http://localhost:11434/v1/chat/completions"
+        let buttonRow = NSStackView()
+        buttonRow.orientation = .horizontal
+        buttonRow.spacing = 10
+        buttonRow.translatesAutoresizingMaskIntoConstraints = false
+        buttonRow.addArrangedSubview(addProviderBtn)
+        buttonRow.addArrangedSubview(NSView())  // Spacer
+
+        let providersWrapper = NSStackView()
+        providersWrapper.orientation = .vertical
+        providersWrapper.spacing = 12
+        providersWrapper.alignment = .leading
+        providersWrapper.translatesAutoresizingMaskIntoConstraints = false
+        providersWrapper.addArrangedSubview(providersListStack)
+        providersWrapper.addArrangedSubview(buttonRow)
+
+        providersListStack.widthAnchor.constraint(equalTo: providersWrapper.widthAnchor).isActive =
+            true
+        buttonRow.widthAnchor.constraint(equalTo: providersWrapper.widthAnchor).isActive = true
+
+        providersSection = SettingsSection(
+            title: "Provider",
+            contentViews: [providersWrapper]
         )
-        let keyRow = createFormRow(
-            label: "API Key:", control: apiKeyField, width: byokControlWidth,
-            labelWidth: byokLabelWidth,
-            subtext:
-                "Required for commercial APIs (OpenRouter, OpenAI). Keep empty for local Ollama.")
-        let modelRow = createFormRow(
-            label: "Model Name:", control: modelNameField, width: byokControlWidth,
-            labelWidth: byokLabelWidth,
-            subtext: "e.g., google/gemini-2.5-flash (OpenRouter) or llama3.1 (Ollama)")
+        stackView.addArrangedSubview(providersSection)
+        providersSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
+            .isActive = true
 
-        supportsImagesCheckbox.setButtonType(.switch)
-        supportsImagesCheckbox.title = "Model supports multimodal image inputs"
-        supportsImagesCheckbox.font = .systemFont(ofSize: 12)
-        supportsImagesCheckbox.target = self
-        supportsImagesCheckbox.action = #selector(supportsImagesToggled(_:))
-        let imgRow = createFormRow(
-            label: "Vision Support:", control: supportsImagesCheckbox, width: byokControlWidth,
-            labelWidth: byokLabelWidth)
+        // --- 3. Global Assistant Parameters Form ---
+        setupFormFields()
+
+        let formLabelWidth: CGFloat = 120
+        let formControlWidth: CGFloat = 320
 
         let promptRow = createFormRow(
-            label: "System Prompt:", control: systemPromptField, width: byokControlWidth,
-            labelWidth: byokLabelWidth, subtext: "Global instructions injected into chat context.")
+            label: "System Prompt:", control: systemPromptField, width: formControlWidth,
+            labelWidth: formLabelWidth, subtext: "Global instructions injected into chat context.")
         let tempRow = createFormRow(
-            label: "Temperature:", control: temperatureField, width: 80, labelWidth: byokLabelWidth,
+            label: "Temperature:", control: temperatureField, width: 80, labelWidth: formLabelWidth,
             subtext: "Controls creativity (0.0 = deterministic, 1.0 = highly creative)")
         let tokensRow = createFormRow(
             label: "Max Output Tokens:", control: maxTokensField, width: 80,
-            labelWidth: byokLabelWidth, subtext: "Upper limit of generated tokens (0 = no limit)")
+            labelWidth: formLabelWidth, subtext: "Upper limit of generated tokens (0 = no limit)")
 
-        byokSection = SettingsSection(
-            title: "Custom BYOK / API Provider Configuration",
-            contentViews: [urlRow, keyRow, modelRow, imgRow, promptRow, tempRow, tokensRow]
+        globalSettingsSection = SettingsSection(
+            title: "Global Assistant Settings",
+            contentViews: [promptRow, tempRow, tokensRow]
         )
-        stackView.addArrangedSubview(byokSection)
-        byokSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48).isActive =
+        stackView.addArrangedSubview(globalSettingsSection)
+        globalSettingsSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
+            .isActive =
             true
     }
 
-    private func setupBYOKFormFields() {
-        apiUrlField.delegate = self
-        apiKeyField.delegate = self
-        modelNameField.delegate = self
+    private func setupFormFields() {
         systemPromptField.delegate = self
         temperatureField.delegate = self
         maxTokensField.delegate = self
 
-        apiUrlField.bezelStyle = .roundedBezel
-        apiKeyField.bezelStyle = .roundedBezel
-        modelNameField.bezelStyle = .roundedBezel
         systemPromptField.bezelStyle = .roundedBezel
         temperatureField.bezelStyle = .roundedBezel
         maxTokensField.bezelStyle = .roundedBezel
 
-        apiUrlField.controlSize = .regular
-        apiKeyField.controlSize = .regular
-        modelNameField.controlSize = .regular
         systemPromptField.controlSize = .regular
         temperatureField.controlSize = .regular
         maxTokensField.controlSize = .regular
@@ -328,33 +347,391 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         return rowStack
     }
 
+    private func createProviderRow(for provider: AIProvider, isActive: Bool) -> NSView {
+        let container = NSStackView()
+        container.orientation = .vertical
+        container.spacing = 0
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 12
+        row.alignment = .centerY
+        row.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.heightAnchor.constraint(equalToConstant: 40).isActive = true
+
+        let bgView = NSView()
+        bgView.wantsLayer = true
+        bgView.layer?.cornerRadius = 8
+        if isActive {
+            bgView.layer?.backgroundColor =
+                NSColor.selectedContentBackgroundColor.withAlphaComponent(0.18).cgColor
+            bgView.layer?.borderWidth = 1
+            bgView.layer?.borderColor =
+                NSColor.selectedContentBackgroundColor.withAlphaComponent(0.35).cgColor
+        } else {
+            bgView.layer?.backgroundColor = NSColor.clear.cgColor
+        }
+        bgView.translatesAutoresizingMaskIntoConstraints = false
+
+        let radio = NSButton()
+        radio.setButtonType(.radio)
+        radio.title = ""
+        radio.state = isActive ? .on : .off
+        radio.target = self
+        radio.action = #selector(providerRadioClicked(_:))
+        radio.identifier = NSUserInterfaceItemIdentifier(provider.id)
+        row.addArrangedSubview(radio)
+
+        let nameLabel = NSTextField(labelWithString: provider.name)
+        nameLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        nameLabel.textColor = .labelColor
+        row.addArrangedSubview(nameLabel)
+
+        let typeString =
+            provider.type == "foundation" ? "Foundation" : "BYOK (\(provider.modelName))"
+        let typeLabel = NSTextField(labelWithString: typeString)
+        typeLabel.font = .systemFont(ofSize: 11)
+        typeLabel.textColor = .secondaryLabelColor
+        row.addArrangedSubview(typeLabel)
+
+        row.addArrangedSubview(NSView())  // Spacer
+
+        let editBtn = NSButton(
+            image: NSImage(systemSymbolName: "pencil", accessibilityDescription: "Edit")!,
+            target: self, action: #selector(editProviderRowClicked(_:))
+        )
+        editBtn.isBordered = false
+        editBtn.bezelStyle = .recessed
+        editBtn.controlSize = .mini
+        editBtn.identifier = NSUserInterfaceItemIdentifier(provider.id)
+        row.addArrangedSubview(editBtn)
+
+        if provider.type != "foundation" {
+            let copyBtn = NSButton(
+                image: NSImage(
+                    systemSymbolName: "doc.on.doc", accessibilityDescription: "Duplicate")!,
+                target: self, action: #selector(copyProviderRowClicked(_:))
+            )
+            copyBtn.isBordered = false
+            copyBtn.bezelStyle = .recessed
+            copyBtn.controlSize = .mini
+            copyBtn.identifier = NSUserInterfaceItemIdentifier(provider.id)
+            row.addArrangedSubview(copyBtn)
+
+            let deleteBtn = NSButton(
+                image: NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")!,
+                target: self, action: #selector(deleteProviderRowClicked(_:))
+            )
+            deleteBtn.isBordered = false
+            deleteBtn.bezelStyle = .recessed
+            deleteBtn.controlSize = .mini
+            deleteBtn.identifier = NSUserInterfaceItemIdentifier(provider.id)
+            if #available(macOS 10.15, *) {
+                deleteBtn.contentTintColor = .systemRed
+            }
+            row.addArrangedSubview(deleteBtn)
+        }
+
+        container.addSubview(bgView)
+        container.addArrangedSubview(row)
+
+        NSLayoutConstraint.activate([
+            bgView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            bgView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            bgView.topAnchor.constraint(equalTo: container.topAnchor),
+            bgView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            row.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            row.topAnchor.constraint(equalTo: container.topAnchor),
+            row.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        let clickGesture = NSClickGestureRecognizer(
+            target: self, action: #selector(providerRowClicked(_:)))
+        container.addGestureRecognizer(clickGesture)
+        container.identifier = NSUserInterfaceItemIdentifier(provider.id)
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        container.addArrangedSubview(separator)
+
+        return container
+    }
+
+    private func showProviderSheet(editing provider: AIProvider?, copying: Bool = false) {
+        guard let window = self.view.window else { return }
+
+        let isEdit = provider != nil && !copying
+        let isFoundation = (provider?.type == "foundation") && !copying
+
+        let alert = NSAlert()
+        alert.messageText = isEdit ? "Edit AI Provider" : "Add AI Provider"
+        alert.informativeText =
+            isEdit
+            ? "Update configuration for this provider."
+            : "Configure a new AI model provider backend."
+
+        let outerHeight: CGFloat = isFoundation ? 40 : 220
+        let outer = NSStackView(frame: NSRect(x: 0, y: 0, width: 440, height: outerHeight))
+        outer.orientation = .vertical
+        outer.spacing = 10
+        outer.alignment = .leading
+
+        func createAlertRow(label: String, control: NSView, width: CGFloat = 260) -> NSStackView {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 10
+            let lbl = NSTextField(labelWithString: label)
+            lbl.font = .systemFont(ofSize: 12)
+            lbl.textColor = .labelColor
+            lbl.translatesAutoresizingMaskIntoConstraints = false
+            lbl.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            control.translatesAutoresizingMaskIntoConstraints = false
+            control.widthAnchor.constraint(equalToConstant: width).isActive = true
+            row.addArrangedSubview(lbl)
+            row.addArrangedSubview(control)
+            row.addArrangedSubview(NSView())  // Spacer
+            return row
+        }
+
+        let dialogNameField = PasteableTextField()
+        dialogNameField.placeholderString = "e.g., OpenRouter Gemini"
+
+        let dialogUrlField = PasteableTextField()
+        dialogUrlField.placeholderString = "https://openrouter.ai/api/v1/chat/completions"
+
+        let dialogKeyField = PasteableSecureTextField()
+        dialogKeyField.placeholderString = "API Key"
+
+        let dialogModelField = PasteableTextField()
+        dialogModelField.placeholderString = "google/gemini-2.5-flash"
+
+        let dialogSearchToolField = PasteableTextField()
+        dialogSearchToolField.placeholderString = "e.g. googleSearch or web_search"
+
+        let dialogVisionCheckbox = NSButton()
+        dialogVisionCheckbox.setButtonType(.switch)
+        dialogVisionCheckbox.title = "Supports multimodal image inputs"
+        dialogVisionCheckbox.font = .systemFont(ofSize: 12)
+
+        let nameRow = createAlertRow(label: "Provider Name:", control: dialogNameField)
+        outer.addArrangedSubview(nameRow)
+
+        if !isFoundation {
+            let urlRow = createAlertRow(label: "API Endpoint URL:", control: dialogUrlField)
+            let keyRow = createAlertRow(label: "API Key:", control: dialogKeyField)
+            let modelRow = createAlertRow(label: "Model Name:", control: dialogModelField)
+            let toolRow = createAlertRow(label: "Search Tool Name:", control: dialogSearchToolField)
+            let imgRow = createAlertRow(label: "Vision Support:", control: dialogVisionCheckbox)
+
+            outer.addArrangedSubview(urlRow)
+            outer.addArrangedSubview(keyRow)
+            outer.addArrangedSubview(modelRow)
+            outer.addArrangedSubview(toolRow)
+            outer.addArrangedSubview(imgRow)
+        }
+
+        var targetProvider: AIProvider? = nil
+        var initialName = ""
+        var initialUrl = ""
+        var initialKey = ""
+        var initialModel = ""
+        var initialSearchTool = ""
+        var initialVision = false
+
+        if let p = provider {
+            if copying {
+                var uniqueName = "\(p.name) copy"
+                var suffix = 2
+                while ConfigManager.shared.config.aiConfig.providers.contains(where: {
+                    $0.name.lowercased() == uniqueName.lowercased()
+                }) {
+                    uniqueName = "\(p.name) copy \(suffix)"
+                    suffix += 1
+                }
+                initialName = uniqueName
+                initialUrl = p.url
+                initialKey = p.apiKey
+                initialModel = p.modelName
+                initialSearchTool = p.searchToolName ?? ""
+                initialVision = p.supportsImages
+            } else {
+                targetProvider = p
+                initialName = p.name
+                initialUrl = p.url
+                initialKey = p.apiKey
+                initialModel = p.modelName
+                initialSearchTool = p.searchToolName ?? ""
+                initialVision = p.supportsImages
+            }
+        }
+
+        dialogNameField.stringValue = initialName
+        if !isFoundation {
+            dialogUrlField.stringValue = initialUrl
+            dialogKeyField.stringValue = initialKey
+            dialogModelField.stringValue = initialModel
+            dialogSearchToolField.stringValue = initialSearchTool
+            dialogVisionCheckbox.state = initialVision ? .on : .off
+        }
+
+        alert.accessoryView = outer
+        alert.addButton(withTitle: isEdit ? "Save" : "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            let name = dialogNameField.stringValue.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return }
+
+            // Uniqueness check: no two providers can have same name
+            let nameExists = ConfigManager.shared.config.aiConfig.providers.contains(where: {
+                $0.name.lowercased() == name.lowercased() && $0.id != (targetProvider?.id ?? "")
+            })
+            if nameExists {
+                let errorAlert = NSAlert()
+                errorAlert.messageText = "Duplicate Provider Name"
+                errorAlert.informativeText =
+                    "A provider with the name '\(name)' already exists. Please choose a unique name."
+                errorAlert.runModal()
+                return
+            }
+
+            let type = targetProvider?.type ?? "byok"
+            let url = dialogUrlField.stringValue.trimmingCharacters(in: .whitespaces)
+            let apiKey = dialogKeyField.stringValue.trimmingCharacters(in: .whitespaces)
+            let modelName = dialogModelField.stringValue.trimmingCharacters(in: .whitespaces)
+            let searchTool = dialogSearchToolField.stringValue.trimmingCharacters(in: .whitespaces)
+            let supportsImages = dialogVisionCheckbox.state == .on
+
+            if let p = targetProvider {
+                if let idx = ConfigManager.shared.config.aiConfig.providers.firstIndex(where: {
+                    $0.id == p.id
+                }) {
+                    ConfigManager.shared.config.aiConfig.providers[idx].name = name
+                    ConfigManager.shared.config.aiConfig.providers[idx].type = type
+                    ConfigManager.shared.config.aiConfig.providers[idx].url = url
+                    ConfigManager.shared.config.aiConfig.providers[idx].apiKey = apiKey
+                    ConfigManager.shared.config.aiConfig.providers[idx].modelName = modelName
+                    ConfigManager.shared.config.aiConfig.providers[idx].searchToolName =
+                        searchTool.isEmpty ? nil : searchTool
+                    ConfigManager.shared.config.aiConfig.providers[idx].supportsImages =
+                        supportsImages
+                }
+            } else {
+                let newProvider = AIProvider(
+                    id: UUID().uuidString,
+                    name: name,
+                    type: type,
+                    url: url,
+                    apiKey: apiKey,
+                    modelName: modelName,
+                    searchToolName: searchTool.isEmpty ? nil : searchTool,
+                    supportsImages: supportsImages
+                )
+                ConfigManager.shared.config.aiConfig.providers.append(newProvider)
+                ConfigManager.shared.config.aiConfig.selectedProviderId = newProvider.id
+            }
+
+            ConfigManager.shared.save()
+            ConfigManager.shared.reload()
+            self?.refreshUI()
+        }
+
+        if copying {
+            DispatchQueue.main.async {
+                alert.window.makeFirstResponder(dialogModelField)
+            }
+        }
+    }
+
     // MARK: - Actions & Bindings
 
-    @objc private func enableAICheckboxToggled(_ sender: NSButton) {
+    @objc private func enableAICheckboxToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.aiConfig.isEnabled = (sender.state == .on)
         ConfigManager.shared.save()
         ConfigManager.shared.reload()  // Dynamic socket start/stop
         updateVisibility()
     }
 
-    @objc private func enableMemoryCheckboxToggled(_ sender: NSButton) {
+    @objc private func enableMemoryCheckboxToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.aiConfig.isMemoryEnabled = (sender.state == .on)
         ConfigManager.shared.save()
     }
 
-    @objc private func modelTypeChanged(_ sender: NSPopUpButton) {
-        guard let selectedItem = sender.selectedItem,
-            let type = selectedItem.representedObject as? String
-        else { return }
-
-        ConfigManager.shared.config.aiConfig.selectedModelType = type
+    @objc private func providerRadioClicked(_ sender: NSButton) {
+        guard let providerId = sender.identifier?.rawValue else { return }
+        ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
         ConfigManager.shared.save()
-        updateVisibility()
+        ConfigManager.shared.reload()
+        refreshUI()
     }
 
-    @objc private func supportsImagesToggled(_ sender: NSButton) {
-        ConfigManager.shared.config.aiConfig.supportsImages = (sender.state == .on)
+    @objc private func providerRowClicked(_ sender: NSClickGestureRecognizer) {
+        guard let container = sender.view, let providerId = container.identifier?.rawValue else {
+            return
+        }
+        ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
         ConfigManager.shared.save()
+        ConfigManager.shared.reload()
+        refreshUI()
+    }
+
+    @objc private func editProviderRowClicked(_ sender: NSButton) {
+        guard let providerId = sender.identifier?.rawValue else { return }
+        if let provider = ConfigManager.shared.config.aiConfig.providers.first(where: {
+            $0.id == providerId
+        }) {
+            showProviderSheet(editing: provider)
+        }
+    }
+
+    @objc private func copyProviderRowClicked(_ sender: NSButton) {
+        guard let providerId = sender.identifier?.rawValue else { return }
+        if let provider = ConfigManager.shared.config.aiConfig.providers.first(where: {
+            $0.id == providerId
+        }) {
+            showProviderSheet(editing: provider, copying: true)
+        }
+    }
+
+    @objc private func addProviderClicked(_ sender: NSButton) {
+        showProviderSheet(editing: nil)
+    }
+
+    @objc private func deleteProviderRowClicked(_ sender: NSButton) {
+        guard let providerId = sender.identifier?.rawValue else { return }
+        let providers = ConfigManager.shared.config.aiConfig.providers
+        guard let index = providers.firstIndex(where: { $0.id == providerId }) else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Remove AI Provider"
+        alert.informativeText = "Are you sure you want to remove '\(providers[index].name)'?"
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+
+        guard let window = self.view.window else { return }
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+
+            ConfigManager.shared.config.aiConfig.providers.remove(at: index)
+
+            // If the deleted provider was active, fall back to another one
+            if ConfigManager.shared.config.aiConfig.selectedProviderId == providerId {
+                let remaining = ConfigManager.shared.config.aiConfig.providers
+                ConfigManager.shared.config.aiConfig.selectedProviderId =
+                    remaining.first?.id ?? "foundation-default"
+            }
+
+            ConfigManager.shared.save()
+            ConfigManager.shared.reload()
+
+            self?.refreshUI()
+        }
     }
 
     // MARK: - NSTextFieldDelegate
@@ -362,26 +739,18 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField else { return }
 
-        var config = ConfigManager.shared.config.aiConfig
-        if textField == apiUrlField {
-            config.byokApiUrl = textField.stringValue.trimmingCharacters(in: .whitespaces)
-        } else if textField == apiKeyField {
-            config.byokApiKey = textField.stringValue.trimmingCharacters(in: .whitespaces)
-        } else if textField == modelNameField {
-            config.byokModelName = textField.stringValue.trimmingCharacters(in: .whitespaces)
-        } else if textField == systemPromptField {
-            config.systemPrompt = textField.stringValue
+        if textField == systemPromptField {
+            ConfigManager.shared.config.aiConfig.systemPrompt = textField.stringValue
         } else if textField == temperatureField {
             if let val = Double(textField.stringValue) {
-                config.temperature = val
+                ConfigManager.shared.config.aiConfig.temperature = val
             }
         } else if textField == maxTokensField {
             if let val = Int(textField.stringValue) {
-                config.maxTokens = val
+                ConfigManager.shared.config.aiConfig.maxTokens = val
             }
         }
 
-        ConfigManager.shared.config.aiConfig = config
         ConfigManager.shared.save()
     }
 
@@ -390,20 +759,20 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config.aiConfig
 
-        enableAICheckbox.state = config.isEnabled ? .on : .off
-        enableMemoryCheckbox.state = config.isMemoryEnabled ? .on : .off
+        enableAISwitch.state = config.isEnabled ? .on : .off
+        enableMemorySwitch.state = config.isMemoryEnabled ? .on : .off
 
-        if let idx = modelTypePopUp.menu?.items.firstIndex(where: {
-            ($0.representedObject as? String) == config.selectedModelType
-        }) {
-            modelTypePopUp.selectItem(at: idx)
+        // Rebuild provider rows in stack view
+        for subview in providersListStack.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
+        for provider in config.providers {
+            let row = createProviderRow(
+                for: provider, isActive: provider.id == config.selectedProviderId)
+            providersListStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: providersListStack.widthAnchor).isActive = true
         }
 
-        // BYOK fields
-        apiUrlField.stringValue = config.byokApiUrl
-        apiKeyField.stringValue = config.byokApiKey
-        modelNameField.stringValue = config.byokModelName
-        supportsImagesCheckbox.state = config.supportsImages ? .on : .off
         systemPromptField.stringValue = config.systemPrompt
         temperatureField.stringValue = String(config.temperature)
         maxTokensField.stringValue = String(config.maxTokens)
@@ -413,11 +782,84 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
 
     private func updateVisibility() {
         let isEnabled = ConfigManager.shared.config.aiConfig.isEnabled
-        let modelType = ConfigManager.shared.config.aiConfig.selectedModelType
 
         memoryRow.isHidden = !isEnabled
-        modelTypeRow.isHidden = !isEnabled
-        warningContainer.isHidden = !isEnabled || (modelType != "foundation")
-        byokSection.isHidden = !isEnabled || (modelType != "byok")
+        providersSection.isHidden = !isEnabled
+        globalSettingsSection.isHidden = !isEnabled
+
+        if isEnabled, let active = ConfigManager.shared.config.aiConfig.activeProvider {
+            let isByok = (active.type == "byok")
+            warningContainer.isHidden = isByok
+        }
+    }
+}
+
+class PasteableTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            guard let key = event.charactersIgnoringModifiers?.lowercased() else {
+                return super.performKeyEquivalent(with: event)
+            }
+            switch key {
+            case "v":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self)
+                    return true
+                }
+            case "c":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self)
+                    return true
+                }
+            case "x":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self)
+                    return true
+                }
+            case "a":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self)
+                    return true
+                }
+            default:
+                break
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
+class PasteableSecureTextField: NSSecureTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            guard let key = event.charactersIgnoringModifiers?.lowercased() else {
+                return super.performKeyEquivalent(with: event)
+            }
+            switch key {
+            case "v":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self)
+                    return true
+                }
+            case "c":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self)
+                    return true
+                }
+            case "x":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self)
+                    return true
+                }
+            case "a":
+                if self.currentEditor() != nil {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self)
+                    return true
+                }
+            default:
+                break
+            }
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }

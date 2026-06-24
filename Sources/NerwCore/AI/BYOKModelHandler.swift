@@ -2,7 +2,11 @@ import Foundation
 import NerwUtils
 
 public class BYOKModelHandler: AIModelHandler {
-    public init() {}
+    private let provider: AIProvider
+
+    public init(provider: AIProvider) {
+        self.provider = provider
+    }
 
     public func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool)
         async throws
@@ -10,12 +14,12 @@ public class BYOKModelHandler: AIModelHandler {
     {
         let aiConfig = ConfigManager.shared.config.aiConfig
 
-        guard let url = URL(string: aiConfig.byokApiUrl) else {
-            Logger.shared.error("BYOKModelHandler: Invalid API URL: \(aiConfig.byokApiUrl)")
+        guard let url = URL(string: provider.url) else {
+            Logger.shared.error("BYOKModelHandler: Invalid API URL: \(provider.url)")
             throw NSError(
                 domain: "NerwAI", code: 400,
                 userInfo: [
-                    NSLocalizedDescriptionKey: "Invalid BYOK API URL: \(aiConfig.byokApiUrl)"
+                    NSLocalizedDescriptionKey: "Invalid BYOK API URL: \(provider.url)"
                 ])
         }
 
@@ -24,10 +28,10 @@ public class BYOKModelHandler: AIModelHandler {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add Bearer Token authorization if key is provided
-        if !aiConfig.byokApiKey.isEmpty {
-            let maskedKey = aiConfig.byokApiKey.prefix(4) + "..." + aiConfig.byokApiKey.suffix(4)
+        if !provider.apiKey.isEmpty {
+            let maskedKey = provider.apiKey.prefix(4) + "..." + provider.apiKey.suffix(4)
             Logger.shared.info("BYOKModelHandler: Authorization header set (Key: \(maskedKey))")
-            request.setValue("Bearer \(aiConfig.byokApiKey)", forHTTPHeaderField: "Authorization")
+            request.setValue("Bearer \(provider.apiKey)", forHTTPHeaderField: "Authorization")
         } else {
             Logger.shared.warning("BYOKModelHandler: No API Key provided in config.")
         }
@@ -54,7 +58,7 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         for (index, msg) in messages.enumerated() {
-            if msg.role == .user && index == messages.count - 1 && aiConfig.supportsImages
+            if msg.role == .user && index == messages.count - 1 && provider.supportsImages
                 && !images.isEmpty
             {
                 var contentArray: [[String: Any]] = []
@@ -75,7 +79,7 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         var payload: [String: Any] = [
-            "model": aiConfig.byokModelName,
+            "model": provider.modelName,
             "messages": apiMessages,
             "stream": isStreaming,
             "temperature": aiConfig.temperature,
@@ -85,10 +89,18 @@ public class BYOKModelHandler: AIModelHandler {
             payload["max_tokens"] = aiConfig.maxTokens
         }
 
+        if let searchTool = provider.searchToolName, !searchTool.isEmpty {
+            if searchTool == "web_search" {
+                payload["tools"] = [["type": "web_search"]]
+            } else {
+                payload["tools"] = [[searchTool: [String: Any]()]]
+            }
+        }
+
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         Logger.shared.info(
-            "BYOKModelHandler: Request payload prepared. Model: \(aiConfig.byokModelName), stream: \(isStreaming)"
+            "BYOKModelHandler: Request payload prepared. Model: \(provider.modelName), stream: \(isStreaming)"
         )
 
         return AsyncThrowingStream<String, Error> {

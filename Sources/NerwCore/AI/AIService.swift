@@ -31,15 +31,24 @@ public class AIService {
                 ])
         }
 
+        guard let activeProvider = config.activeProvider else {
+            Logger.shared.error("AIService: No active AI provider found.")
+            throw NSError(
+                domain: "NerwAI", code: 404,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "No active AI provider found."
+                ])
+        }
+
         let handler: AIModelHandler
-        if config.selectedModelType == "foundation" {
+        if activeProvider.type == "foundation" {
             Logger.shared.info("AIService: Selected FoundationModelHandler")
             handler = FoundationModelHandler()
         } else {
             Logger.shared.info(
-                "AIService: Selected BYOKModelHandler (API URL: \(config.byokApiUrl), Model: \(config.byokModelName))"
+                "AIService: Selected BYOKModelHandler (API URL: \(activeProvider.url), Model: \(activeProvider.modelName))"
             )
-            handler = BYOKModelHandler()
+            handler = BYOKModelHandler(provider: activeProvider)
         }
 
         var updatedMessages = messages

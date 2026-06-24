@@ -23,8 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         popupController = MainPanelWindowController()
 
-        ScreenCaptureManager.shared.captureAsync()
-
         setupStatusItem()
 
         registerGlobalHotkey()
@@ -51,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         conversationWindowController = ConversationWindowController()
 
         ConversationManager.shared.showWindowCallback = { [weak self] prompt in
+            ScreenCaptureManager.shared.captureAsync()
             self?.popupController.hide(restoreFocus: false)
             self?.conversationWindowController.show(prompt: prompt)
         }
@@ -335,9 +334,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             identifier: "nerw.global.toggle", keyCode: keyCode, modifiers: modifiers
         ) { [weak self] in
             DispatchQueue.main.async {
-                if self?.popupController.isVisible == false {
-                    ScreenCaptureManager.shared.captureAsync()
-                }
                 self?.popupController.toggle()
             }
         }

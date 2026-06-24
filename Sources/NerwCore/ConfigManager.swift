@@ -27,9 +27,44 @@ public struct LayoutConfig: Codable {
     public init() {}
 }
 
+public struct AIProvider: Codable, Equatable {
+    public var id: String
+    public var name: String
+    public var type: String  // "foundation" or "byok"
+    public var url: String
+    public var apiKey: String
+    public var modelName: String
+    public var searchToolName: String?
+    public var supportsImages: Bool
+
+    public init(
+        id: String = UUID().uuidString,
+        name: String = "",
+        type: String = "byok",
+        url: String = "",
+        apiKey: String = "",
+        modelName: String = "",
+        searchToolName: String? = nil,
+        supportsImages: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.url = url
+        self.apiKey = apiKey
+        self.modelName = modelName
+        self.searchToolName = searchToolName
+        self.supportsImages = supportsImages
+    }
+}
+
 public struct AIConfig: Codable {
     public var isEnabled: Bool = false
     public var isMemoryEnabled: Bool = true
+    public var selectedProviderId: String = "foundation-default"
+    public var providers: [AIProvider] = []
+
+    // Kept for backward compatibility or migration
     public var selectedModelType: String = "byok"  // "foundation" or "byok"
     public var byokApiKey: String = ""
     public var byokApiUrl: String = "https://api.openai.com/v1/chat/completions"
@@ -39,7 +74,74 @@ public struct AIConfig: Codable {
     public var temperature: Double = 0.7
     public var maxTokens: Int = 1024
 
-    public init() {}
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case isMemoryEnabled
+        case selectedProviderId
+        case providers
+        case selectedModelType
+        case byokApiKey
+        case byokApiUrl
+        case byokModelName
+        case supportsImages
+        case systemPrompt
+        case temperature
+        case maxTokens
+    }
+
+    public init() {
+        self.providers = [
+            AIProvider(id: "foundation-default", name: "Apple Intelligence", type: "foundation"),
+            AIProvider(
+                id: "byok-default", name: "Custom BYOK", type: "byok", url: byokApiUrl,
+                apiKey: byokApiKey, modelName: byokModelName, supportsImages: supportsImages),
+        ]
+        self.selectedProviderId =
+            selectedModelType == "foundation" ? "foundation-default" : "byok-default"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        isMemoryEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMemoryEnabled) ?? true
+
+        selectedModelType =
+            try container.decodeIfPresent(String.self, forKey: .selectedModelType) ?? "byok"
+        byokApiKey = try container.decodeIfPresent(String.self, forKey: .byokApiKey) ?? ""
+        byokApiUrl =
+            try container.decodeIfPresent(String.self, forKey: .byokApiUrl)
+            ?? "https://api.openai.com/v1/chat/completions"
+        byokModelName =
+            try container.decodeIfPresent(String.self, forKey: .byokModelName) ?? "gpt-4o"
+        supportsImages = try container.decodeIfPresent(Bool.self, forKey: .supportsImages) ?? true
+        systemPrompt =
+            try container.decodeIfPresent(String.self, forKey: .systemPrompt)
+            ?? "You are a helpful macOS assistant."
+        temperature = try container.decodeIfPresent(Double.self, forKey: .temperature) ?? 0.7
+        maxTokens = try container.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 1024
+
+        providers = try container.decodeIfPresent([AIProvider].self, forKey: .providers) ?? []
+        selectedProviderId =
+            try container.decodeIfPresent(String.self, forKey: .selectedProviderId) ?? ""
+
+        if providers.isEmpty {
+            providers = [
+                AIProvider(
+                    id: "foundation-default", name: "Apple Intelligence", type: "foundation"),
+                AIProvider(
+                    id: "byok-default", name: "Custom BYOK", type: "byok", url: byokApiUrl,
+                    apiKey: byokApiKey, modelName: byokModelName, supportsImages: supportsImages),
+            ]
+            selectedProviderId =
+                selectedModelType == "foundation" ? "foundation-default" : "byok-default"
+        }
+    }
+}
+
+extension AIConfig {
+    public var activeProvider: AIProvider? {
+        return providers.first(where: { $0.id == selectedProviderId })
+    }
 }
 
 public struct Config: Codable {

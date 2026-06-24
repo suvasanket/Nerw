@@ -41,14 +41,25 @@ Settings are stored in the root `~/.nerw/config.json` inside the `aiConfig` bloc
 | Parameter | Type | Default Value | Description |
 |---|---|---|---|
 | `isEnabled` | `Bool` | `false` | Enables/Disables the AI subsystem and UDS socket server. |
-| `selectedModelType` | `String` | `"byok"` | Active model backend. Choose `"foundation"` or `"byok"`. |
-| `byokApiUrl` | `String` | `"https://api.openai.com/v1/chat/completions"` | Base URL of the completions API. |
-| `byokApiKey` | `String` | `""` | Bearer authorization token/key. |
-| `byokModelName` | `String` | `"gpt-4o"` | The specific model identifier (e.g., `google/gemini-2.5-flash` for OpenRouter). |
-| `supportsImages` | `Bool` | `true` | Declares if the BYOK model supports multimodal image/vision inputs. |
+| `isMemoryEnabled` | `Bool` | `true` | Enables/Disables semantic long-term memory. |
+| `selectedProviderId` | `String` | `"foundation-default"` | The ID of the currently active provider. |
+| `providers` | `[AIProvider]` | `[...]` | Array of configured AI model providers (see structure below). |
 | `systemPrompt` | `String` | `"You are a helpful macOS assistant."` | Base instructions injected before the conversation starts. |
 | `temperature` | `Double` | `0.7` | Creativity control (0.0 for deterministic, 1.0 for creative). |
 | `maxTokens` | `Int` | `1024` | Maximum tokens generated per completion request (0 for no limit). |
+
+### AIProvider Structure
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `String` | Unique identifier (UUID). |
+| `name` | `String` | Custom name/label for the provider. |
+| `type` | `String` | `"foundation"` or `"byok"`. |
+| `url` | `String` | Base URL of the completions API (BYOK only). |
+| `apiKey` | `String` | Bearer authorization token (BYOK only). |
+| `modelName` | `String` | The specific model identifier (BYOK only). |
+| `searchToolName` | `String?` | Name of the web search tool to declare in the tools payload (e.g., `googleSearch`, `web_search`) for provider-native grounding. |
+| `supportsImages` | `Bool` | Declares if the provider supports multimodal vision input. |
 
 ---
 
@@ -154,24 +165,28 @@ Emitted if an API request fails, key is invalid, or connection drops.
 ### A. Free Model Test via OpenRouter
 If you want to test the BYOK model configuration using **OpenRouter** and a free model (e.g., Gemini 2.5 Flash Free):
 
-1.  Open the settings panel in Nerw (**Cmd + ,** or Click Status bar -> Settings) and navigate to the **AI** tab.
-2.  Check **Enable AI Assistant Subsystem**.
-3.  Set **Model Backend** to **BYOK (Bring Your Own Key / Custom API)**.
-4.  Input the following values:
-    *   **API Endpoint URL**: `https://openrouter.ai/api/v1/chat/completions`
-    *   **API Key**: *Your OpenRouter API Key*
-    *   **Model Name**: `google/gemini-2.5-flash:free`
-    *   **Vision Support**: *Checked* (Gemini supports vision)
-5.  Press enter on any text field to save changes.
+1. Open the settings panel in Nerw (**Cmd + ,** or Click Status bar -> Settings) and navigate to the **AI** tab.
+2. Enable the **Nerw AI** toggle switch.
+3. In the **Provider** section, click **Add** to configure a new custom provider.
+4. Input the following values:
+    * **Provider Name**: `OpenRouter Gemini`
+    * **API Endpoint URL**: `https://openrouter.ai/api/v1/chat/completions`
+    * **API Key**: *Your OpenRouter API Key*
+    * **Model Name**: `google/gemini-2.5-flash:free`
+    * **Vision Support**: *Checked* (Gemini supports vision)
+5. Click **Add** to save.
+6. Select the radio button next to your new provider to set it as the active AI provider.
 
 ### B. Local Test via Ollama
 If you want to test locally with zero costs:
-1.  Ensure Ollama is running (`ollama run llama3.1` or another installed model).
-2.  Set:
-    *   **API Endpoint URL**: `http://localhost:11434/v1/chat/completions`
-    *   **API Key**: *Leave empty*
-    *   **Model Name**: `llama3.1`
-    *   **Vision Support**: *Unchecked* (unless using a vision model like `llava`)
+1. Ensure Ollama is running (`ollama run llama3.1` or another installed model).
+2. In the **Provider** section, click **Add** and set:
+    * **Provider Name**: `Local Ollama`
+    * **API Endpoint URL**: `http://localhost:11434/v1/chat/completions`
+    * **API Key**: *Leave empty*
+    * **Model Name**: `llama3.1`
+    * **Vision Support**: *Unchecked* (unless using a vision model like `llava`)
+3. Click **Add** to save, then select the radio button next to the provider to make it active.
 
 ---
 
@@ -312,7 +327,7 @@ The `ContextInjectionManager` orchestrates fetching data across different source
 - **ClipboardContextFetcher**: Injects the last 3 entries from the `ClipboardManager`.
 - **CalendarContextFetcher**: Integrates with `EventKit` to fetch upcoming events filtered by the detected timeframe.
 - **ReminderContextFetcher**: Integrates with `EventKit` to fetch incomplete tasks.
-- **ScreenCaptureManager**: A background singleton that asynchronously grabs a screenshot of the main display (`CGWindowListCreateImage`) at the exact moment Nerw is invoked via its global hotkey. This prevents any UI lag and guarantees the screenshot does not capture Nerw's own UI.
+- **ScreenCaptureManager**: A background singleton that asynchronously grabs a screenshot of the main display (`CGWindowListCreateImage`) at the exact moment the conversation panel is invoked. This prevents any UI lag and guarantees the screenshot captures the user's screen state right before engaging with AI.
 - **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome, Arc, etc.) or the name of the foreground application. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters. It also fetches the image data from `ScreenCaptureManager.shared.latestCapture` to feed visual context alongside the text.
 
 The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.
