@@ -467,6 +467,36 @@ public class ConversationViewController: NSViewController {
     private var markdownNodes: [(range: NSRange, node: NerwMarkdownNode)] = []
     private var selectedNodeIndex: Int? = nil
 
+    private let memoryIndicatorContainer: NSVisualEffectView = {
+        let effectView = NSVisualEffectView()
+        effectView.material = .hudWindow
+        effectView.state = .active
+        effectView.blendingMode = .withinWindow
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = 14
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.isHidden = true
+
+        let iv = NSImageView()
+        if let image = NSImage(
+            systemSymbolName: "brain.fill", accessibilityDescription: "Memory Saved")
+        {
+            let config = NSImage.SymbolConfiguration(paletteColors: [.white])
+            iv.image = image.withSymbolConfiguration(config)
+        }
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        effectView.addSubview(iv)
+
+        NSLayoutConstraint.activate([
+            iv.centerXAnchor.constraint(equalTo: effectView.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: effectView.centerYAnchor),
+            iv.widthAnchor.constraint(equalToConstant: 16),
+            iv.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
+        return effectView
+    }()
+
     private lazy var expandArrowButton: HoverIconButton = {
         let btn = HoverIconButton(
             imageName: "chevron.down", isCircular: true, target: self,
@@ -590,6 +620,7 @@ public class ConversationViewController: NSViewController {
         cardView.layer?.cornerRadius = 16
         cardView.layer?.borderWidth = 1.0
         contentView.addSubview(cardView)
+        contentView.addSubview(memoryIndicatorContainer)
 
         // 7. User Query label outside the card above
         queryPlaceholder.translatesAutoresizingMaskIntoConstraints = false
@@ -617,7 +648,7 @@ public class ConversationViewController: NSViewController {
 
         // Response text scroll view inside card
         responseScrollView.drawsBackground = false
-        responseScrollView.hasVerticalScroller = true
+        responseScrollView.hasVerticalScroller = false
         responseScrollView.hasHorizontalScroller = false
         responseScrollView.autohidesScrollers = true
         responseScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -635,7 +666,7 @@ public class ConversationViewController: NSViewController {
 
         responseTextView.textContainer?.lineFragmentPadding = 12
         responseTextView.textContainer?.widthTracksTextView = true
-        responseTextView.textContainerInset = NSSize(width: 0, height: 12)
+        responseTextView.textContainerInset = NSSize(width: 0, height: 4)
 
         responseTextView.minSize = NSSize(width: 0, height: 0)
         responseTextView.maxSize = NSSize(
@@ -742,17 +773,26 @@ public class ConversationViewController: NSViewController {
 
             // Response Scroll View in Card
             responseScrollView.topAnchor.constraint(
-                equalTo: cardView.topAnchor, constant: 16),
+                equalTo: cardView.topAnchor, constant: 8),
             responseScrollView.leadingAnchor.constraint(
-                equalTo: cardView.leadingAnchor, constant: 16),
+                equalTo: cardView.leadingAnchor, constant: 8),
             responseScrollView.trailingAnchor.constraint(
-                equalTo: cardView.trailingAnchor, constant: -16),
+                equalTo: cardView.trailingAnchor, constant: -8),
         ])
 
         scrollViewBottomToCardConstraint = responseScrollView.bottomAnchor.constraint(
-            equalTo: cardView.bottomAnchor, constant: -16)
+            equalTo: cardView.bottomAnchor, constant: -8)
 
         scrollViewBottomToCardConstraint?.isActive = true
+
+        NSLayoutConstraint.activate([
+            memoryIndicatorContainer.bottomAnchor.constraint(
+                equalTo: cardView.bottomAnchor, constant: 6),
+            memoryIndicatorContainer.trailingAnchor.constraint(
+                equalTo: cardView.trailingAnchor, constant: 6),
+            memoryIndicatorContainer.widthAnchor.constraint(equalToConstant: 28),
+            memoryIndicatorContainer.heightAnchor.constraint(equalToConstant: 28),
+        ])
 
         updateColors()
         updateCard()
@@ -925,10 +965,7 @@ public class ConversationViewController: NSViewController {
             // Include textContainerInset (top + bottom) in the height so the card is never
             // smaller than the text view's full frame, preventing the first line from clipping.
             let insetHeight = responseTextView.textContainerInset.height * 2
-            var neededHeight = usedRect.height + insetHeight + 32  // 32 = card top+bottom padding
-            if turn.actionType != nil {
-                neededHeight += 32 /* action bubble height */ + 12 /* spacing */
-            }
+            let neededHeight = usedRect.height + insetHeight + 16  // 16 = card top+bottom padding
             let maxCardHeight = GlobalLayout.mainHeight - 160  // Leave space for query, prompt and padding
             cardHeightConstraint?.constant = min(neededHeight, maxCardHeight)
         }
@@ -940,8 +977,11 @@ public class ConversationViewController: NSViewController {
 
         if text.isEmpty {
             responseTextView.textStorage?.setAttributedString(NSAttributedString())
+            memoryIndicatorContainer.isHidden = true
             return
         }
+
+        memoryIndicatorContainer.isHidden = !text.contains("![action:memory]")
 
         let theme = NerwTheme.current()
         let textColor: NSColor

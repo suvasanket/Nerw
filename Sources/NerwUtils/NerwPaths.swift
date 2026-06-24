@@ -61,6 +61,11 @@ public struct NerwPaths {
         daemonRunDirectory.appendingPathComponent("ai.sock")
     }
 
+    /// Path for the AI memory file (`~/.nerw/memory.json`).
+    public static var aiMemoryFile: URL {
+        configDirectory.appendingPathComponent("memory.json")
+    }
+
     /// Per-extension persistent data directory (`~/.nerw/extensions/<id>/data`).
     /// Survives restarts; cleaned on extension uninstall.
     public static func daemonDataDir(for extensionId: String) -> URL {

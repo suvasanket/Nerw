@@ -29,6 +29,7 @@ public struct LayoutConfig: Codable {
 
 public struct AIConfig: Codable {
     public var isEnabled: Bool = false
+    public var isMemoryEnabled: Bool = true
     public var selectedModelType: String = "byok"  // "foundation" or "byok"
     public var byokApiKey: String = ""
     public var byokApiUrl: String = "https://api.openai.com/v1/chat/completions"

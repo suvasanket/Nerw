@@ -25,6 +25,8 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
 
     // General AI UI elements
     private let enableAICheckbox = NSButton()
+    private let enableMemoryCheckbox = NSButton()
+    private let memoryRow = NSStackView()
     private let modelTypePopUp = NSPopUpButton()
     private let modelTypeRow = NSStackView()
     private let warningContainer = NSView()
@@ -77,6 +79,18 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         enableRow.alignment = .centerY
         enableRow.addArrangedSubview(enableAICheckbox)
         enableRow.addArrangedSubview(NSView())  // Spacer
+
+        enableMemoryCheckbox.setButtonType(.switch)
+        enableMemoryCheckbox.title = "Enable AI Long-Term Memory"
+        enableMemoryCheckbox.font = .systemFont(ofSize: 13, weight: .medium)
+        enableMemoryCheckbox.target = self
+        enableMemoryCheckbox.action = #selector(enableMemoryCheckboxToggled(_:))
+        enableMemoryCheckbox.translatesAutoresizingMaskIntoConstraints = false
+
+        memoryRow.orientation = .horizontal
+        memoryRow.alignment = .centerY
+        memoryRow.addArrangedSubview(enableMemoryCheckbox)
+        memoryRow.addArrangedSubview(NSView())  // Spacer
 
         // Model Type Selector
         modelTypePopUp.pullsDown = false
@@ -161,7 +175,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
 
         activationSection = SettingsSection(
             title: "AI Activation & Backend",
-            contentViews: [enableRow, modelTypeRow, warningContainer]
+            contentViews: [enableRow, memoryRow, modelTypeRow, warningContainer]
         )
         stackView.addArrangedSubview(activationSection)
         activationSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
@@ -323,6 +337,11 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         updateVisibility()
     }
 
+    @objc private func enableMemoryCheckboxToggled(_ sender: NSButton) {
+        ConfigManager.shared.config.aiConfig.isMemoryEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
     @objc private func modelTypeChanged(_ sender: NSPopUpButton) {
         guard let selectedItem = sender.selectedItem,
             let type = selectedItem.representedObject as? String
@@ -372,6 +391,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         let config = ConfigManager.shared.config.aiConfig
 
         enableAICheckbox.state = config.isEnabled ? .on : .off
+        enableMemoryCheckbox.state = config.isMemoryEnabled ? .on : .off
 
         if let idx = modelTypePopUp.menu?.items.firstIndex(where: {
             ($0.representedObject as? String) == config.selectedModelType
@@ -395,6 +415,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         let isEnabled = ConfigManager.shared.config.aiConfig.isEnabled
         let modelType = ConfigManager.shared.config.aiConfig.selectedModelType
 
+        memoryRow.isHidden = !isEnabled
         modelTypeRow.isHidden = !isEnabled
         warningContainer.isHidden = !isEnabled || (modelType != "foundation")
         byokSection.isHidden = !isEnabled || (modelType != "byok")

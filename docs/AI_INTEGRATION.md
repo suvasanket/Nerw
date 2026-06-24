@@ -287,6 +287,13 @@ The `AIStreamParser` consumes token chunks as they arrive from the backend and m
 - **Native Execution**: Detected actions are routed to `AIActionManager.swift`, which natively integrates with macOS APIs. Currently supported capabilities include setting system notifications for **timers** (via `UNUserNotificationCenter`), creating Apple **Reminders**, and scheduling **Calendar** events (via `EventKit`).
 - **Text Safety**: When a partial tag (like `<thi`) is buffering, it gracefully halts text output until the tag either completes or resolves to raw text, preventing UI flickering.
 
+### Semantic Memory Engine
+The AI subsystem integrates an NLP-driven memory feature, allowing the assistant to store and retrieve long-term facts about the user seamlessly during the conversation. 
+- **Storage & Processing**: When the parser detects `<action>{ "type": "memory", "action": "save", "content": "..." }</action>`, the fact is saved to `~/.nerw/memory.json`.
+- **NLP Deduplication**: To prevent the context window from bloating with redundant facts, the `MemoryManager` runs semantic deduplication using Apple's `NaturalLanguage` framework (`NLEmbedding.sentenceEmbedding(for: .english)`). 
+- **Importance & Decay**: Instead of blindly rejecting similar memories, if an incoming fact has a cosine distance less than `0.3` to an existing fact, the system updates the timestamp and increments the `importance` score of the existing fact. When the max capacity is reached, it prunes the least important and oldest memories.
+- **UI Integration**: Memory payloads are completely stripped from the visible response text. Instead, a sleek, translucent `brain.fill` badge gracefully overlays the bottom-right corner of the response card to signal to the user that a memory was securely filed.
+
 ---
 
 ## 8. Precise Context Injection (PCI)

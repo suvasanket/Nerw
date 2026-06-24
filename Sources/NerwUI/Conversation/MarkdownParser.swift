@@ -83,7 +83,7 @@ public struct MarkdownParser {
                     .font: codeFont,
                     NerwCodeBlockBackgroundKey: textColor.withAlphaComponent(0.08),
                     NerwNodeKey: NerwMarkdownNode(type: .codeBlock, content: trimmedBody),
-                    .foregroundColor: accentColor,
+                    .foregroundColor: NSColor.white,
                     .paragraphStyle: paragraphStyle,
                 ])
             codeContent.append(bodyAttr)
@@ -110,7 +110,7 @@ public struct MarkdownParser {
                 attributes: [
                     .font: codeFont,
                     NerwInlineCodeBackgroundKey: textColor.withAlphaComponent(0.12),
-                    .foregroundColor: accentColor,
+                    .foregroundColor: NSColor.white,
                     .paragraphStyle: paragraphStyle,
                 ])
             str.replaceCharacters(in: match.range, with: codeContent)
@@ -264,12 +264,42 @@ public struct MarkdownParser {
             }
 
             let actionType = (str.string as NSString).substring(with: match.range(at: 1))
+            if actionType.lowercased() == "memory" {
+                var deleteRange = match.range
+                let nsString = str.string as NSString
+
+                // Expand backward for whitespace
+                while deleteRange.location > 0 {
+                    let charStr = nsString.substring(
+                        with: NSRange(location: deleteRange.location - 1, length: 1))
+                    if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        deleteRange.location -= 1
+                        deleteRange.length += 1
+                    } else {
+                        break
+                    }
+                }
+                // Expand forward for whitespace
+                while deleteRange.location + deleteRange.length < nsString.length {
+                    let charStr = nsString.substring(
+                        with: NSRange(
+                            location: deleteRange.location + deleteRange.length, length: 1))
+                    if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        deleteRange.length += 1
+                    } else {
+                        break
+                    }
+                }
+
+                str.replaceCharacters(in: deleteRange, with: "")
+                return
+            }
+
             let displayName: String
             switch actionType.lowercased() {
             case "timer": displayName = "Timer"
             case "reminder": displayName = "Reminder"
             case "calendar": displayName = "Calendar"
-            case "memory": displayName = "Memory"
             default: displayName = actionType.capitalized
             }
 

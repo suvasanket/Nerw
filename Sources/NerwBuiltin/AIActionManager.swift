@@ -19,11 +19,29 @@ public class AIActionManager {
             handleReminder(payload: payload)
         case "calendar":
             handleCalendar(payload: payload)
+        case "memory":
+            handleMemory(payload: payload)
         default:
             Logger.shared.warning("AIActionManager: Unknown action type '\(type)'")
             DispatchQueue.main.async {
                 Nerw.notify("AI Action: \(type)\n\(payload)", level: .info)
             }
+        }
+    }
+
+    private func handleMemory(payload: [String: Any]) {
+        guard let content = payload["content"] as? String else {
+            Logger.shared.error(
+                "AIActionManager: Memory payload missing 'content'. Payload: \(payload)")
+            return
+        }
+
+        let importance = payload["importance"] as? Int ?? 5
+
+        AIMemoryManager.shared.save(content: content, importance: importance)
+        Logger.shared.info("AIActionManager: Saved memory: \(content) (importance: \(importance))")
+        DispatchQueue.main.async {
+            Nerw.notify("Memory Saved", level: .info)
         }
     }
 

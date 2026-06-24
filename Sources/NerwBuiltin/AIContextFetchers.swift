@@ -156,3 +156,33 @@ public class ReminderContextFetcher: ContextFetching {
         }
     }
 }
+
+public class AIMemoryContextFetcher: ContextFetching {
+    public var intentType: String { return "system" }
+
+    public init() {}
+
+    public func canHandle(intent: ContextIntent) -> Bool {
+        // Memory should always be injected if enabled
+        if case .system = intent { return true }
+        return false
+    }
+
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isMemoryEnabled else { return nil }
+
+        let entries = AIMemoryManager.shared.entries
+        guard !entries.isEmpty else { return nil }
+
+        var contextStr = "[Persistent Memory]\n"
+        contextStr +=
+            "The following are important facts or preferences about the user from previous interactions:\n"
+
+        let sortedEntries = entries.sorted(by: { $0.timestamp > $1.timestamp })
+        for entry in sortedEntries {
+            contextStr += "- \(entry.content)\n"
+        }
+
+        return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+}

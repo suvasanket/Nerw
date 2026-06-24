@@ -37,16 +37,15 @@ public class BYOKModelHandler: AIModelHandler {
         var apiMessages: [[String: Any]] = []
         var finalSystemPrompt = aiConfig.systemPrompt
         let actionInstructions = """
-
-            You can perform actions by outputting special XML tags.
             To show that you are thinking, wrap your thoughts in <think>...</think>.
             To perform an action, output an <action>JSON_PAYLOAD</action>.
             Supported actions:
-            - timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
-            - reminder: { "type": "reminder", "title": "Buy milk" }
-            - calendar: { "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }
-            - memory: { "type": "memory", "action": "save", "content": "User likes blue" }
-            Do not output action tags for things you cannot do.
+            - timer: <action>{ "type": "timer", "duration": 60, "label": "Boil eggs" }</action>
+            - reminder: <action>{ "type": "reminder", "title": "Buy milk" }</action>
+            - calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
+            - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
+            Specifically use the memory action for user preferences ONLY & Do NOT output memory unecessarily.
+            Do NOT output action tags for things you cannot do.
             """
         finalSystemPrompt += actionInstructions
 
@@ -87,6 +86,7 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
         Logger.shared.info(
             "BYOKModelHandler: Request payload prepared. Model: \(aiConfig.byokModelName), stream: \(isStreaming)"
         )
