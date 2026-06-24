@@ -325,7 +325,7 @@ A minimal, card-based chat layout utilizing `AIService` directly inside the app,
 ### Files
 | File | Purpose |
 |---|---|
-| `ConversationManager.swift` | Exposes the builtin search action trigger (`ai`, `chat`, `ask`, `assistant`) in the main aggregation list |
+| `ConversationManager.swift` | Exposes the builtin search action triggers (`ai`, `chat`, `ask`, `assistant`). Provides both a direct launch action (`builtin.aichat`) and an inline query action (`builtin.aiquery`). The inline query action is automatically suggested as a high-relevance result when the query categorizer detects a natural language question (`.webSearch`). |
 | `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card, user query capsule placed outside the card, scrollable text area, floating glassmorphic prompt input (containing an active generation spinner), floating circular trash button, large sparkles placeholder for empty chat history, streaming Task management, and **interactive markdown nodes with a floating selection pill** mapped to keyboard navigation (`Tab` / `Enter`). |
 | `ConversationWindowController.swift` | Manages the floating, non-activating `NSPanel` (`ConversationPanel`) overlapping the main panel's exact position |
 

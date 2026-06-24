@@ -864,6 +864,11 @@ public class ConversationViewController: NSViewController {
         view.window?.makeFirstResponder(promptTextField)
     }
 
+    public func submitPromptDirectly(_ text: String) {
+        promptTextField.stringValue = text
+        sendCurrentPrompt()
+    }
+
     @objc private func toggleQueryExpansion() {
         isQueryExpanded.toggle()
         queryLabel.maximumNumberOfLines = isQueryExpanded ? 0 : 1

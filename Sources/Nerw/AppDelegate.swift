@@ -50,9 +50,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         conversationWindowController = ConversationWindowController()
 
-        ConversationManager.shared.showWindowCallback = { [weak self] in
+        ConversationManager.shared.showWindowCallback = { [weak self] prompt in
             self?.popupController.hide(restoreFocus: false)
-            self?.conversationWindowController.show()
+            self?.conversationWindowController.show(prompt: prompt)
         }
 
         NotificationCenter.default.addObserver(

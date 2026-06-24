@@ -292,6 +292,28 @@ public class SearchService {
                 let catResult = QueryCategorizer.shared.classifySync(query)
                 var allActions = matchedActions
                 allActions.append(contentsOf: fallbacks)
+
+                if catResult.category == .webSearch {
+                    if let aiAction = allCandidates.first(where: { $0.id == "builtin.aiquery" }) {
+                        let aiSuggest = NerwAction(
+                            id: "builtin.aiquery.suggest",
+                            title: aiAction.title,
+                            subtitle: "Ask AI: '\(query)'",
+                            icon: aiAction.icon,
+                            category: .webSearch,
+                            triggers: [],
+                            type: .instant(perform: { _ in
+                                if case .inlineArg(let perform, _) = aiAction.type {
+                                    perform(aiAction, query)
+                                }
+                            })
+                        )
+                        if !allActions.contains(where: { $0.id == aiSuggest.id }) {
+                            allActions.append(aiSuggest)
+                        }
+                    }
+                }
+
                 var ranked = self.rankResults(
                     actions: allActions, query: query,
                     categoryResult: catResult.category)

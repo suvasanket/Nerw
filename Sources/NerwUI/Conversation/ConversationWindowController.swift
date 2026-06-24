@@ -83,7 +83,7 @@ public class ConversationWindowController: NSObject {
         }
     }
 
-    public func show() {
+    public func show(prompt: String? = nil) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
         let width = GlobalLayout.mainWidth
@@ -95,7 +95,12 @@ public class ConversationWindowController: NSObject {
         panel.setFrameOrigin(exactOrig)
 
         panel.makeKeyAndOrderFront(nil)
-        contentViewController.focusInput()
+        _ = contentViewController.view
+        if let prompt = prompt {
+            contentViewController.submitPromptDirectly(prompt)
+        } else {
+            contentViewController.focusInput()
+        }
     }
 
     public func hide() {

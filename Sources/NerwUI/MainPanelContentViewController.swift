@@ -1356,6 +1356,13 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func handleTab() -> Bool {
+        if inputField.stringValue.isEmpty {
+            DispatchQueue.main.async {
+                ConversationManager.shared.showWindowCallback?(nil)
+            }
+            return true
+        }
+
         switch inputState {
         case .search:
             guard !actions.isEmpty else { return false }

@@ -5,21 +5,22 @@ import NerwCore
 public class ConversationManager {
     public static let shared = ConversationManager()
 
-    public var showWindowCallback: (() -> Void)?
+    public var showWindowCallback: ((String?) -> Void)?
 
     private init() {}
 
     public static func builtinActions() -> [NerwAction] {
         return [
             NerwAction(
-                id: "builtin.aichat",
-                title: "AI Chat",
-                subtitle: "Start a conversation with AI",
-                icon: .system("cpu"),
+                id: "builtin.aiquery",
+                title: "Ask AI",
+                subtitle: "Ask AI about '%s'",
+                icon: .system("sparkle"),
+                category: .webSearch,
                 triggers: ["ai", "chat", "ask", "assistant"],
-                type: .instant(perform: { _ in
+                type: .inlineArg(perform: { _, query in
                     DispatchQueue.main.async {
-                        ConversationManager.shared.showWindowCallback?()
+                        ConversationManager.shared.showWindowCallback?(query)
                     }
                 })
             )
