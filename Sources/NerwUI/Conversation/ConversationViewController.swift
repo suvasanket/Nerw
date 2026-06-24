@@ -467,6 +467,11 @@ public class ConversationViewController: NSViewController {
     private var markdownNodes: [(range: NSRange, node: NerwMarkdownNode)] = []
     private var selectedNodeIndex: Int? = nil
 
+    private let currentModelStack = NSStackView()
+    private let currentModelLabel = NSTextField(labelWithString: "")
+    private let currentModelGlobeIcon = NSImageView()
+    private let currentModelEyeIcon = NSImageView()
+
     private let memoryIndicatorContainer: NSVisualEffectView = {
         let effectView = NSVisualEffectView()
         effectView.material = .hudWindow
@@ -635,9 +640,9 @@ public class ConversationViewController: NSViewController {
         queryLabel.isBordered = false
         queryLabel.drawsBackground = false
         queryLabel.backgroundColor = .clear
-        queryLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        queryLabel.font = .systemFont(ofSize: 13, weight: .regular)
         queryLabel.textColor = .white.withAlphaComponent(0.5)
-        queryLabel.alignment = .right
+        queryLabel.alignment = .left
         queryLabel.maximumNumberOfLines = 1
         queryLabel.cell?.lineBreakMode = .byTruncatingTail
         queryLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -645,6 +650,36 @@ public class ConversationViewController: NSViewController {
         queryContainer.wantsLayer = true
         queryContainer.layer?.cornerRadius = 8
         queryContainer.addSubview(queryLabel)
+
+        // Setup current model stack
+        currentModelStack.orientation = .horizontal
+        currentModelStack.spacing = 4
+        currentModelStack.alignment = .centerY
+        currentModelStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(currentModelStack)
+
+        currentModelLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        currentModelLabel.textColor = .white.withAlphaComponent(0.5)
+        currentModelLabel.drawsBackground = false
+        currentModelLabel.isEditable = false
+        currentModelLabel.isBordered = false
+        currentModelLabel.maximumNumberOfLines = 1
+
+        let configSymbol = NSImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+        currentModelGlobeIcon.image = NSImage(
+            systemSymbolName: "globe", accessibilityDescription: nil)?.withSymbolConfiguration(
+                configSymbol)
+        currentModelGlobeIcon.contentTintColor = .white.withAlphaComponent(0.5)
+        currentModelGlobeIcon.translatesAutoresizingMaskIntoConstraints = false
+
+        currentModelEyeIcon.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configSymbol)
+        currentModelEyeIcon.contentTintColor = .white.withAlphaComponent(0.5)
+        currentModelEyeIcon.translatesAutoresizingMaskIntoConstraints = false
+
+        currentModelStack.addArrangedSubview(currentModelLabel)
+        currentModelStack.addArrangedSubview(currentModelGlobeIcon)
+        currentModelStack.addArrangedSubview(currentModelEyeIcon)
 
         // Response text scroll view inside card
         responseScrollView.drawsBackground = false
@@ -738,6 +773,12 @@ public class ConversationViewController: NSViewController {
             spinner.widthAnchor.constraint(equalToConstant: 16),
             spinner.heightAnchor.constraint(equalToConstant: 16),
 
+            // Current model indicator
+            currentModelStack.bottomAnchor.constraint(
+                equalTo: promptContainer.topAnchor, constant: -12),
+            currentModelStack.trailingAnchor.constraint(
+                equalTo: promptContainer.trailingAnchor, constant: -16),
+
             // Response Card below window top
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: contentPadding),
             cardView.leadingAnchor.constraint(
@@ -745,19 +786,21 @@ public class ConversationViewController: NSViewController {
             cardView.trailingAnchor.constraint(
                 equalTo: contentView.trailingAnchor, constant: -contentPadding),
             cardView.bottomAnchor.constraint(
-                lessThanOrEqualTo: queryPlaceholder.topAnchor, constant: -12),
+                lessThanOrEqualTo: promptContainer.topAnchor, constant: -48),
 
-            // User Query Placeholder (Fixed height to prevent pushing cardView up)
-            queryPlaceholder.bottomAnchor.constraint(
-                equalTo: promptContainer.topAnchor, constant: -12),
-            queryPlaceholder.trailingAnchor.constraint(equalTo: promptContainer.trailingAnchor),
-            queryPlaceholder.leadingAnchor.constraint(equalTo: promptContainer.centerXAnchor),
+            // User Query Placeholder (Fixed height, left-aligned under cardView)
+            queryPlaceholder.topAnchor.constraint(equalTo: cardView.bottomAnchor, constant: 8),
+            queryPlaceholder.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
+            queryPlaceholder.widthAnchor.constraint(
+                lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.5),
             queryPlaceholder.heightAnchor.constraint(equalToConstant: 24),
 
-            // User Query Container (Overlay, grows upwards over cardView)
-            queryContainer.bottomAnchor.constraint(equalTo: queryPlaceholder.bottomAnchor),
+            // User Query Container (Overlay, expands downwards)
+            queryContainer.topAnchor.constraint(equalTo: queryPlaceholder.topAnchor),
             queryContainer.trailingAnchor.constraint(equalTo: queryPlaceholder.trailingAnchor),
             queryContainer.leadingAnchor.constraint(equalTo: queryPlaceholder.leadingAnchor),
+            queryContainer.bottomAnchor.constraint(
+                lessThanOrEqualTo: promptContainer.topAnchor, constant: -8),
 
             queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor, constant: 8),
             queryLabel.trailingAnchor.constraint(
@@ -841,7 +884,23 @@ public class ConversationViewController: NSViewController {
         super.viewWillAppear()
         updateColors()
         updateCard()
+        updateModelIndicator()
         focusInput()
+    }
+
+    private func updateModelIndicator() {
+        let aiConfig = ConfigManager.shared.config.aiConfig
+        if let provider = aiConfig.providers.first(where: { $0.id == aiConfig.selectedProviderId })
+        {
+            currentModelLabel.stringValue = provider.name
+            currentModelGlobeIcon.isHidden =
+                provider.searchToolName == nil || provider.searchToolName!.isEmpty
+            currentModelEyeIcon.isHidden = !provider.supportsImages
+        } else {
+            currentModelLabel.stringValue = "Unknown Model"
+            currentModelGlobeIcon.isHidden = true
+            currentModelEyeIcon.isHidden = true
+        }
     }
 
     public override func viewDidLayout() {
@@ -1570,6 +1629,7 @@ extension ConversationViewController: ActionContextViewControllerDelegate {
                 let providerId = String(customId.dropFirst("selectModel_".count))
                 ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
                 ConfigManager.shared.save()
+                updateModelIndicator()
                 return
             }
 

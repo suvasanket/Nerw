@@ -207,7 +207,10 @@ private final class ActionContextOperationCellView: NSTableCellView {
     private let containerView = NSView()
     private let iconPlateView = NSView()
     private let iconView = NSImageView()
+    private let titleStackView = NSStackView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let searchIconView = NSImageView()
+    private let visionIconView = NSImageView()
     private let detailLabel = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
@@ -241,11 +244,27 @@ private final class ActionContextOperationCellView: NSTableCellView {
         iconView.imageScaling = .scaleProportionallyUpOrDown
         containerView.addSubview(iconView)
 
+        titleStackView.orientation = .horizontal
+        titleStackView.spacing = 4
+        titleStackView.alignment = .centerY
+        titleStackView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(titleStackView)
+
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(titleLabel)
+        titleStackView.addArrangedSubview(titleLabel)
+
+        let configSymbol = NSImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+        searchIconView.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configSymbol)
+        searchIconView.translatesAutoresizingMaskIntoConstraints = false
+        titleStackView.addArrangedSubview(searchIconView)
+
+        visionIconView.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configSymbol)
+        visionIconView.translatesAutoresizingMaskIntoConstraints = false
+        titleStackView.addArrangedSubview(visionIconView)
 
         detailLabel.font = .systemFont(ofSize: 11, weight: .regular)
         detailLabel.alignment = .right
@@ -276,17 +295,17 @@ private final class ActionContextOperationCellView: NSTableCellView {
             iconView.widthAnchor.constraint(equalToConstant: 12),
             iconView.heightAnchor.constraint(equalToConstant: 12),
 
-            titleLabel.leadingAnchor.constraint(
+            titleStackView.leadingAnchor.constraint(
                 equalTo: iconPlateView.trailingAnchor, constant: 8),
-            titleLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            titleLabel.trailingAnchor.constraint(
+            titleStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            titleStackView.trailingAnchor.constraint(
                 lessThanOrEqualTo: detailLabel.leadingAnchor, constant: -8),
 
             detailLabel.trailingAnchor.constraint(
                 equalTo: containerView.trailingAnchor, constant: -12),
             detailLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             detailLabel.leadingAnchor.constraint(
-                greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8),
+                greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 8),
         ])
     }
 
@@ -297,6 +316,19 @@ private final class ActionContextOperationCellView: NSTableCellView {
         showsTopSeparator: Bool
     ) {
         titleLabel.stringValue = operation.title
+        searchIconView.isHidden = true
+        visionIconView.isHidden = true
+
+        if case .custom(let customId) = operation.kind, customId.hasPrefix("selectModel_") {
+            let providerId = String(customId.dropFirst("selectModel_".count))
+            if let provider = ConfigManager.shared.config.aiConfig.providers.first(where: {
+                $0.id == providerId
+            }) {
+                searchIconView.isHidden =
+                    (provider.searchToolName == nil || provider.searchToolName!.isEmpty)
+                visionIconView.isHidden = !provider.supportsImages
+            }
+        }
         detailLabel.stringValue = detailText ?? ""
         detailLabel.isHidden = detailText == nil
         iconView.image = image(for: operation.icon)
@@ -311,6 +343,12 @@ private final class ActionContextOperationCellView: NSTableCellView {
             ?? NSColor.white.withAlphaComponent(0.14)
 
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
+        searchIconView.contentTintColor =
+            isSelected
+            ? selectedTextColor.withAlphaComponent(0.6) : mainTextColor.withAlphaComponent(0.5)
+        visionIconView.contentTintColor =
+            isSelected
+            ? selectedTextColor.withAlphaComponent(0.6) : mainTextColor.withAlphaComponent(0.5)
         detailLabel.textColor =
             isSelected
             ? selectedTextColor.withAlphaComponent(detailText == nil ? 0.0 : 0.72)

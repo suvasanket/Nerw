@@ -90,11 +90,7 @@ public class BYOKModelHandler: AIModelHandler {
         }
 
         if let searchTool = provider.searchToolName, !searchTool.isEmpty {
-            if searchTool == "web_search" {
-                payload["tools"] = [["type": "web_search"]]
-            } else {
-                payload["tools"] = [[searchTool: [String: Any]()]]
-            }
+            payload["tools"] = [["type": searchTool]]
         }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
