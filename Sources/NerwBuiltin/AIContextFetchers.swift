@@ -13,6 +13,7 @@ public class ClipboardContextFetcher: ContextFetching {
     }
 
     public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isClipboardContextEnabled else { return nil }
         let entries = ClipboardManager.shared.entries.prefix(3)
         guard !entries.isEmpty else { return nil }
 
@@ -40,6 +41,7 @@ public class CalendarContextFetcher: ContextFetching {
     }
 
     public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isCalendarContextEnabled else { return nil }
         guard case .calendar(let timeFrame) = intent else { return nil }
 
         // Ensure we have access
@@ -107,6 +109,7 @@ public class ReminderContextFetcher: ContextFetching {
     }
 
     public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isReminderContextEnabled else { return nil }
         guard case .reminder(_) = intent else { return nil }
 
         let status = EKEventStore.authorizationStatus(for: .reminder)

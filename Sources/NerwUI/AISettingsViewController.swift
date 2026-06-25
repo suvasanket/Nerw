@@ -3,7 +3,7 @@ import NerwCore
 import NerwSearchBackend
 import NerwUtils
 
-class AISettingsViewController: NSViewController, NSTextFieldDelegate {
+class AISettingsViewController: NSViewController {
 
     private let scrollView: NSScrollView = {
         let sv = NSScrollView()
@@ -31,9 +31,11 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
     private let warningLabel = NSTextField()
 
     // Global Configuration elements
-    private let systemPromptField = PasteableTextField()
-    private let temperatureField = PasteableTextField()
-    private let maxTokensField = PasteableTextField()
+    private let enableClipboardSwitch = NSSwitch()
+    private let enableActiveAppSwitch = NSSwitch()
+    private let enableWebContextSwitch = NSSwitch()
+    private let enableCalendarSwitch = NSSwitch()
+    private let enableReminderSwitch = NSSwitch()
 
     // Providers Section elements
     private let providersListStack = NSStackView()
@@ -42,7 +44,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
     // Sections
     private var activationSection: SettingsSection!
     private var providersSection: SettingsSection!
-    private var globalSettingsSection: SettingsSection!
+    private var contextSection: SettingsSection!
 
     private var activeAlertTarget: AnyObject?
 
@@ -103,39 +105,16 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         enableRow.addArrangedSubview(spacer1)
         enableRow.addArrangedSubview(enableAISwitch)
 
-        let memoryTextStack = NSStackView()
-        memoryTextStack.orientation = .vertical
-        memoryTextStack.alignment = .leading
-        memoryTextStack.spacing = 2
-        memoryTextStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let memoryLabel = NSTextField(labelWithString: "Memory")
-        memoryLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        memoryLabel.textColor = .labelColor
-
-        let memorySubtext = NSTextField(
-            labelWithString: "Enable local long-term memory for persistent context.")
-        memorySubtext.font = .systemFont(ofSize: 11)
-        memorySubtext.textColor = .secondaryLabelColor
-        memorySubtext.cell?.wraps = true
-        memorySubtext.cell?.isScrollable = false
-
-        memoryTextStack.addArrangedSubview(memoryLabel)
-        memoryTextStack.addArrangedSubview(memorySubtext)
-
         enableMemorySwitch.controlSize = .mini
         enableMemorySwitch.target = self
         enableMemorySwitch.action = #selector(enableMemoryCheckboxToggled(_:))
         enableMemorySwitch.translatesAutoresizingMaskIntoConstraints = false
 
-        memoryRow.orientation = .horizontal
-        memoryRow.alignment = .centerY
-        memoryRow.distribution = .fill
-        memoryRow.addArrangedSubview(memoryTextStack)
-        let spacer2 = NSView()
-        spacer2.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        memoryRow.addArrangedSubview(spacer2)
-        memoryRow.addArrangedSubview(enableMemorySwitch)
+        let memoryRow = createToggleRow(
+            title: "Memory",
+            subtitle: "Enable local long-term memory for persistent context.",
+            switchControl: enableMemorySwitch
+        )
 
         // Warning Container
         warningContainer.wantsLayer = true
@@ -188,7 +167,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
 
         activationSection = SettingsSection(
             title: "General",
-            contentViews: [enableRow, memoryRow, warningContainer]
+            contentViews: [enableRow, warningContainer]
         )
         stackView.addArrangedSubview(activationSection)
         activationSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
@@ -233,44 +212,98 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         providersSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
             .isActive = true
 
-        // --- 3. Global Assistant Parameters Form ---
-        setupFormFields()
-
-        let formLabelWidth: CGFloat = 120
-        let formControlWidth: CGFloat = 320
-
-        let promptRow = createFormRow(
-            label: "System Prompt:", control: systemPromptField, width: formControlWidth,
-            labelWidth: formLabelWidth, subtext: "Global instructions injected into chat context.")
-        let tempRow = createFormRow(
-            label: "Temperature:", control: temperatureField, width: 80, labelWidth: formLabelWidth,
-            subtext: "Controls creativity (0.0 = deterministic, 1.0 = highly creative)")
-        let tokensRow = createFormRow(
-            label: "Max Output Tokens:", control: maxTokensField, width: 80,
-            labelWidth: formLabelWidth, subtext: "Upper limit of generated tokens (0 = no limit)")
-
-        globalSettingsSection = SettingsSection(
-            title: "Global Assistant Settings",
-            contentViews: [promptRow, tempRow, tokensRow]
+        // --- 3. Context Section ---
+        let pciExplanation = NSTextField(
+            labelWithString:
+                "Precise Context Injection (PCI) automatically includes relevant local data when you ask for it."
         )
-        stackView.addArrangedSubview(globalSettingsSection)
-        globalSettingsSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
-            .isActive =
-            true
+        pciExplanation.font = .systemFont(ofSize: 11, weight: .medium)
+        pciExplanation.textColor = .secondaryLabelColor
+        pciExplanation.cell?.wraps = true
+        pciExplanation.cell?.isScrollable = false
+        pciExplanation.translatesAutoresizingMaskIntoConstraints = false
+
+        enableClipboardSwitch.controlSize = .mini
+        enableClipboardSwitch.target = self
+        enableClipboardSwitch.action = #selector(clipboardToggleClicked(_:))
+        let clipboardRow = createToggleRow(
+            title: "Clipboard", subtitle: "Allow AI to read your recent clipboard history.",
+            switchControl: enableClipboardSwitch)
+
+        enableActiveAppSwitch.controlSize = .mini
+        enableActiveAppSwitch.target = self
+        enableActiveAppSwitch.action = #selector(activeAppToggleClicked(_:))
+        let activeAppRow = createToggleRow(
+            title: "Active App & Screen",
+            subtitle: "Allow AI to see your active application and screen contents.",
+            switchControl: enableActiveAppSwitch)
+
+        enableWebContextSwitch.controlSize = .mini
+        enableWebContextSwitch.target = self
+        enableWebContextSwitch.action = #selector(webContextToggleClicked(_:))
+        let webContextRow = createToggleRow(
+            title: "Browser Web Access",
+            subtitle: "Allow AI to fetch the content of your active browser tab.",
+            switchControl: enableWebContextSwitch)
+
+        enableCalendarSwitch.controlSize = .mini
+        enableCalendarSwitch.target = self
+        enableCalendarSwitch.action = #selector(calendarToggleClicked(_:))
+        let calendarRow = createToggleRow(
+            title: "Calendar Events", subtitle: "Allow AI to fetch your upcoming calendar events.",
+            switchControl: enableCalendarSwitch)
+
+        enableReminderSwitch.controlSize = .mini
+        enableReminderSwitch.target = self
+        enableReminderSwitch.action = #selector(reminderToggleClicked(_:))
+        let reminderRow = createToggleRow(
+            title: "Reminders", subtitle: "Allow AI to fetch your tasks and reminders.",
+            switchControl: enableReminderSwitch)
+
+        contextSection = SettingsSection(
+            title: "Context",
+            contentViews: [
+                pciExplanation, memoryRow, clipboardRow, activeAppRow, webContextRow, calendarRow,
+                reminderRow,
+            ]
+        )
+        stackView.addArrangedSubview(contextSection)
+        contextSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
+            .isActive = true
     }
 
-    private func setupFormFields() {
-        systemPromptField.delegate = self
-        temperatureField.delegate = self
-        maxTokensField.delegate = self
+    private func createToggleRow(title: String, subtitle: String, switchControl: NSSwitch)
+        -> NSStackView
+    {
+        let textStack = NSStackView()
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
 
-        systemPromptField.bezelStyle = .roundedBezel
-        temperatureField.bezelStyle = .roundedBezel
-        maxTokensField.bezelStyle = .roundedBezel
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .labelColor
 
-        systemPromptField.controlSize = .regular
-        temperatureField.controlSize = .regular
-        maxTokensField.controlSize = .regular
+        let subtext = NSTextField(labelWithString: subtitle)
+        subtext.font = .systemFont(ofSize: 11)
+        subtext.textColor = .secondaryLabelColor
+        subtext.cell?.wraps = true
+        subtext.cell?.isScrollable = false
+
+        textStack.addArrangedSubview(label)
+        textStack.addArrangedSubview(subtext)
+
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.distribution = .fill
+        row.addArrangedSubview(textStack)
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        row.addArrangedSubview(spacer)
+        row.addArrangedSubview(switchControl)
+        return row
     }
 
     private func setupConstraints() {
@@ -663,6 +696,31 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         ConfigManager.shared.save()
     }
 
+    @objc private func clipboardToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isClipboardContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func activeAppToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isActiveAppContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func webContextToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isWebContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func calendarToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isCalendarContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func reminderToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isReminderContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
     @objc private func providerRadioClicked(_ sender: NSButton) {
         guard let providerId = sender.identifier?.rawValue else { return }
         ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
@@ -734,26 +792,6 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
         }
     }
 
-    // MARK: - NSTextFieldDelegate
-
-    func controlTextDidChange(_ obj: Notification) {
-        guard let textField = obj.object as? NSTextField else { return }
-
-        if textField == systemPromptField {
-            ConfigManager.shared.config.aiConfig.systemPrompt = textField.stringValue
-        } else if textField == temperatureField {
-            if let val = Double(textField.stringValue) {
-                ConfigManager.shared.config.aiConfig.temperature = val
-            }
-        } else if textField == maxTokensField {
-            if let val = Int(textField.stringValue) {
-                ConfigManager.shared.config.aiConfig.maxTokens = val
-            }
-        }
-
-        ConfigManager.shared.save()
-    }
-
     // MARK: - UI Update
 
     @objc private func refreshUI() {
@@ -773,9 +811,11 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
             row.widthAnchor.constraint(equalTo: providersListStack.widthAnchor).isActive = true
         }
 
-        systemPromptField.stringValue = config.systemPrompt
-        temperatureField.stringValue = String(config.temperature)
-        maxTokensField.stringValue = String(config.maxTokens)
+        enableClipboardSwitch.state = config.isClipboardContextEnabled ? .on : .off
+        enableActiveAppSwitch.state = config.isActiveAppContextEnabled ? .on : .off
+        enableWebContextSwitch.state = config.isWebContextEnabled ? .on : .off
+        enableCalendarSwitch.state = config.isCalendarContextEnabled ? .on : .off
+        enableReminderSwitch.state = config.isReminderContextEnabled ? .on : .off
 
         updateVisibility()
     }
@@ -785,7 +825,7 @@ class AISettingsViewController: NSViewController, NSTextFieldDelegate {
 
         memoryRow.isHidden = !isEnabled
         providersSection.isHidden = !isEnabled
-        globalSettingsSection.isHidden = !isEnabled
+        contextSection.isHidden = !isEnabled
 
         if isEnabled, let active = ConfigManager.shared.config.aiConfig.activeProvider {
             let isByok = (active.type == "byok")

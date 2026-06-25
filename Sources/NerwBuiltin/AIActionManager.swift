@@ -72,6 +72,8 @@ public class AIActionManager {
             return
         }
 
+        let dateString = payload["date"] as? String
+
         requestRemindersAccess { [weak self] granted in
             guard let self = self else { return }
             guard granted else {
@@ -85,6 +87,19 @@ public class AIActionManager {
             let reminder = EKReminder(eventStore: self.eventStore)
             reminder.title = title
             reminder.calendar = self.eventStore.defaultCalendarForNewReminders()
+
+            if let dateString = dateString {
+                let formatter = ISO8601DateFormatter()
+                if let dueDate = formatter.date(from: dateString) {
+                    let components = Calendar.current.dateComponents(
+                        [.year, .month, .day, .hour, .minute, .second], from: dueDate)
+                    reminder.dueDateComponents = components
+                    reminder.addAlarm(EKAlarm(absoluteDate: dueDate))
+                } else {
+                    Logger.shared.error(
+                        "AIActionManager: Invalid ISO8601 date string for reminder: \(dateString)")
+                }
+            }
 
             do {
                 try self.eventStore.save(reminder, commit: true)

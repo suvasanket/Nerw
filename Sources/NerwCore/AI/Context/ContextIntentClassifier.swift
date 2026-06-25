@@ -50,7 +50,8 @@ public class ContextIntentClassifier {
 
         // Calendar
         let calendarKeywords = [
-            "calendar", "meeting", "meetings", "schedule", "appointment", "appointments",
+            "calendar", "calender", "meeting", "meetings", "schedule", "appointment",
+            "appointments",
         ]
         if calendarKeywords.contains(where: { lower.contains($0) }) {
             let timeFrame = extractTimeFrame(from: lower)
@@ -94,11 +95,13 @@ public class ContextIntentClassifier {
     private func extractTimeFrame(from text: String) -> ContextTimeFrame {
         if text.contains("today") || text.contains("tonight") {
             return .today
+        } else if text.contains("next week") {
+            return .all
         } else if text.contains("this week") || text.contains("weekend") {
             return .week
-        } else if text.contains("this month") {
+        } else if text.contains("this month") || text.contains("next month") {
             return .month
-        } else if text.contains("all") || text.contains("everything") {
+        } else if text.contains("all") || text.contains("everything") || text.contains("upcoming") {
             return .all
         }
 

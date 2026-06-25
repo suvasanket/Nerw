@@ -45,7 +45,7 @@ public class BYOKModelHandler: AIModelHandler {
             To perform an action, output an <action>JSON_PAYLOAD</action>.
             Supported actions:
             - timer: <action>{ "type": "timer", "duration": 60, "label": "Boil eggs" }</action>
-            - reminder: <action>{ "type": "reminder", "title": "Buy milk" }</action>
+            - reminder: <action>{ "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }</action>
             - calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
             - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
             Do not output memory action unless User specify any personal information or preferences.

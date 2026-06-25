@@ -61,6 +61,11 @@ public struct AIProvider: Codable, Equatable {
 public struct AIConfig: Codable {
     public var isEnabled: Bool = false
     public var isMemoryEnabled: Bool = true
+    public var isClipboardContextEnabled: Bool = true
+    public var isActiveAppContextEnabled: Bool = true
+    public var isCalendarContextEnabled: Bool = true
+    public var isReminderContextEnabled: Bool = true
+    public var isWebContextEnabled: Bool = true
     public var selectedProviderId: String = "foundation-default"
     public var providers: [AIProvider] = []
 
@@ -77,6 +82,11 @@ public struct AIConfig: Codable {
     private enum CodingKeys: String, CodingKey {
         case isEnabled
         case isMemoryEnabled
+        case isClipboardContextEnabled
+        case isActiveAppContextEnabled
+        case isCalendarContextEnabled
+        case isReminderContextEnabled
+        case isWebContextEnabled
         case selectedProviderId
         case providers
         case selectedModelType
@@ -104,6 +114,16 @@ public struct AIConfig: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         isMemoryEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMemoryEnabled) ?? true
+        isClipboardContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isClipboardContextEnabled) ?? true
+        isActiveAppContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isActiveAppContextEnabled) ?? true
+        isCalendarContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isCalendarContextEnabled) ?? true
+        isReminderContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isReminderContextEnabled) ?? true
+        isWebContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isWebContextEnabled) ?? true
 
         selectedModelType =
             try container.decodeIfPresent(String.self, forKey: .selectedModelType) ?? "byok"

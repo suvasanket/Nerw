@@ -16,6 +16,7 @@ public class ActiveAppContextFetcher: ContextFetching {
     }
 
     public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isActiveAppContextEnabled else { return nil }
         guard case .activeAppAndScreen = intent else { return nil }
 
         let screenData = ScreenCaptureManager.shared.latestCapture
@@ -28,8 +29,10 @@ public class ActiveAppContextFetcher: ContextFetching {
                 text: "[Active Context]\nCannot determine active application.", images: images)
         }
 
-        // Check if the frontmost app is a known browser
-        if let info = BrowserURLFetcher.shared.getBrowserInfo(), let urlString = info.url {
+        // Check if the frontmost app is a known browser and web context is enabled
+        if ConfigManager.shared.config.aiConfig.isWebContextEnabled,
+            let info = BrowserURLFetcher.shared.getBrowserInfo(), let urlString = info.url
+        {
             let title = info.title ?? "Unknown Title"
 
             var contextStr = """

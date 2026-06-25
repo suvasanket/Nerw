@@ -291,7 +291,7 @@ To show that you are thinking, wrap your thoughts in <think>...</think>.
 To perform an action, output an <action>JSON_PAYLOAD</action>.
 Supported actions:
 - timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
-- reminder: { "type": "reminder", "title": "Buy milk" }
+- reminder: { "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }
 - calendar: { "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }
 - memory: { "type": "memory", "action": "save", "content": "User likes blue" }
 Do not output action tags for things you cannot do.
