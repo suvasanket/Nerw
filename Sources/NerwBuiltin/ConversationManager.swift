@@ -14,8 +14,8 @@ public class ConversationManager {
             NerwAction(
                 id: "builtin.aiquery",
                 title: "Ask AI",
-                subtitle: "Ask AI about '%s'",
-                icon: .system("sparkle"),
+                subtitle: "Query NerwAi",
+                icon: .system("sparkle.magnifyingglass"),
                 category: .webSearch,
                 triggers: ["ai", "chat", "ask", "assistant"],
                 type: .inlineArg(perform: { _, query in

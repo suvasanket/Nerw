@@ -187,7 +187,7 @@ class SettingsTabViewController: NSTabViewController {
         let aiItem = NSTabViewItem(viewController: aiVC)
         aiItem.label = "AI"
         aiItem.image = NSImage(
-            systemSymbolName: "cpu",
+            systemSymbolName: "sparkle",
             accessibilityDescription: "AI Settings")
         self.addTabViewItem(aiItem)
 

@@ -999,6 +999,8 @@ public class ConversationViewController: NSViewController {
 
         rebuildIndicatorBars()
 
+        let wasCardHidden = cardView.isHidden
+
         if turns.isEmpty {
             queryContainer.isHidden = true
             cardView.isHidden = true
@@ -1119,14 +1121,20 @@ public class ConversationViewController: NSViewController {
     }
 
     private func setResponseText(_ text: String) {
-        selectedNodeIndex = nil
-        updateNodeSelectionPill()
-
         if text.isEmpty {
-            responseTextView.textStorage?.setAttributedString(NSAttributedString())
+            responseTextView.string = ""
             memoryIndicatorContainer.isHidden = true
             return
         }
+
+        // Add a subtle cross-fade transition so newly streamed words smoothly fade in
+        let transition = CATransition()
+        transition.type = .fade
+        transition.duration = 0.15  // Fast fade for streaming
+        responseTextView.layer?.add(transition, forKey: "streamingFade")
+
+        selectedNodeIndex = nil
+        updateNodeSelectionPill()
 
         // Memory action tags embed detail after a pipe: ![action:memory|...] or just ![action:memory]
         let hasMemory = text.contains("![action:memory")
