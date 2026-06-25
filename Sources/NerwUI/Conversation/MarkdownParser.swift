@@ -28,6 +28,17 @@ public struct MarkdownParser {
                 .foregroundColor: textColor,
             ])
 
+        // 0. Cleanup HTML and citations
+        let brPattern = "<br\\s*/?>"
+        replaceMatches(pattern: brPattern, in: attrStr) { match, str in
+            str.replaceCharacters(in: match.range, with: "\n")
+        }
+
+        let citationPattern = "【[^】]+】"
+        replaceMatches(pattern: citationPattern, in: attrStr) { match, str in
+            str.replaceCharacters(in: match.range, with: "")
+        }
+
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = 2
         paragraphStyle.paragraphSpacing = 8
@@ -248,7 +259,106 @@ public struct MarkdownParser {
             }
         }
 
-        // 7. Action Pills
+        // 7. Tables
+        let tablePattern = "(?m)^(?:\\|[^\n]*\\|\\s*\\n?)+"
+        replaceMatches(pattern: tablePattern, in: attrStr) { match, str in
+            if str.attribute(
+                NerwCodeBlockBackgroundKey, at: match.range.location, effectiveRange: nil) != nil
+            {
+                return
+            }
+
+            let tableText = (str.string as NSString).substring(with: match.range)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let lines = tableText.components(separatedBy: .newlines)
+
+            let parsedRows = lines.map { line -> [String] in
+                var trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("|") { trimmed.removeFirst() }
+                if trimmed.hasSuffix("|") { trimmed.removeLast() }
+                return trimmed.components(separatedBy: "|").map {
+                    $0.trimmingCharacters(in: .whitespaces)
+                }
+            }
+
+            guard parsedRows.count >= 2 else { return }
+
+            let textTable = NSTextTable()
+            textTable.layoutAlgorithm = .automatic
+            textTable.collapsesBorders = true
+
+            let resultTable = NSMutableAttributedString()
+
+            var rowIndex = 0
+            for (i, row) in parsedRows.enumerated() {
+                if i == 1
+                    && row.allSatisfy({ $0.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " } })
+                {
+                    continue
+                }
+
+                for (colIndex, cellText) in row.enumerated() {
+                    let block = NSTextTableBlock(
+                        table: textTable, startingRow: rowIndex, rowSpan: 1,
+                        startingColumn: colIndex, columnSpan: 1)
+
+                    block.backgroundColor = NSColor.clear
+                    block.setBorderColor(accentColor.withAlphaComponent(0.3))
+                    block.setWidth(1.0, type: .absoluteValueType, for: .border)
+
+                    if rowIndex == 0 {
+                        block.setWidth(0.0, type: .absoluteValueType, for: .border, edge: .minY)
+                    }
+                    if rowIndex == parsedRows.count - 1 {
+                        block.setWidth(0.0, type: .absoluteValueType, for: .border, edge: .maxY)
+                    }
+                    if colIndex == 0 {
+                        block.setWidth(0.0, type: .absoluteValueType, for: .border, edge: .minX)
+                    }
+                    if colIndex == row.count - 1 {
+                        block.setWidth(0.0, type: .absoluteValueType, for: .border, edge: .maxX)
+                    }
+
+                    block.setWidth(8.0, type: .absoluteValueType, for: .padding)
+
+                    let cellStyle = NSMutableParagraphStyle()
+                    cellStyle.textBlocks = [block]
+                    cellStyle.alignment = .left
+
+                    let isHeader = (i == 0)
+                    let cellFont =
+                        isHeader
+                        ? NSFont.systemFont(ofSize: baseFont.pointSize, weight: .bold) : baseFont
+
+                    let cellParsed =
+                        MarkdownParser.parse(
+                            markdown: cellText, baseFont: cellFont, textColor: textColor,
+                            accentColor: accentColor
+                        ).mutableCopy() as! NSMutableAttributedString
+                    cellParsed.addAttribute(
+                        .paragraphStyle, value: cellStyle,
+                        range: NSRange(location: 0, length: cellParsed.length))
+                    cellParsed.append(
+                        NSAttributedString(
+                            string: "\n",
+                            attributes: [
+                                .font: cellFont,
+                                .foregroundColor: textColor,
+                                .paragraphStyle: cellStyle,
+                            ]))
+
+                    resultTable.append(cellParsed)
+                }
+                rowIndex += 1
+            }
+
+            resultTable.addAttribute(
+                NerwCodeBlockBackgroundKey, value: textColor.withAlphaComponent(0.08),
+                range: NSRange(location: 0, length: resultTable.length))
+            str.replaceCharacters(in: match.range, with: resultTable)
+        }
+
+        // 8. Action Pills
         let actionPattern = "!\\[action:(.+?)\\]"
         replaceMatches(pattern: actionPattern, in: attrStr) { match, str in
             guard match.range.location < str.length else { return }

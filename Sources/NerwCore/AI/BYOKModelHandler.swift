@@ -48,7 +48,7 @@ public class BYOKModelHandler: AIModelHandler {
             - reminder: <action>{ "type": "reminder", "title": "Buy milk" }</action>
             - calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
             - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
-            Specifically use the memory action for user preferences ONLY & Do NOT output memory unecessarily.
+            Do not output memory action unless User specify any personal information or preferences.
             Do NOT output action tags for things you cannot do.
             """
         finalSystemPrompt += actionInstructions
