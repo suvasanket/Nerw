@@ -41,7 +41,7 @@ public struct MarkdownParser {
 
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = 2
-        paragraphStyle.paragraphSpacing = 8
+        paragraphStyle.paragraphSpacing = 4
         attrStr.addAttribute(
             .paragraphStyle, value: paragraphStyle,
             range: NSRange(location: 0, length: attrStr.length))
@@ -359,7 +359,9 @@ public struct MarkdownParser {
         }
 
         // 8. Action Pills
-        let actionPattern = "!\\[action:(.+?)\\]"
+        // Tag format emitted by AIStreamParser: ![action:type] or ![action:type|detail]
+        // Memory tags are stripped silently — the brain icon in the card corner covers it.
+        let actionPattern = "!\\[action:([^\\]|]+)(?:\\|([^\\]]*))?\\]"
         replaceMatches(pattern: actionPattern, in: attrStr) { match, str in
             guard match.range.location < str.length else { return }
             if str.attribute(
@@ -374,83 +376,123 @@ public struct MarkdownParser {
             }
 
             let actionType = (str.string as NSString).substring(with: match.range(at: 1))
+                .trimmingCharacters(in: .whitespaces)
+
+            // Strip surrounding whitespace for ALL tags to avoid double-newlines or inline mess
+            var deleteRange = match.range
+            let nsString = str.string as NSString
+            while deleteRange.location > 0 {
+                let charStr = nsString.substring(
+                    with: NSRange(location: deleteRange.location - 1, length: 1))
+                if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    deleteRange.location -= 1
+                    deleteRange.length += 1
+                } else {
+                    break
+                }
+            }
+            while deleteRange.location + deleteRange.length < nsString.length {
+                let charStr = nsString.substring(
+                    with: NSRange(
+                        location: deleteRange.location + deleteRange.length, length: 1))
+                if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    deleteRange.length += 1
+                } else {
+                    break
+                }
+            }
+
+            // Memory — strip tag and surrounding whitespace silently
             if actionType.lowercased() == "memory" {
-                var deleteRange = match.range
-                let nsString = str.string as NSString
-
-                // Expand backward for whitespace
-                while deleteRange.location > 0 {
-                    let charStr = nsString.substring(
-                        with: NSRange(location: deleteRange.location - 1, length: 1))
-                    if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        deleteRange.location -= 1
-                        deleteRange.length += 1
-                    } else {
-                        break
-                    }
-                }
-                // Expand forward for whitespace
-                while deleteRange.location + deleteRange.length < nsString.length {
-                    let charStr = nsString.substring(
-                        with: NSRange(
-                            location: deleteRange.location + deleteRange.length, length: 1))
-                    if charStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        deleteRange.length += 1
-                    } else {
-                        break
-                    }
-                }
-
                 str.replaceCharacters(in: deleteRange, with: "")
                 return
             }
 
-            let displayName: String
+            // Resolve optional detail string embedded in the tag
+            let detailRange = match.range(at: 2)
+            let embeddedDetail: String? =
+                detailRange.location != NSNotFound && detailRange.length > 0
+                ? (str.string as NSString).substring(with: detailRange) : nil
+
+            // Per-action icon + tint + display text
+            let symbolName: String
+            let tintColor: NSColor
+            let displayText: String
+
             switch actionType.lowercased() {
-            case "timer": displayName = "Timer"
-            case "reminder": displayName = "Reminder"
-            case "calendar": displayName = "Calendar"
-            default: displayName = actionType.capitalized
+            case "timer":
+                symbolName = "timer"
+                tintColor = NSColor.systemOrange
+                displayText = embeddedDetail.map { " Timer — \($0)" } ?? " Timer set"
+            case "reminder":
+                symbolName = "bell.badge.fill"
+                tintColor = NSColor.systemBlue
+                displayText = embeddedDetail.map { " Reminder: \($0)" } ?? " Reminder set"
+            case "calendar":
+                symbolName = "calendar.badge.plus"
+                tintColor = NSColor.systemGreen
+                displayText = embeddedDetail.map { " Event added — \($0)" } ?? " Event added"
+            default:
+                symbolName = "wand.and.sparkles"
+                tintColor = accentColor
+                displayText = embeddedDetail.map { " \($0)" } ?? " \(actionType.capitalized)"
             }
 
             let pillContent = NSMutableAttributedString()
 
-            // Icon attachment
-            if let image = NSImage(
-                systemSymbolName: "wand.and.sparkles", accessibilityDescription: nil)
+            // Icon attachment — tinted to match action
+            let config = NSImage.SymbolConfiguration(
+                pointSize: baseFont.pointSize - 2, weight: .semibold)
+            if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+                .withSymbolConfiguration(config)
             {
                 image.isTemplate = true
                 let attachment = NSTextAttachment()
                 attachment.image = image
-                attachment.bounds = NSRect(x: 0, y: -2, width: 14, height: 14)
+                attachment.bounds = NSRect(x: 0, y: -2.5, width: 13, height: 13)
                 let iconAttr = NSMutableAttributedString(attachment: attachment)
                 iconAttr.addAttributes(
-                    [
-                        .foregroundColor: accentColor,
-                        .font: baseFont,
-                    ], range: NSRange(location: 0, length: iconAttr.length))
+                    [.foregroundColor: tintColor, .font: baseFont, .baselineOffset: 2.5],
+                    range: NSRange(location: 0, length: iconAttr.length))
                 pillContent.append(iconAttr)
             }
 
-            // Text
+            // Detail text
             let textFont = NSFont.systemFont(ofSize: baseFont.pointSize - 1, weight: .medium)
             let textAttr = NSAttributedString(
-                string: " Action: \(displayName)",
+                string: displayText,
                 attributes: [
                     .font: textFont,
-                    .foregroundColor: accentColor,
+                    .foregroundColor: tintColor,
+                    .baselineOffset: 2.5,
                 ])
             pillContent.append(textAttr)
 
-            // Apply background and border keys
+            // Background + border pill styling
+            let pillStyle = NSMutableParagraphStyle()
+            pillStyle.lineSpacing = 4
+            pillStyle.paragraphSpacing = 12
+            pillStyle.minimumLineHeight = baseFont.pointSize * 1.5  // Prevents vertical clipping
+
             pillContent.addAttributes(
                 [
-                    NerwInlineActionBackgroundKey: accentColor.withAlphaComponent(0.12),
-                    NerwInlineActionBorderKey: accentColor.withAlphaComponent(0.3),
-                    .paragraphStyle: paragraphStyle,
+                    NerwInlineActionBackgroundKey: tintColor.withAlphaComponent(0.12),
+                    NerwInlineActionBorderKey: tintColor.withAlphaComponent(0.30),
+                    .paragraphStyle: pillStyle,
                 ], range: NSRange(location: 0, length: pillContent.length))
 
-            str.replaceCharacters(in: match.range, with: pillContent)
+            // Prepend a newline if not at the start to prevent inline overlapping
+            if deleteRange.location > 0 {
+                pillContent.insert(
+                    NSAttributedString(string: "\n", attributes: [.font: baseFont]), at: 0)
+            }
+
+            // Append a newline if not at the end so following text starts on the next line
+            if deleteRange.location + deleteRange.length < attrStr.length {
+                pillContent.append(NSAttributedString(string: "\n", attributes: [.font: baseFont]))
+            }
+
+            str.replaceCharacters(in: deleteRange, with: pillContent)
         }
 
         return attrStr

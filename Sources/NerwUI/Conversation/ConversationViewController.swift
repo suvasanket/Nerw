@@ -439,6 +439,7 @@ struct ChatTurn {
     let query: String
     var response: String
     var actionType: String?
+    var actionPayload: [String: Any]?
 }
 
 // MARK: - ConversationViewController
@@ -522,6 +523,9 @@ public class ConversationViewController: NSViewController {
 
     private var generatingTimer: Timer?
     private var generatingDotCount = 0
+
+    // Wave generating label & shimmer
+    private let waveGeneratingView = WaveGeneratingView()
 
     // Context Panel state
     private var actionContextWindow: ActionContextPanel?
@@ -627,6 +631,11 @@ public class ConversationViewController: NSViewController {
         contentView.addSubview(cardView)
         contentView.addSubview(memoryIndicatorContainer)
 
+        // Wave generating label inside card (added after cardView is in hierarchy)
+        waveGeneratingView.translatesAutoresizingMaskIntoConstraints = false
+        waveGeneratingView.isHidden = true
+        cardView.addSubview(waveGeneratingView)
+
         // 7. User Query label outside the card above
         queryPlaceholder.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(queryPlaceholder)
@@ -721,6 +730,15 @@ public class ConversationViewController: NSViewController {
         nodeSelectionPill.layer?.cornerRadius = 6
         nodeSelectionPill.isHidden = true
         responseTextView.addSubview(nodeSelectionPill)
+
+        NSLayoutConstraint.activate([
+            waveGeneratingView.leadingAnchor.constraint(
+                equalTo: cardView.leadingAnchor, constant: 20),
+            waveGeneratingView.trailingAnchor.constraint(
+                lessThanOrEqualTo: cardView.trailingAnchor, constant: -20),
+            waveGeneratingView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14),
+            waveGeneratingView.heightAnchor.constraint(equalToConstant: 24),
+        ])
 
         // Card Height Constraint for dynamic sizing
         cardHeightConstraint = cardView.heightAnchor.constraint(equalToConstant: 100)
@@ -986,6 +1004,7 @@ public class ConversationViewController: NSViewController {
             cardView.isHidden = true
             sparkleImageView.isHidden = false
             setResponseText("")
+            hideWaveGenerating()
             return
         }
 
@@ -1016,12 +1035,26 @@ public class ConversationViewController: NSViewController {
                 }
             }
         }
-        setResponseText(turn.response)
 
-        scrollViewBottomToCardConstraint?.isActive = true
+        let isGenerating = turn.response.hasPrefix("Generating")
+
+        if isGenerating {
+            // Show wave shimmer, hide text content
+            responseScrollView.isHidden = true
+            showWaveGenerating()
+        } else {
+            // Show real content, hide shimmer
+            responseScrollView.isHidden = false
+            hideWaveGenerating()
+            setResponseText(turn.response)
+        }
+
+        scrollViewBottomToCardConstraint?.isActive = !isGenerating
 
         // Dynamic Height Calculation for Response Card
-        if let layoutManager = responseTextView.layoutManager,
+        if isGenerating {
+            cardHeightConstraint?.constant = 60
+        } else if let layoutManager = responseTextView.layoutManager,
             let textContainer = responseTextView.textContainer
         {
             layoutManager.ensureLayout(for: textContainer)
@@ -1035,6 +1068,56 @@ public class ConversationViewController: NSViewController {
         }
     }
 
+    // MARK: - Wave Generating
+    private func showWaveGenerating() {
+        waveGeneratingView.isHidden = false
+        waveGeneratingView.startAnimation()
+    }
+
+    private func hideWaveGenerating() {
+        waveGeneratingView.stopAnimation()
+        waveGeneratingView.isHidden = true
+    }
+
+    // MARK: - Action Detail Builder
+    /// Builds a human-readable detail string from an action payload to embed inside
+    /// the `![action:type|detail]` tag so MarkdownParser can render it inline.
+    private static func actionDetail(type: String, payload: [String: Any]) -> String {
+        switch type.lowercased() {
+        case "timer":
+            let label = payload["label"] as? String ?? ""
+            let duration = payload["duration"] as? Int ?? 0
+            let minutes = duration / 60
+            let seconds = duration % 60
+            let timeStr: String
+            if minutes > 0 {
+                timeStr = seconds > 0 ? "\(minutes)m \(seconds)s" : "\(minutes)m"
+            } else {
+                timeStr = "\(seconds)s"
+            }
+            return label.isEmpty ? timeStr : "\(label) · \(timeStr)"
+        case "reminder":
+            return payload["title"] as? String ?? ""
+        case "calendar":
+            let title = payload["title"] as? String ?? ""
+            let dateStr =
+                (payload["date"] as? String)
+                .flatMap { ISO8601DateFormatter().date(from: $0) }
+                .map { d -> String in
+                    let fmt = DateFormatter()
+                    fmt.dateStyle = .medium
+                    fmt.timeStyle = .short
+                    return fmt.string(from: d)
+                } ?? ""
+            return dateStr.isEmpty ? title : "\(title) · \(dateStr)"
+        case "memory":
+            let content = payload["content"] as? String ?? ""
+            return content.count > 50 ? String(content.prefix(50)) + "…" : content
+        default:
+            return ""
+        }
+    }
+
     private func setResponseText(_ text: String) {
         selectedNodeIndex = nil
         updateNodeSelectionPill()
@@ -1045,7 +1128,9 @@ public class ConversationViewController: NSViewController {
             return
         }
 
-        memoryIndicatorContainer.isHidden = !text.contains("![action:memory]")
+        // Memory action tags embed detail after a pipe: ![action:memory|...] or just ![action:memory]
+        let hasMemory = text.contains("![action:memory")
+        memoryIndicatorContainer.isHidden = !hasMemory
 
         let theme = NerwTheme.current()
         let textColor: NSColor
@@ -1214,18 +1299,16 @@ public class ConversationViewController: NSViewController {
     private func startGeneratingAnimation() {
         generatingTimer?.invalidate()
         generatingDotCount = 0
+        // Wave shimmer is shown directly via updateCard; we just keep the turn in a Generating state
         generatingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
             [weak self] _ in
             guard let self = self else { return }
             self.generatingDotCount = (self.generatingDotCount + 1) % 4
-            let dots = String(repeating: ".", count: self.generatingDotCount)
             DispatchQueue.main.async {
                 if self.turns.count > 0 && self.activeTurnIndex == self.turns.count - 1 {
                     if self.turns[self.activeTurnIndex].response.hasPrefix("Generating") {
-                        let text = "Generating" + dots
-                        self.turns[self.activeTurnIndex].response = text
-                        self.setResponseText(text)
-                        self.updateCard()
+                        // Keep the "Generating" prefix in the model so updateCard detects it.
+                        // No need to update text view — waveGeneratingView handles display.
                     }
                 }
             }
@@ -1278,8 +1361,19 @@ public class ConversationViewController: NSViewController {
                     guard let self = self else { return }
                     self.stopGeneratingAnimation()
                     if self.activeTurnIndex == self.turns.count - 1 {
-                        self.turns[self.activeTurnIndex].response = text
-                        self.setResponseText(text)
+                        var finalText = text
+                        // Replace the base tag from AIStreamParser with the detailed one
+                        if let type = self.turns[self.activeTurnIndex].actionType,
+                            let payload = self.turns[self.activeTurnIndex].actionPayload
+                        {
+                            let detail = Self.actionDetail(type: type, payload: payload)
+                            let tag =
+                                detail.isEmpty ? "![action:\(type)]" : "![action:\(type)|\(detail)]"
+                            finalText = finalText.replacingOccurrences(
+                                of: "![action:\(type)]", with: tag)
+                        }
+                        self.turns[self.activeTurnIndex].response = finalText
+                        self.setResponseText(finalText)
                         self.updateCard()
                     }
                 }
@@ -1309,10 +1403,7 @@ public class ConversationViewController: NSViewController {
                     guard let self = self else { return }
                     if self.activeTurnIndex == self.turns.count - 1 {
                         self.turns[self.activeTurnIndex].actionType = type
-                        if self.turns[self.activeTurnIndex].response.hasPrefix("Generating") {
-                            self.turns[self.activeTurnIndex].response = ""
-                        }
-                        self.updateCard()
+                        self.turns[self.activeTurnIndex].actionPayload = payload
                     }
                 }
             }
