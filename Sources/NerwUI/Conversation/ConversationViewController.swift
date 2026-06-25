@@ -434,12 +434,255 @@ class SettingsActionBubbleView: NSView {
     }
 }
 
+// MARK: - ReferencesContainerView
+class ReferencesContainerView: NSView {
+    private var icons: [(icon: String, name: String)] = []
+
+    private let effectView = NSVisualEffectView()
+    private let rootStack = NSStackView()
+
+    private var compactConstraints: [NSLayoutConstraint] = []
+    private var expandedConstraints: [NSLayoutConstraint] = []
+
+    private var isExpanded = false
+
+    init() {
+        super.init(frame: .zero)
+        setup()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func setup() {
+        wantsLayer = true
+
+        effectView.material = .hudWindow
+        effectView.state = .active
+        effectView.blendingMode = .withinWindow
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = 12
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(effectView)
+
+        NSLayoutConstraint.activate([
+            effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            effectView.topAnchor.constraint(equalTo: topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
+        rootStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rootStack)
+
+        compactConstraints = [
+            rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+        ]
+
+        expandedConstraints = [
+            rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            rootStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+        ]
+
+        NSLayoutConstraint.activate(compactConstraints)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        isExpanded.toggle()
+        updateUI()
+    }
+
+    func update(with items: [(icon: String, name: String)]) {
+        self.icons = items
+        isHidden = items.isEmpty
+        if items.isEmpty {
+            isExpanded = false
+        }
+        updateUI()
+    }
+
+    private func updateUI() {
+        rootStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        if isExpanded {
+            NSLayoutConstraint.deactivate(compactConstraints)
+            NSLayoutConstraint.activate(expandedConstraints)
+
+            rootStack.orientation = .vertical
+            rootStack.spacing = 8
+            rootStack.alignment = .leading
+
+            effectView.layer?.cornerRadius = 8
+
+            effectView.material = .hudWindow
+            effectView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+            effectView.layer?.borderWidth = 1.0
+            effectView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+
+            buildExpanded()
+        } else {
+            NSLayoutConstraint.deactivate(expandedConstraints)
+            NSLayoutConstraint.activate(compactConstraints)
+
+            rootStack.orientation = .horizontal
+            rootStack.spacing = 6
+            rootStack.alignment = .centerY
+
+            effectView.layer?.cornerRadius = 12
+
+            effectView.material = .hudWindow
+            effectView.layer?.backgroundColor = NSColor.clear.cgColor
+            effectView.layer?.borderWidth = 0
+
+            buildCompact()
+        }
+    }
+
+    private func buildCompact() {
+        if icons.isEmpty { return }
+
+        let iconSize: CGFloat = 20
+        let overlap: CGFloat = 8
+        let displayCount = min(icons.count, 3)
+        let hasMore = icons.count > 3
+
+        let totalWidth =
+            CGFloat(displayCount) * iconSize - CGFloat(displayCount - 1) * overlap
+            + (hasMore ? iconSize - overlap : 0)
+
+        let overlappingIconsView = NSView()
+        overlappingIconsView.translatesAutoresizingMaskIntoConstraints = false
+        overlappingIconsView.widthAnchor.constraint(equalToConstant: totalWidth).isActive = true
+        overlappingIconsView.heightAnchor.constraint(equalToConstant: iconSize).isActive = true
+
+        for i in 0..<displayCount {
+            let iv = makeCircleIcon(imageName: icons[i].icon)
+            iv.frame = NSRect(
+                x: CGFloat(i) * (iconSize - overlap), y: 0, width: iconSize, height: iconSize)
+            overlappingIconsView.addSubview(iv)
+        }
+
+        if hasMore {
+            let moreView = makeMoreIcon(count: icons.count - 3)
+            moreView.frame = NSRect(
+                x: CGFloat(displayCount) * (iconSize - overlap), y: 0, width: iconSize,
+                height: iconSize)
+            overlappingIconsView.addSubview(moreView)
+        }
+
+        rootStack.addArrangedSubview(overlappingIconsView)
+    }
+
+    private func buildExpanded() {
+        let titleLabel = NSTextField(labelWithString: "Context Sources")
+        titleLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        titleLabel.textColor = .white.withAlphaComponent(0.5)
+        titleLabel.isEditable = false
+        titleLabel.isBordered = false
+        titleLabel.drawsBackground = false
+        rootStack.addArrangedSubview(titleLabel)
+
+        for item in icons {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.spacing = 8
+            row.alignment = .centerY
+
+            let container = NSView()
+            container.wantsLayer = true
+            container.layer?.cornerRadius = 10
+            container.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1.0).cgColor
+            container.translatesAutoresizingMaskIntoConstraints = false
+            container.widthAnchor.constraint(equalToConstant: 20).isActive = true
+            container.heightAnchor.constraint(equalToConstant: 20).isActive = true
+
+            let iv = NSImageView()
+            if let image = NSImage(systemSymbolName: item.icon, accessibilityDescription: nil) {
+                iv.image = image.withSymbolConfiguration(.init(pointSize: 10, weight: .medium))
+            }
+            iv.contentTintColor = .white
+            iv.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(iv)
+
+            NSLayoutConstraint.activate([
+                iv.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+                iv.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            ])
+
+            let lbl = NSTextField(labelWithString: item.name)
+            lbl.font = .systemFont(ofSize: 12, weight: .medium)
+            lbl.textColor = .white
+            lbl.isEditable = false
+            lbl.isBordered = false
+            lbl.drawsBackground = false
+
+            row.addArrangedSubview(container)
+            row.addArrangedSubview(lbl)
+            rootStack.addArrangedSubview(row)
+        }
+    }
+
+    private func makeCircleIcon(imageName: String) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 10
+        container.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1.0).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+
+        let iv = NSImageView()
+        if let image = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
+            iv.image = image.withSymbolConfiguration(.init(pointSize: 10, weight: .medium))
+        }
+        iv.contentTintColor = .white
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(iv)
+
+        NSLayoutConstraint.activate([
+            iv.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+
+        return container
+    }
+
+    private func makeMoreIcon(count: Int) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 10
+        container.layer?.backgroundColor = NSColor(white: 0.2, alpha: 1.0).cgColor
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+
+        let lbl = NSTextField(labelWithString: "+\(count)")
+        lbl.font = .systemFont(ofSize: 9, weight: .bold)
+        lbl.textColor = .white
+        lbl.isEditable = false
+        lbl.isBordered = false
+        lbl.drawsBackground = false
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(lbl)
+
+        NSLayoutConstraint.activate([
+            lbl.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            lbl.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+
+        return container
+    }
+}
+
 // MARK: - ChatTurn Model
 struct ChatTurn {
     let query: String
     var response: String
     var actionType: String?
     var actionPayload: [String: Any]?
+    var pciIcons: [(icon: String, name: String)] = []
 }
 
 // MARK: - ConversationViewController
@@ -502,6 +745,8 @@ public class ConversationViewController: NSViewController {
 
         return effectView
     }()
+
+    private let referencesContainer = ReferencesContainerView()
 
     private lazy var expandArrowButton: HoverIconButton = {
         let btn = HoverIconButton(
@@ -631,6 +876,10 @@ public class ConversationViewController: NSViewController {
         contentView.addSubview(cardView)
         contentView.addSubview(memoryIndicatorContainer)
 
+        referencesContainer.translatesAutoresizingMaskIntoConstraints = false
+        referencesContainer.isHidden = true
+        contentView.addSubview(referencesContainer)
+
         // Wave generating label inside card (added after cardView is in hierarchy)
         waveGeneratingView.translatesAutoresizingMaskIntoConstraints = false
         waveGeneratingView.isHidden = true
@@ -710,7 +959,7 @@ public class ConversationViewController: NSViewController {
 
         responseTextView.textContainer?.lineFragmentPadding = 12
         responseTextView.textContainer?.widthTracksTextView = true
-        responseTextView.textContainerInset = NSSize(width: 0, height: 4)
+        responseTextView.textContainerInset = NSSize(width: 0, height: 12)
 
         responseTextView.minSize = NSSize(width: 0, height: 0)
         responseTextView.maxSize = NSSize(
@@ -813,12 +1062,10 @@ public class ConversationViewController: NSViewController {
                 lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.5),
             queryPlaceholder.heightAnchor.constraint(equalToConstant: 24),
 
-            // User Query Container (Overlay, expands downwards)
+            // User Query Container (Overlay, expands downwards without pushing layout)
             queryContainer.topAnchor.constraint(equalTo: queryPlaceholder.topAnchor),
             queryContainer.trailingAnchor.constraint(equalTo: queryPlaceholder.trailingAnchor),
             queryContainer.leadingAnchor.constraint(equalTo: queryPlaceholder.leadingAnchor),
-            queryContainer.bottomAnchor.constraint(
-                lessThanOrEqualTo: promptContainer.topAnchor, constant: -8),
 
             queryLabel.leadingAnchor.constraint(equalTo: queryContainer.leadingAnchor, constant: 8),
             queryLabel.trailingAnchor.constraint(
@@ -853,6 +1100,11 @@ public class ConversationViewController: NSViewController {
                 equalTo: cardView.trailingAnchor, constant: 6),
             memoryIndicatorContainer.widthAnchor.constraint(equalToConstant: 28),
             memoryIndicatorContainer.heightAnchor.constraint(equalToConstant: 28),
+
+            referencesContainer.bottomAnchor.constraint(
+                equalTo: cardView.bottomAnchor, constant: 14),
+            referencesContainer.leadingAnchor.constraint(
+                equalTo: cardView.leadingAnchor, constant: 6),
         ])
 
         updateColors()
@@ -955,12 +1207,9 @@ public class ConversationViewController: NSViewController {
             systemSymbolName: imageName, accessibilityDescription: nil)
 
         if isQueryExpanded {
-            let theme = NerwTheme.current()
-            let bgColor =
-                theme.tintColorHex.flatMap { NSColor(hexString: $0) } ?? .windowBackgroundColor
-            queryContainer.layer?.backgroundColor = bgColor.withAlphaComponent(0.95).cgColor
+            queryContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
             queryContainer.layer?.borderWidth = 1.0
-            queryContainer.layer?.borderColor = NSColor.separatorColor.cgColor
+            queryContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
         } else {
             queryContainer.layer?.backgroundColor = NSColor.clear.cgColor
             queryContainer.layer?.borderWidth = 0.0
@@ -1005,6 +1254,7 @@ public class ConversationViewController: NSViewController {
             queryContainer.isHidden = true
             cardView.isHidden = true
             sparkleImageView.isHidden = false
+            referencesContainer.isHidden = true
             setResponseText("")
             hideWaveGenerating()
             return
@@ -1015,6 +1265,8 @@ public class ConversationViewController: NSViewController {
 
         guard activeTurnIndex >= 0 && activeTurnIndex < turns.count else { return }
         let turn = turns[activeTurnIndex]
+
+        referencesContainer.update(with: turn.pciIcons)
 
         if turn.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             queryContainer.isHidden = true
@@ -1349,8 +1601,39 @@ public class ConversationViewController: NSViewController {
         // Start spinner
         spinner.startAnimation()
 
+        // Extract PCI contexts for reference viewer
+        var pciIcons: [(icon: String, name: String)] = []
+        let intents = ContextIntentClassifier.shared.classify(text)
+        for intent in intents {
+            switch intent {
+            case .clipboard:
+                pciIcons.append(("doc.on.doc.fill", "Clipboard"))
+            case .activeAppAndScreen:
+                pciIcons.append(("eye.circle.fill", "Screen & App"))
+            case .calendar:
+                pciIcons.append(("calendar", "Calendar"))
+            case .reminder:
+                pciIcons.append(("checklist", "Reminders"))
+            case .notes:
+                pciIcons.append(("text.page.fill", "Notes"))
+            case .system:
+                break
+            }
+        }
+
+        let categoryResult = QueryCategorizer.shared.classifySync(text)
+        if categoryResult.category == .webSearch {
+            if let provider = ConfigManager.shared.config.aiConfig.activeProvider,
+                let tool = provider.searchToolName, !tool.isEmpty
+            {
+                pciIcons.append(("safari", "Web Search"))
+            }
+        }
+
         // Add turn to list
-        let newTurn = ChatTurn(query: text, response: "Generating...", actionType: nil)
+        let newTurn = ChatTurn(
+            query: text, response: "Generating...", actionType: nil, actionPayload: nil,
+            pciIcons: pciIcons)
         turns.append(newTurn)
         activeTurnIndex = turns.count - 1
 

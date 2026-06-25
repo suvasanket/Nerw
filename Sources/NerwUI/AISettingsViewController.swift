@@ -217,7 +217,7 @@ class AISettingsViewController: NSViewController {
         // --- 3. Context Section ---
         let pciExplanation = NSTextField(
             labelWithString:
-            "Precise Context Injection (PCI) uses relvent local data powered by a Natural Language Processer."
+                "Precise Context Injection (PCI) uses relvent local data powered by a Natural Language Processer."
         )
         pciExplanation.font = .systemFont(ofSize: 11, weight: .medium)
         pciExplanation.textColor = .secondaryLabelColor
