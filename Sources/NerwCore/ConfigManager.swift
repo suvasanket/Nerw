@@ -66,6 +66,8 @@ public struct AIConfig: Codable {
     public var isCalendarContextEnabled: Bool = true
     public var isReminderContextEnabled: Bool = true
     public var isWebContextEnabled: Bool = true
+    public var isNotesContextEnabled: Bool = true
+    public var notesDirectoryPath: String? = nil
     public var selectedProviderId: String = "foundation-default"
     public var providers: [AIProvider] = []
 
@@ -87,6 +89,8 @@ public struct AIConfig: Codable {
         case isCalendarContextEnabled
         case isReminderContextEnabled
         case isWebContextEnabled
+        case isNotesContextEnabled
+        case notesDirectoryPath
         case selectedProviderId
         case providers
         case selectedModelType
@@ -124,6 +128,9 @@ public struct AIConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .isReminderContextEnabled) ?? true
         isWebContextEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isWebContextEnabled) ?? true
+        isNotesContextEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isNotesContextEnabled) ?? true
+        notesDirectoryPath = try container.decodeIfPresent(String.self, forKey: .notesDirectoryPath)
 
         selectedModelType =
             try container.decodeIfPresent(String.self, forKey: .selectedModelType) ?? "byok"

@@ -36,6 +36,8 @@ class AISettingsViewController: NSViewController {
     private let enableWebContextSwitch = NSSwitch()
     private let enableCalendarSwitch = NSSwitch()
     private let enableReminderSwitch = NSSwitch()
+    private let enableNotesSwitch = NSSwitch()
+    private let notesPathLabel = NSTextField()
 
     // Providers Section elements
     private let providersListStack = NSStackView()
@@ -215,7 +217,7 @@ class AISettingsViewController: NSViewController {
         // --- 3. Context Section ---
         let pciExplanation = NSTextField(
             labelWithString:
-                "Precise Context Injection (PCI) automatically includes relevant local data when you ask for it."
+            "Precise Context Injection (PCI) uses relvent local data powered by a Natural Language Processer."
         )
         pciExplanation.font = .systemFont(ofSize: 11, weight: .medium)
         pciExplanation.textColor = .secondaryLabelColor
@@ -260,11 +262,47 @@ class AISettingsViewController: NSViewController {
             title: "Reminders", subtitle: "Allow AI to fetch your tasks and reminders.",
             switchControl: enableReminderSwitch)
 
+        enableNotesSwitch.controlSize = .mini
+        enableNotesSwitch.target = self
+        enableNotesSwitch.action = #selector(notesToggleClicked(_:))
+        let notesRow = createToggleRow(
+            title: "Notes & Local Files",
+            subtitle: "Allow AI to read filenames and contents from a specified folder.",
+            switchControl: enableNotesSwitch)
+
+        notesPathLabel.font = .systemFont(ofSize: 11)
+        notesPathLabel.textColor = .secondaryLabelColor
+        notesPathLabel.isEditable = false
+        notesPathLabel.isSelectable = true
+        notesPathLabel.isBordered = false
+        notesPathLabel.drawsBackground = false
+        notesPathLabel.lineBreakMode = .byTruncatingMiddle
+
+        let chooseNotesBtn = NSButton(
+            title: "Choose Folder...", target: self, action: #selector(chooseNotesFolderClicked(_:))
+        )
+        chooseNotesBtn.controlSize = .small
+        chooseNotesBtn.bezelStyle = .rounded
+
+        let notesPathStack = NSStackView()
+        notesPathStack.orientation = .horizontal
+        notesPathStack.alignment = .centerY
+        notesPathStack.spacing = 8
+        notesPathStack.addArrangedSubview(chooseNotesBtn)
+        notesPathStack.addArrangedSubview(notesPathLabel)
+
+        let indentedNotesStack = NSStackView()
+        indentedNotesStack.orientation = .horizontal
+        let indentSpacer = NSView()
+        indentSpacer.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        indentedNotesStack.addArrangedSubview(indentSpacer)
+        indentedNotesStack.addArrangedSubview(notesPathStack)
+
         contextSection = SettingsSection(
             title: "Context",
             contentViews: [
                 pciExplanation, memoryRow, clipboardRow, activeAppRow, webContextRow, calendarRow,
-                reminderRow,
+                reminderRow, notesRow, indentedNotesStack,
             ]
         )
         stackView.addArrangedSubview(contextSection)
@@ -721,6 +759,25 @@ class AISettingsViewController: NSViewController {
         ConfigManager.shared.save()
     }
 
+    @objc private func notesToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isNotesContextEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func chooseNotesFolderClicked(_ sender: NSButton) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a folder for your Notes"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            ConfigManager.shared.config.aiConfig.notesDirectoryPath = url.path
+            ConfigManager.shared.save()
+            refreshUI()
+        }
+    }
+
     @objc private func providerRadioClicked(_ sender: NSButton) {
         guard let providerId = sender.identifier?.rawValue else { return }
         ConfigManager.shared.config.aiConfig.selectedProviderId = providerId
@@ -816,6 +873,8 @@ class AISettingsViewController: NSViewController {
         enableWebContextSwitch.state = config.isWebContextEnabled ? .on : .off
         enableCalendarSwitch.state = config.isCalendarContextEnabled ? .on : .off
         enableReminderSwitch.state = config.isReminderContextEnabled ? .on : .off
+        enableNotesSwitch.state = config.isNotesContextEnabled ? .on : .off
+        notesPathLabel.stringValue = config.notesDirectoryPath ?? "No folder selected"
 
         updateVisibility()
     }

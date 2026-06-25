@@ -189,3 +189,134 @@ public class AIMemoryContextFetcher: ContextFetching {
         return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
+
+public class NotesContextFetcher: ContextFetching {
+    public var intentType: String { return "notes" }
+
+    public init() {}
+
+    public func canHandle(intent: ContextIntent) -> Bool {
+        if case .notes = intent { return true }
+        return false
+    }
+
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isNotesContextEnabled else { return nil }
+        guard case .notes(let query) = intent else { return nil }
+        guard let notesPath = ConfigManager.shared.config.aiConfig.notesDirectoryPath,
+            !notesPath.isEmpty
+        else {
+            return FetchedContext(
+                text: "[Notes Context]\nNotes folder is not selected in Settings.")
+        }
+
+        let fileManager = FileManager.default
+        let url = URL(fileURLWithPath: notesPath)
+
+        guard
+            let enumerator = fileManager.enumerator(
+                at: url, includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants])
+        else {
+            return FetchedContext(
+                text: "[Notes Context]\nFailed to access notes directory: \(notesPath)")
+        }
+
+        let allowedExtensions = [
+            "txt", "md", "csv", "json", "swift", "py", "js", "html", "css", "yaml", "yml", "log",
+            "sh",
+        ]
+        var files: [URL] = []
+
+        for case let fileURL as URL in enumerator {
+            let ext = fileURL.pathExtension.lowercased()
+            if allowedExtensions.contains(ext) {
+                files.append(fileURL)
+            }
+        }
+
+        if files.isEmpty {
+            return FetchedContext(
+                text: "[Notes Context]\nNo readable files found in the Notes directory.")
+        }
+
+        // Check if query mentions any specific file
+        var matchedFiles: [URL] = []
+        let queryWords = query.components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+            .filter { !$0.isEmpty }
+
+        for file in files {
+            let filename = file.lastPathComponent.lowercased()
+            let nameWithoutExt = file.deletingPathExtension().lastPathComponent.lowercased()
+
+            var matched = false
+            if query.contains(filename) || query.contains(nameWithoutExt) {
+                matched = true
+            } else {
+                // Fuzzy match to handle typos
+                if !nameWithoutExt.contains(" ") && nameWithoutExt.count >= 4 {
+                    let threshold = Swift.max(1, nameWithoutExt.count / 3)
+                    for word in queryWords {
+                        if word.count >= 4 {
+                            if levenshteinDistance(word, nameWithoutExt) <= threshold {
+                                matched = true
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            if matched {
+                matchedFiles.append(file)
+            }
+        }
+
+        if matchedFiles.isEmpty {
+            // No specific file requested, just list the names
+            var contextStr = "[Notes Directory Files]\nAvailable readable files:\n"
+            for file in files {
+                // Show relative path from notes directory
+                let relativePath = file.path.replacingOccurrences(of: url.path + "/", with: "")
+                contextStr += "- \(relativePath)\n"
+            }
+            contextStr += "\n(To read a file's content, ask about it by name)"
+            return FetchedContext(text: contextStr)
+        } else {
+            // Specific file(s) requested, read contents
+            var contextStr = "[Notes File Contents]\n"
+            for file in matchedFiles {
+                let relativePath = file.path.replacingOccurrences(of: url.path + "/", with: "")
+                if let content = try? String(contentsOf: file, encoding: .utf8) {
+                    contextStr += "--- File: \(relativePath) ---\n"
+                    if content.count > 10000 {
+                        contextStr +=
+                            "[SYSTEM INSTRUCTION: This file is too large to inject into context (\(content.count) characters, limit is 10000). Please apologize to the user and say the file is too big to read.]\n\n"
+                    } else {
+                        contextStr += content
+                        contextStr += "\n\n"
+                    }
+                } else {
+                    contextStr +=
+                        "--- File: \(relativePath) ---\n(Could not read content natively)\n\n"
+                }
+            }
+            return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private func levenshteinDistance(_ s1: String, _ s2: String) -> Int {
+        let empty = [Int](repeating: 0, count: s2.count + 1)
+        var last = [Int](0...s2.count)
+
+        for (i, char1) in s1.enumerated() {
+            var cur = [i + 1] + empty
+            for (j, char2) in s2.enumerated() {
+                cur[j + 1] = char1 == char2 ? last[j] : Swift.min(last[j], last[j + 1], cur[j]) + 1
+            }
+            last = cur
+        }
+        return last.last ?? 0
+    }
+}

@@ -42,6 +42,9 @@ Settings are stored in the root `~/.nerw/config.json` inside the `aiConfig` bloc
 |---|---|---|---|
 | `isEnabled` | `Bool` | `false` | Enables/Disables the AI subsystem and UDS socket server. |
 | `isMemoryEnabled` | `Bool` | `true` | Enables/Disables semantic long-term memory. |
+| `isNotesContextEnabled` | `Bool` | `false` | Enables/Disables injecting local Notes and Files into context. |
+| `notesDirectoryPath` | `String?` | `null` | The absolute path to the user's selected Notes directory. |
+| `isWebContextEnabled` | `Bool` | `true` | Enables/Disables active browser URL fetching for context. |
 | `selectedProviderId` | `String` | `"foundation-default"` | The ID of the currently active provider. |
 | `providers` | `[AIProvider]` | `[...]` | Array of configured AI model providers (see structure below). |
 | `systemPrompt` | `String` | `"You are a helpful macOS assistant."` | Base instructions injected before the conversation starts. |
@@ -320,7 +323,7 @@ The Precise Context Injection (PCI) subsystem dynamically injects relevant local
 ### Intent Classification
 Before calling the backend model handler, the user's latest query is passed through the `ContextIntentClassifier`.
 - It uses Apple's `NaturalLanguage` framework (`NLTagger`) alongside keyword heuristics to determine the required `ContextIntent`.
-- Supported intents include: `.clipboard`, `.activeAppAndScreen`, `.calendar`, `.reminder`, and `.system`.
+- Supported intents include: `.clipboard`, `.activeAppAndScreen`, `.calendar`, `.reminder`, `.system`, and `.notes`.
 - **TimeFrame Detection**: For intents like Calendar and Reminders, the classifier extracts timeframes (e.g., "today", "this week", "this month") directly from the query to narrow down the context window.
 
 ### Context Fetching Pipeline
@@ -329,7 +332,10 @@ The `ContextInjectionManager` orchestrates fetching data across different source
 - **ClipboardContextFetcher**: Injects the last 3 entries from the `ClipboardManager`.
 - **CalendarContextFetcher**: Integrates with `EventKit` to fetch upcoming events filtered by the detected timeframe.
 - **ReminderContextFetcher**: Integrates with `EventKit` to fetch incomplete tasks.
+- **NotesContextFetcher**: Triggered when the user asks about notes or files. It scans the configured `notesDirectoryPath` for readable files (Markdown, Swift, TXT, etc.). 
+  - **Fuzzy Matching**: Uses Levenshtein distance on the words in the query to match against filenames, ensuring typos (e.g. "watchilst" instead of "watchlist") still successfully identify the correct file.
+  - **Content Injection**: If a specific file is matched, its contents are injected into the context. To prevent exceeding context limits, files over 10,000 characters are skipped, and the model receives a system instruction to apologize to the user. If no specific file is requested, it simply lists the available file names to save tokens.
 - **ScreenCaptureManager**: A background singleton that asynchronously grabs a screenshot of the main display (`CGWindowListCreateImage`) at the exact moment the conversation panel is invoked. This prevents any UI lag and guarantees the screenshot captures the user's screen state right before engaging with AI.
-- **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome, Arc, etc.) or the name of the foreground application. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters. It also fetches the image data from `ScreenCaptureManager.shared.latestCapture` to feed visual context alongside the text.
+- **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome) or the name of the foreground application. This web fetching is gated by the `isWebContextEnabled` setting. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters. It also fetches the image data from `ScreenCaptureManager.shared.latestCapture` to feed visual context alongside the text.
 
 The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.

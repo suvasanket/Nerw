@@ -50,8 +50,9 @@ public class BYOKModelHandler: AIModelHandler {
             - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
             Do not output memory action unless User specify any personal information or preferences.
             Do NOT output action tags for things you cannot do.
+            CRITICAL INSTRUCTION: If file contents or contexts are provided to you in the prompt (e.g. [Notes File Contents]), you MUST treat it as directly accessible. Do NOT tell the user you cannot read files or view content. Use the provided context to answer.
             """
-        finalSystemPrompt += actionInstructions
+        finalSystemPrompt += "\n\n" + actionInstructions
 
         if !finalSystemPrompt.isEmpty {
             apiMessages.append(["role": "system", "content": finalSystemPrompt])

@@ -11,6 +11,7 @@ public enum ContextTimeFrame: String, Equatable {
 public enum ContextIntent: Hashable {
     case calendar(TimeFrame: ContextTimeFrame)
     case reminder(TimeFrame: ContextTimeFrame)
+    case notes(query: String)
     case clipboard
     case activeAppAndScreen
     case system
@@ -65,6 +66,15 @@ public class ContextIntentClassifier {
         if reminderKeywords.contains(where: { lower.contains($0) }) {
             let timeFrame = extractTimeFrame(from: lower)
             intents.insert(.reminder(TimeFrame: timeFrame))
+        }
+
+        // Notes & Local Files
+        let notesKeywords = [
+            "notes", "files", "note", "file", "document", "documents", "look in notes",
+            "check notes",
+        ]
+        if notesKeywords.contains(where: { lower.contains($0) }) {
+            intents.insert(.notes(query: lower))
         }
 
         // NLP based analysis for implicit intents
