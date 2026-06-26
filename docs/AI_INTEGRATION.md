@@ -15,6 +15,8 @@ graph TD
     Client[Frontend / CLI / Third-party Client]
     SocketServer[AISocketServer <br/> UDS: ~/.nerw/run/ai.sock]
     Service[AIService Orchestrator]
+    InstructionManager[AIInstructionManager]
+    Logger[AILogger]
     FoundationHandler[FoundationModelHandler <br/> Apple Intelligence]
     BYOKHandler[BYOKModelHandler <br/> Custom API / OpenRouter / Ollama]
     Config[ConfigManager <br/> ~/.nerw/config.json]
@@ -22,8 +24,10 @@ graph TD
     Client -->|NDJSON Over UNIX Socket| SocketServer
     SocketServer -->|Generate Response| Service
     Config -->|Reads AI Settings| Service
+    Service -->|Resolves PCI Context| InstructionManager
     Service -->|Selected Backend| FoundationHandler
     Service -->|Selected Backend| BYOKHandler
+    BYOKHandler -->|Writes Payloads| Logger
 ```
 
 - **`AISocketServer`**: A background UNIX Domain Socket (UDS) server that listens for client connections, processes incoming queries, and streams responses back using a newline-delimited JSON (NDJSON) protocol.
@@ -41,6 +45,7 @@ Settings are stored in the root `~/.nerw/config.json` inside the `aiConfig` bloc
 | Parameter | Type | Default Value | Description |
 |---|---|---|---|
 | `isEnabled` | `Bool` | `false` | Enables/Disables the AI subsystem and UDS socket server. |
+| `isConversationLogEnabled` | `Bool` | `true` | Enables/Disables logging of full conversation context and provider payloads to `~/.nerw/ai_logs/`. |
 | `isMemoryEnabled` | `Bool` | `true` | Enables/Disables semantic long-term memory. |
 | `isNotesContextEnabled` | `Bool` | `false` | Enables/Disables injecting local Notes and Files into context. |
 | `notesDirectoryPath` | `String?` | `null` | The absolute path to the user's selected Notes directory. |
@@ -289,15 +294,19 @@ To grant the AI autonomy (e.g., setting timers, interacting with macOS natively)
 ### System Prompt Injection
 The `BYOKModelHandler` injects a hidden schema into the base system prompt:
 ```xml
-You can perform actions by outputting special XML tags.
 To show that you are thinking, wrap your thoughts in <think>...</think>.
 To perform an action, output an <action>JSON_PAYLOAD</action>.
 Supported actions:
-- timer: { "type": "timer", "duration": 60, "label": "Boil eggs" }
-- reminder: { "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }
-- calendar: { "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }
-- memory: { "type": "memory", "action": "save", "content": "User likes blue" }
-Do not output action tags for things you cannot do.
+- timer: <action>{ "type": "timer", "duration": 60, "label": "Boil eggs" }</action>
+- reminder: <action>{ "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }</action>
+- calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
+- memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
+- note: <action>{ "type": "note", "operation": "append", "filename": "todo.md", "content": "- Buy milk" }</action> (operations: create, append, overwrite)
+- menubar: <action>{ "type": "menubar", "path": "File > Save" }</action>
+- email: <action>{ "type": "email", "subject": "Hello", "body": "Message" }</action>
+Do not output memory action unless User specify any personal information or preferences.
+Do NOT output action tags for things you cannot do.
+CRITICAL INSTRUCTION: If file contents or contexts are provided to you in the prompt (e.g. [Notes File Contents]), you MUST treat it as directly accessible. Do NOT tell the user you cannot read files or view content. Use the provided context to answer.
 ```
 
 ### Stream Parser Mechanics
@@ -339,3 +348,13 @@ The `ContextInjectionManager` orchestrates fetching data across different source
 - **ActiveAppContextFetcher**: Integrates with `NSWorkspace` and AppleScript (`BrowserURLFetcher`) to inject the text content of the currently active browser tab (Safari, Chrome) or the name of the foreground application. This web fetching is gated by the `isWebContextEnabled` setting. Uses `URLSession` to fetch the raw HTML and strips tags via Regex, capping the content to 10k characters. It also fetches the image data from `ScreenCaptureManager.shared.latestCapture` to feed visual context alongside the text.
 
 The result is assembled into a hidden `<system_context>` XML block and inserted into the message history right before the user's query, seamlessly granting the AI knowledge of the user's environment without requiring manual copy-pasting.
+
+---
+
+## 9. Debugging & Logging
+
+To assist in debugging model prompts, tool usage, and network responses, the AI subsystem provides a configurable conversation logger (`AILogger`).
+
+- **Toggle**: Controlled via `isConversationLogEnabled` in `~/.nerw/config.json` (defaults to `true`).
+- **Output**: Writes JSON files directly to `~/.nerw/ai_logs/`.
+- **Content**: The log captures the full JSON payload that Nerw builds and sends to the provider (including resolved system prompts, PCI context blocks, and message history) and appends the final text response from the model upon completion. This is extremely useful for verifying exactly what context Nerw is injecting into the LLM.

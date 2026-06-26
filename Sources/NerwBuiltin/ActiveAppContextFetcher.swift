@@ -29,6 +29,18 @@ public class ActiveAppContextFetcher: ContextFetching {
                 text: "[Active Context]\nCannot determine active application.", images: images)
         }
 
+        var menubarStr = ""
+        let menubarActions = MenubarSearch.shared.getMenubarActions()
+        if !menubarActions.isEmpty {
+            menubarStr = "\n\n[Menubar Actions Available]\n"
+            let paths = menubarActions.compactMap { action -> String? in
+                let subtitle = action.subtitle
+                guard let range = subtitle.range(of: "Menu: ") else { return nil }
+                return "- " + String(subtitle[range.upperBound...])
+            }
+            menubarStr += paths.joined(separator: "\n")
+        }
+
         // Check if the frontmost app is a known browser and web context is enabled
         if ConfigManager.shared.config.aiConfig.isWebContextEnabled,
             let info = BrowserURLFetcher.shared.getBrowserInfo(), let urlString = info.url
@@ -54,12 +66,14 @@ public class ActiveAppContextFetcher: ContextFetching {
                 contextStr += "\n\n(Could not fetch website content natively)"
             }
 
+            contextStr += menubarStr
             return FetchedContext(text: contextStr, images: images)
         }
 
         // Fallback for non-browser apps
-        return FetchedContext(
-            text: "[Active Application Context]\nApplication Name: \(appName)", images: images)
+        var fallbackStr = "[Active Application Context]\nApplication Name: \(appName)"
+        fallbackStr += menubarStr
+        return FetchedContext(text: fallbackStr, images: images)
     }
 
     private func fetchHTML(from urlString: String) async -> String? {

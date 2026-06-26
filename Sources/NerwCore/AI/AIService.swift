@@ -54,8 +54,8 @@ public class AIService {
         var updatedMessages = messages
         var allImages = images
         if let lastUserMsg = messages.last(where: { $0.role == .user }) {
-            let intents = ContextIntentClassifier.shared.classify(lastUserMsg.content)
-            let injectedCtx = await ContextInjectionManager.shared.fetchAllContext(for: intents)
+            let injectedCtx = await AIInstructionManager.shared.resolveContext(
+                for: lastUserMsg.content)
             if !injectedCtx.text.isEmpty {
                 let ctxMessage = AIChatMessage(role: .system, content: injectedCtx.text)
                 // Insert right before the last user message

@@ -60,6 +60,7 @@ public struct AIProvider: Codable, Equatable {
 
 public struct AIConfig: Codable {
     public var isEnabled: Bool = false
+    public var isConversationLogEnabled: Bool = true
     public var isMemoryEnabled: Bool = true
     public var isClipboardContextEnabled: Bool = true
     public var isActiveAppContextEnabled: Bool = true
@@ -83,6 +84,7 @@ public struct AIConfig: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case isEnabled
+        case isConversationLogEnabled
         case isMemoryEnabled
         case isClipboardContextEnabled
         case isActiveAppContextEnabled
@@ -117,6 +119,8 @@ public struct AIConfig: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        isConversationLogEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isConversationLogEnabled) ?? true
         isMemoryEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMemoryEnabled) ?? true
         isClipboardContextEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isClipboardContextEnabled) ?? true

@@ -39,20 +39,8 @@ public class BYOKModelHandler: AIModelHandler {
         // Not building a single user content here. We will build it inside the messages loop.
 
         var apiMessages: [[String: Any]] = []
-        var finalSystemPrompt = aiConfig.systemPrompt
-        let actionInstructions = """
-            To show that you are thinking, wrap your thoughts in <think>...</think>.
-            To perform an action, output an <action>JSON_PAYLOAD</action>.
-            Supported actions:
-            - timer: <action>{ "type": "timer", "duration": 60, "label": "Boil eggs" }</action>
-            - reminder: <action>{ "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }</action>
-            - calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
-            - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
-            Do not output memory action unless User specify any personal information or preferences.
-            Do NOT output action tags for things you cannot do.
-            CRITICAL INSTRUCTION: If file contents or contexts are provided to you in the prompt (e.g. [Notes File Contents]), you MUST treat it as directly accessible. Do NOT tell the user you cannot read files or view content. Use the provided context to answer.
-            """
-        finalSystemPrompt += "\n\n" + actionInstructions
+        let finalSystemPrompt = AIInstructionManager.shared.buildSystemPrompt(
+            basePrompt: aiConfig.systemPrompt)
 
         if !finalSystemPrompt.isEmpty {
             apiMessages.append(["role": "system", "content": finalSystemPrompt])
@@ -96,6 +84,8 @@ public class BYOKModelHandler: AIModelHandler {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
+        let logId = AILogger.shared.startLog(providerName: provider.name, payload: payload)
+
         Logger.shared.info(
             "BYOKModelHandler: Request payload prepared. Model: \(provider.modelName), stream: \(isStreaming)"
         )
@@ -138,6 +128,7 @@ public class BYOKModelHandler: AIModelHandler {
                     if isStreaming {
                         Logger.shared.info("BYOKModelHandler: Starting stream consumption...")
                         var chunkCount = 0
+                        var fullStreamedResponse = ""
                         for try await line in bytes.lines {
                             if Task.isCancelled {
                                 Logger.shared.info(
@@ -163,6 +154,7 @@ public class BYOKModelHandler: AIModelHandler {
                                     ChatCompletionChunk.self, from: data)
                                 {
                                     if let delta = chunk.choices.first?.delta.content {
+                                        fullStreamedResponse += delta
                                         chunkCount += 1
                                         if chunkCount % 10 == 0 || chunkCount < 5 {
                                             Logger.shared.info(
@@ -181,6 +173,7 @@ public class BYOKModelHandler: AIModelHandler {
                                     "BYOKModelHandler: Non-data stream line received: \(trimmed)")
                             }
                         }
+                        AILogger.shared.finishLog(logId: logId, responseText: fullStreamedResponse)
                         Logger.shared.info(
                             "BYOKModelHandler: Stream finished successfully. Total chunks: \(chunkCount)"
                         )
@@ -198,6 +191,7 @@ public class BYOKModelHandler: AIModelHandler {
                         let responseObj = try JSONDecoder().decode(
                             ChatCompletionResponse.self, from: responseBody)
                         if let fullText = responseObj.choices.first?.message.content {
+                            AILogger.shared.finishLog(logId: logId, responseText: fullText)
                             Logger.shared.info(
                                 "BYOKModelHandler: Received full non-stream response length: \(fullText.count)"
                             )
