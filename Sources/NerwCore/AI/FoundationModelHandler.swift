@@ -3,7 +3,10 @@ import Foundation
 public class FoundationModelHandler: AIModelHandler {
     public init() {}
 
-    public func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool)
+    public func generateResponse(
+        messages: [AIChatMessage], images: [Data], isStreaming: Bool,
+        actionIntents: Set<ActionIntent>
+    )
         async throws
         -> AsyncThrowingStream<String, Error>
     {

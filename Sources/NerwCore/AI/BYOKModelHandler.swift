@@ -8,7 +8,10 @@ public class BYOKModelHandler: AIModelHandler {
         self.provider = provider
     }
 
-    public func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool)
+    public func generateResponse(
+        messages: [AIChatMessage], images: [Data], isStreaming: Bool,
+        actionIntents: Set<ActionIntent>
+    )
         async throws
         -> AsyncThrowingStream<String, Error>
     {
@@ -46,6 +49,15 @@ public class BYOKModelHandler: AIModelHandler {
             apiMessages.append(["role": "system", "content": finalSystemPrompt])
         }
 
+        var temperature = aiConfig.temperature
+        if !actionIntents.isEmpty {
+            temperature = 0.0
+            let actionsList = actionIntents.map { $0.rawValue }.joined(separator: ", ")
+            let strictPrompt =
+                "CRITICAL: The user has requested a specific action (\(actionsList)). You MUST strictly output the JSON payload for the requested action. Reduce all creativity and conversational fluff. Do not output anything else."
+            apiMessages.append(["role": "system", "content": strictPrompt])
+        }
+
         for (index, msg) in messages.enumerated() {
             if msg.role == .user && index == messages.count - 1 && provider.supportsImages
                 && !images.isEmpty
@@ -71,7 +83,7 @@ public class BYOKModelHandler: AIModelHandler {
             "model": provider.modelName,
             "messages": apiMessages,
             "stream": isStreaming,
-            "temperature": aiConfig.temperature,
+            "temperature": temperature,
         ]
 
         if aiConfig.maxTokens > 0 {

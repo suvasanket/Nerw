@@ -17,25 +17,40 @@ public enum ContextIntent: Hashable {
     case system
 }
 
-public class ContextIntentClassifier {
-    public static let shared = ContextIntentClassifier()
+public enum ActionIntent: String, Hashable {
+    case timer
+    case reminder
+    case calendar
+    case memory
+    case note
+    case menubar
+    case email
+}
+
+public class IntentClassifier {
+    public static let shared = IntentClassifier()
 
     private let tagger = NLTagger(tagSchemes: [.lexicalClass, .lemma])
     private let taggerLock = NSLock()
 
     private init() {}
 
-    public func classify(_ query: String) -> [ContextIntent] {
-        var intents = Set<ContextIntent>()
+    public func classify(_ query: String) -> (
+        contextIntents: Set<ContextIntent>, actionIntents: Set<ActionIntent>
+    ) {
+        var contextIntents = Set<ContextIntent>()
+        var actionIntents = Set<ActionIntent>()
         // System context is always injected
-        intents.insert(.system)
+        contextIntents.insert(.system)
 
         let lower = query.lowercased()
+
+        // --- Context & Action Matching ---
 
         // Clipboard
         let clipboardKeywords = ["clipboard", "copied", "copy", "paste", "recently copied"]
         if clipboardKeywords.contains(where: { lower.contains($0) }) {
-            intents.insert(.clipboard)
+            contextIntents.insert(.clipboard)
         }
 
         // Active App / Screen / Website / Visual
@@ -44,10 +59,17 @@ public class ContextIntentClassifier {
             "this website", "this article", "look", "screen", "see", "what is this",
             "this thing", "visual", "image", "sum up the total usage", "this chart",
             "this graph", "screenshot", "this app", "this application", "active app",
-            "active application", "current application", "menubar", "menu bar", "menu",
+            "active application", "current application",
         ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
-            intents.insert(.activeAppAndScreen)
+            contextIntents.insert(.activeAppAndScreen)
+        }
+
+        // Menubar Action
+        let menubarKeywords = ["menubar", "menu bar", "menu", "click menu"]
+        if menubarKeywords.contains(where: { lower.contains($0) }) {
+            actionIntents.insert(.menubar)
+            contextIntents.insert(.activeAppAndScreen)
         }
 
         // Calendar
@@ -57,7 +79,12 @@ public class ContextIntentClassifier {
         ]
         if calendarKeywords.contains(where: { lower.contains($0) }) {
             let timeFrame = extractTimeFrame(from: lower)
-            intents.insert(.calendar(TimeFrame: timeFrame))
+            contextIntents.insert(.calendar(TimeFrame: timeFrame))
+            if lower.contains("schedule") || lower.contains("create") || lower.contains("add")
+                || lower.contains("set up")
+            {
+                actionIntents.insert(.calendar)
+            }
         }
 
         // Reminders
@@ -66,16 +93,47 @@ public class ContextIntentClassifier {
         ]
         if reminderKeywords.contains(where: { lower.contains($0) }) {
             let timeFrame = extractTimeFrame(from: lower)
-            intents.insert(.reminder(TimeFrame: timeFrame))
+            contextIntents.insert(.reminder(TimeFrame: timeFrame))
+            if lower.contains("remind me") || lower.contains("add") || lower.contains("create") {
+                actionIntents.insert(.reminder)
+            }
         }
 
         // Notes & Local Files
         let notesKeywords = [
             "notes", "files", "note", "file", "document", "documents", "look in notes",
-            "check notes",
+            "check notes", "write down", "save note", "create a note", "append to note",
         ]
         if notesKeywords.contains(where: { lower.contains($0) }) {
-            intents.insert(.notes(query: lower))
+            contextIntents.insert(.notes(query: lower))
+            if lower.contains("write") || lower.contains("save note") || lower.contains("create")
+                || lower.contains("append") || lower.contains("add to note")
+            {
+                actionIntents.insert(.note)
+            }
+        }
+
+        // Timer
+        let timerKeywords = ["timer", "set a timer", "countdown"]
+        if timerKeywords.contains(where: { lower.contains($0) }) {
+            actionIntents.insert(.timer)
+        }
+
+        // Memory
+        let memoryKeywords = [
+            "remember that", "keep in mind", "my favorite", "i prefer", "memorize",
+        ]
+        if memoryKeywords.contains(where: { lower.contains($0) }) {
+            actionIntents.insert(.memory)
+        }
+
+        // Email
+        let emailKeywords = [
+            "send email", "email to", "send an email", "write an email", "compose email",
+            "compose an email", "draft an email", "draft email",
+        ]
+        if emailKeywords.contains(where: { lower.contains($0) }) {
+            actionIntents.insert(.email)
         }
 
         // NLP based analysis for implicit intents
@@ -96,11 +154,11 @@ public class ContextIntentClassifier {
         }
 
         // If asking to fix/translate/rewrite without a clear target, maybe they mean clipboard
-        if hasFixTranslateRewrite && !lower.contains("this") && intents.count == 1 {
-            intents.insert(.clipboard)
+        if hasFixTranslateRewrite && !lower.contains("this") && contextIntents.count == 1 {
+            contextIntents.insert(.clipboard)
         }
 
-        return Array(intents)
+        return (contextIntents, actionIntents)
     }
 
     private func extractTimeFrame(from text: String) -> ContextTimeFrame {

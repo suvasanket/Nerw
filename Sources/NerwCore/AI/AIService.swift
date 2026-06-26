@@ -2,7 +2,10 @@ import Foundation
 import NerwUtils
 
 public protocol AIModelHandler {
-    func generateResponse(messages: [AIChatMessage], images: [Data], isStreaming: Bool) async throws
+    func generateResponse(
+        messages: [AIChatMessage], images: [Data], isStreaming: Bool,
+        actionIntents: Set<ActionIntent>
+    ) async throws
         -> AsyncThrowingStream<String, Error>
 }
 
@@ -53,7 +56,11 @@ public class AIService {
 
         var updatedMessages = messages
         var allImages = images
+        var actionIntents = Set<ActionIntent>()
         if let lastUserMsg = messages.last(where: { $0.role == .user }) {
+            let classification = IntentClassifier.shared.classify(lastUserMsg.content)
+            actionIntents = classification.actionIntents
+
             let injectedCtx = await AIInstructionManager.shared.resolveContext(
                 for: lastUserMsg.content)
             if !injectedCtx.text.isEmpty {
@@ -65,7 +72,8 @@ public class AIService {
         }
 
         return try await handler.generateResponse(
-            messages: updatedMessages, images: allImages, isStreaming: isStreaming)
+            messages: updatedMessages, images: allImages, isStreaming: isStreaming,
+            actionIntents: actionIntents)
     }
 
     /// Checks if the Foundation (Apple Intelligence) language model is available at runtime.

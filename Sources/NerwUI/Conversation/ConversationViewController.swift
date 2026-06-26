@@ -1603,7 +1603,7 @@ public class ConversationViewController: NSViewController {
 
         // Extract PCI contexts for reference viewer
         var pciIcons: [(icon: String, name: String)] = []
-        let intents = ContextIntentClassifier.shared.classify(text)
+        let intents = IntentClassifier.shared.classify(text).contextIntents
         for intent in intents {
             switch intent {
             case .clipboard:
