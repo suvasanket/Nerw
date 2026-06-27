@@ -216,6 +216,8 @@ class PromptTextField: NSTextField {
     var onMoveUp: (() -> Void)?
     var onMoveDown: (() -> Void)?
     var onToggleContextPanel: (() -> Void)?
+    var onCancelGeneration: (() -> Void)?
+    var onRetry: (() -> Void)?
 
     var onTab: (() -> Void)?
     var onShiftTab: (() -> Void)?
@@ -282,6 +284,10 @@ class PromptTextField: NSTextField {
             guard let chars = event.charactersIgnoringModifiers?.lowercased() else {
                 return super.performKeyEquivalent(with: event)
             }
+            if chars == "c" {
+                onCancelGeneration?()
+                return true
+            }
             let navStyle = ConfigManager.shared.config.navigationStyle
             if navStyle == "vim" {
                 if chars == "k" {
@@ -305,6 +311,10 @@ class PromptTextField: NSTextField {
         if event.modifierFlags.contains(.command) {
             guard let chars = event.charactersIgnoringModifiers?.lowercased() else {
                 return super.performKeyEquivalent(with: event)
+            }
+            if chars == "r" {
+                onRetry?()
+                return true
             }
             if chars == "k" {
                 onToggleContextPanel?()
@@ -860,6 +870,12 @@ public class ConversationViewController: NSViewController {
         promptTextField.onExecuteNode = { [weak self] in self?.handleExecuteNode() ?? false }
         promptTextField.onCancelSelection = { [weak self] in self?.handleCancelSelection() ?? false
         }
+        promptTextField.onCancelGeneration = { [weak self] in
+            self?.cancelGeneration()
+        }
+        promptTextField.onRetry = { [weak self] in
+            self?.retryGeneration()
+        }
         promptTextField.delegate = self
         promptTextField.translatesAutoresizingMaskIntoConstraints = false
         promptContainer.addSubview(promptTextField)
@@ -1227,6 +1243,20 @@ public class ConversationViewController: NSViewController {
         }
     }
 
+    public func cancelGeneration() {
+        guard activeTask != nil else { return }
+        cancelActiveTask()
+
+        if activeTurnIndex >= 0 && activeTurnIndex < turns.count {
+            let response = turns[activeTurnIndex].response
+            if response == "Generating..." {
+                turns.remove(at: activeTurnIndex)
+                activeTurnIndex = turns.count - 1
+            }
+        }
+        updateCard()
+    }
+
     @objc private func clearChat() {
         cancelActiveTask()
         turns.removeAll()
@@ -1367,6 +1397,15 @@ public class ConversationViewController: NSViewController {
         case "memory":
             let content = payload["content"] as? String ?? ""
             return content.count > 50 ? String(content.prefix(50)) + "…" : content
+        case "menubar":
+            return payload["path"] as? String ?? "Menubar"
+        case "note":
+            let operation = payload["operation"] as? String ?? "edit"
+            let filename = payload["filename"] as? String ?? "note"
+            return "\(operation.capitalized) \(filename)"
+        case "email":
+            let subject = payload["subject"] as? String ?? "Email"
+            return "Draft: \(subject)"
         default:
             return ""
         }
@@ -1640,6 +1679,10 @@ public class ConversationViewController: NSViewController {
         updateCard()
         startGeneratingAnimation()
 
+        startGenerationTask(for: text)
+    }
+
+    private func startGenerationTask(for text: String) {
         Logger.shared.info(
             "ConversationViewController: Starting async Task for AI response generation...")
         activeTask = Task { [weak self] in
@@ -1761,6 +1804,24 @@ public class ConversationViewController: NSViewController {
         }
     }
 
+    public func retryGeneration() {
+        guard activeTurnIndex >= 0 && activeTurnIndex < turns.count else { return }
+
+        cancelActiveTask()
+
+        turns[activeTurnIndex].response = "Generating..."
+        turns[activeTurnIndex].actionType = nil
+        turns[activeTurnIndex].actionPayload = nil
+
+        let text = turns[activeTurnIndex].query
+
+        spinner.startAnimation()
+        updateCard()
+        startGeneratingAnimation()
+
+        startGenerationTask(for: text)
+    }
+
     private func showDisabledWarning() {
         cancelActiveTask()
         turns.removeAll()
@@ -1862,10 +1923,33 @@ public class ConversationViewController: NSViewController {
             detailText: downKeybind
         )
 
+        var conversationOps = [clearChatOp, moveUpOp, moveDownOp]
+        let cancelGenerationOp = NerwActionContext.Operation(
+            id: "cancelGeneration",
+            kind: .custom("cancelGeneration"),
+            title: "Cancel Generation",
+            subtitle: "Stops the AI from generating further response",
+            icon: .system("stop.circle"),
+            interaction: .execute,
+            detailText: "⌃C"
+        )
+        conversationOps.insert(cancelGenerationOp, at: 0)
+
+        let retryGenerationOp = NerwActionContext.Operation(
+            id: "retryGeneration",
+            kind: .custom("retryGeneration"),
+            title: "Retry",
+            subtitle: "Regenerate the response for the current turn",
+            icon: .system("arrow.clockwise"),
+            interaction: .execute,
+            detailText: "⌘R"
+        )
+        conversationOps.insert(retryGenerationOp, at: 1)
+
         let section = NerwActionContext.Section(
             id: "conversation",
             title: "Conversation",
-            operations: [clearChatOp, moveUpOp, moveDownOp]
+            operations: conversationOps
         )
 
         let context = NerwActionContext(
@@ -2016,6 +2100,10 @@ extension ConversationViewController: ActionContextViewControllerDelegate {
             }
 
             switch customId {
+            case "cancelGeneration":
+                cancelGeneration()
+            case "retryGeneration":
+                retryGeneration()
             case "clearChat":
                 clearChat()
             case "moveUp":
