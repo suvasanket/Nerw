@@ -292,22 +292,22 @@ The visual layout is implemented programmatically using Auto Layout inside [Conv
 To grant the AI autonomy (e.g., setting timers, interacting with macOS natively) without exposing ugly JSON syntax to the user, the app uses a stateful streaming interceptor called `AIStreamParser`.
 
 ### System Prompt Injection
-The `BYOKModelHandler` injects a hidden schema into the base system prompt:
+The `BYOKModelHandler` utilizes the `AIInstructionManager` as an Instruction Formulator to inject a dynamically generated hidden schema into the base system prompt.
+Instead of specifying all possible action tags for every payload, the Instruction Formulator only includes schemas for actions that match the user's intent (detected via `IntentClassifier`), saving context limits and improving instruction following. Persistent schemas (like memory) are always included.
+
 ```xml
 To show that you are thinking, wrap your thoughts in <think>...</think>.
 To perform an action, output an <action>JSON_PAYLOAD</action>.
 Supported actions:
-- timer: <action>{ "type": "timer", "duration": 60, "label": "Boil eggs" }</action>
-- reminder: <action>{ "type": "reminder", "title": "Buy milk", "date": "2026-06-22T10:00:00Z" }</action>
-- calendar: <action>{ "type": "calendar", "title": "Meeting", "date": "2026-06-22T10:00:00Z" }</action>
 - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
-- note: <action>{ "type": "note", "operation": "append", "filename": "todo.md", "content": "- Buy milk" }</action> (operations: create, append, overwrite)
-- menubar: <action>{ "type": "menubar", "path": "File > Save" }</action>
-- email: <action>{ "type": "email", "subject": "Hello", "body": "Message" }</action>
+[... dynamically injected action schemas based on ActionIntent (e.g., timer, calendar, etc.)]
+
 Do not output memory action unless User specify any personal information or preferences.
 Do NOT output action tags for things you cannot do.
 CRITICAL INSTRUCTION: If file contents or contexts are provided to you in the prompt (e.g. [Notes File Contents]), you MUST treat it as directly accessible. Do NOT tell the user you cannot read files or view content. Use the provided context to answer.
 ```
+
+If a specific `ActionIntent` is detected, the `AIInstructionManager` also appends a strictness prompt directly to this singular system payload, forcing the model to bypass conversational fluff and directly output the requested JSON action payload.
 
 ### Stream Parser Mechanics
 The `AIStreamParser` consumes token chunks as they arrive from the backend and maintains an internal buffer:

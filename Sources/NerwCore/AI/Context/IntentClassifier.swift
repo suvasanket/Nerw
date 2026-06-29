@@ -63,6 +63,7 @@ public class IntentClassifier {
         ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
             contextIntents.insert(.activeAppAndScreen)
+            actionIntents.insert(.menubar)
         }
 
         // Menubar Action
@@ -90,11 +91,14 @@ public class IntentClassifier {
         // Reminders
         let reminderKeywords = [
             "reminder", "reminders", "task", "tasks", "todo", "to-do", "remind me",
+            "set a reminder",
         ]
         if reminderKeywords.contains(where: { lower.contains($0) }) {
             let timeFrame = extractTimeFrame(from: lower)
             contextIntents.insert(.reminder(TimeFrame: timeFrame))
-            if lower.contains("remind me") || lower.contains("add") || lower.contains("create") {
+            if lower.contains("remind me") || lower.contains("add") || lower.contains("create")
+                || lower.contains("set")
+            {
                 actionIntents.insert(.reminder)
             }
         }

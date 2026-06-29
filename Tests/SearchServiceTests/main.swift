@@ -24,6 +24,7 @@ func runTests() {
     runNotificationTests()
     runTextExpansionTests()
     runDaemonTests()
+    runAITests()
 
     print("[Testing] All SearchService tests PASSED.")
 

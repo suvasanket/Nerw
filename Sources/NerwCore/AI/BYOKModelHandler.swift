@@ -43,7 +43,7 @@ public class BYOKModelHandler: AIModelHandler {
 
         var apiMessages: [[String: Any]] = []
         let finalSystemPrompt = AIInstructionManager.shared.buildSystemPrompt(
-            basePrompt: aiConfig.systemPrompt)
+            basePrompt: aiConfig.systemPrompt, actionIntents: actionIntents)
 
         if !finalSystemPrompt.isEmpty {
             apiMessages.append(["role": "system", "content": finalSystemPrompt])
@@ -52,10 +52,6 @@ public class BYOKModelHandler: AIModelHandler {
         var temperature = aiConfig.temperature
         if !actionIntents.isEmpty {
             temperature = 0.0
-            let actionsList = actionIntents.map { $0.rawValue }.joined(separator: ", ")
-            let strictPrompt =
-                "CRITICAL: The user has requested a specific action (\(actionsList)). You MUST strictly output the JSON payload for the requested action. Reduce all creativity and conversational fluff. Do not output anything else."
-            apiMessages.append(["role": "system", "content": strictPrompt])
         }
 
         for (index, msg) in messages.enumerated() {

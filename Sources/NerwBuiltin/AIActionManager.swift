@@ -80,7 +80,7 @@ public class AIActionManager {
             return
         }
 
-        let dateString = payload["date"] as? String
+        let dateString = payload["schedule"] as? String
 
         requestRemindersAccess { [weak self] granted in
             guard let self = self else { return }
