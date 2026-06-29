@@ -1,6 +1,10 @@
 import Foundation
 import NerwUtils
 
+#if canImport(FoundationModels)
+    import FoundationModels
+#endif
+
 public protocol AIModelHandler {
     func generateResponse(
         messages: [AIChatMessage], images: [Data], isStreaming: Bool,
@@ -78,9 +82,18 @@ public class AIService {
 
     /// Checks if the Foundation (Apple Intelligence) language model is available at runtime.
     public func checkFoundationAvailability() -> (isAvailable: Bool, statusMessage: String) {
+        #if canImport(FoundationModels)
+            if #available(macOS 26.0, *) {
+                if SystemLanguageModel.default.isAvailable {
+                    return (true, "Apple Intelligence is available.")
+                } else {
+                    return (false, "Apple Intelligence is not available on this device.")
+                }
+            }
+        #endif
         return (
             false,
-            "Foundation (Apple Intelligence) integration is currently paused. Please use the BYOK backend model type."
+            "Foundation (Apple Intelligence) integration is unavailable or not supported on this device."
         )
     }
 }

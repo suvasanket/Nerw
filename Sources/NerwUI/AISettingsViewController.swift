@@ -144,7 +144,7 @@ class AISettingsViewController: NSViewController {
         warningIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
 
         warningLabel.stringValue =
-            "Foundation model (Apple Intelligence) is currently under construction. Please use the BYOK backend model type."
+            "Foundation model (Apple Intelligence) is currently unavailable on this device. Please use a BYOK backend model type."
         warningLabel.font = .systemFont(ofSize: 12, weight: .medium)
         warningLabel.textColor = .labelColor
         warningLabel.isEditable = false
@@ -861,7 +861,11 @@ class AISettingsViewController: NSViewController {
         for subview in providersListStack.arrangedSubviews {
             subview.removeFromSuperview()
         }
+        let isFoundationAvailable = AIService.shared.checkFoundationAvailability().isAvailable
         for provider in config.providers {
+            if provider.type == "foundation" && !isFoundationAvailable {
+                continue
+            }
             let row = createProviderRow(
                 for: provider, isActive: provider.id == config.selectedProviderId)
             providersListStack.addArrangedSubview(row)
@@ -887,8 +891,21 @@ class AISettingsViewController: NSViewController {
         contextSection.isHidden = !isEnabled
 
         if isEnabled, let active = ConfigManager.shared.config.aiConfig.activeProvider {
-            let isByok = (active.type == "byok")
-            warningContainer.isHidden = isByok
+            let isFoundationAvailable = AIService.shared.checkFoundationAvailability().isAvailable
+            if active.type == "foundation" {
+                warningContainer.isHidden = false
+                if isFoundationAvailable {
+                    warningLabel.stringValue =
+                        "Apple Intelligence integration is currently a Work In Progress (WIP). Advanced actions may not work reliably."
+                } else {
+                    warningLabel.stringValue =
+                        "Foundation model (Apple Intelligence) is currently unavailable on this device. Please use a BYOK backend model type."
+                }
+            } else {
+                warningContainer.isHidden = true
+            }
+        } else {
+            warningContainer.isHidden = true
         }
     }
 }

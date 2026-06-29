@@ -307,7 +307,7 @@ Do NOT output action tags for things you cannot do.
 CRITICAL INSTRUCTION: If file contents or contexts are provided to you in the prompt (e.g. [Notes File Contents]), you MUST treat it as directly accessible. Do NOT tell the user you cannot read files or view content. Use the provided context to answer.
 ```
 
-If a specific `ActionIntent` is detected, the `AIInstructionManager` also appends a strictness prompt directly to this singular system payload, forcing the model to bypass conversational fluff and directly output the requested JSON action payload.
+If a specific `ActionIntent` is detected, the `AIInstructionManager` also appends a strictness prompt directly to this singular system payload, forcing the model to bypass conversational fluff, directly output the requested JSON action payload, and write a brief sentence confirming the action as if it performed it.
 
 ### Stream Parser Mechanics
 The `AIStreamParser` consumes token chunks as they arrive from the backend and maintains an internal buffer:
@@ -358,3 +358,15 @@ To assist in debugging model prompts, tool usage, and network responses, the AI 
 - **Toggle**: Controlled via `isConversationLogEnabled` in `~/.nerw/config.json` (defaults to `true`).
 - **Output**: Writes JSON files directly to `~/.nerw/ai_logs/`.
 - **Content**: The log captures the full JSON payload that Nerw builds and sends to the provider (including resolved system prompts, PCI context blocks, and message history) and appends the final text response from the model upon completion. This is extremely useful for verifying exactly what context Nerw is injecting into the LLM.
+
+---
+
+## 10. Future Work & Known Limitations
+
+### Apple Intelligence Integration (FoundationModels)
+- **Work In Progress (WIP)**: The Apple Intelligence native integration (`FoundationModelHandler`) is currently active but under active refinement. 
+- **Tool / Action Limitations**: While Precise Context Injection (PCI) and action intents (timers, reminders, calendar) are being injected via prompt instruction overrides, native Apple Intelligence tool-use may not perform as reliably as cloud providers (like OpenAI or Claude via BYOK) due to strict local model context constraints or token budgeting.
+- **Next Steps**:
+  - Implement dynamic chunk evaluation for `LanguageModelSession` state if action intents change wildly mid-session.
+  - Refine prompt instruction tuning strictly for `FoundationModels` behavior.
+  - Eventually leverage native Apple Intelligence `AppIntents` or native `Tool` API schemas when officially available instead of relying on stringified JSON prompts.
