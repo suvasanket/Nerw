@@ -726,36 +726,6 @@ public class ConversationViewController: NSViewController {
     private let currentModelGlobeIcon = NSImageView()
     private let currentModelEyeIcon = NSImageView()
 
-    private let memoryIndicatorContainer: NSVisualEffectView = {
-        let effectView = NSVisualEffectView()
-        effectView.material = .hudWindow
-        effectView.state = .active
-        effectView.blendingMode = .withinWindow
-        effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = 14
-        effectView.translatesAutoresizingMaskIntoConstraints = false
-        effectView.isHidden = true
-
-        let iv = NSImageView()
-        if let image = NSImage(
-            systemSymbolName: "brain.fill", accessibilityDescription: "Memory Saved")
-        {
-            let config = NSImage.SymbolConfiguration(paletteColors: [.white])
-            iv.image = image.withSymbolConfiguration(config)
-        }
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        effectView.addSubview(iv)
-
-        NSLayoutConstraint.activate([
-            iv.centerXAnchor.constraint(equalTo: effectView.centerXAnchor),
-            iv.centerYAnchor.constraint(equalTo: effectView.centerYAnchor),
-            iv.widthAnchor.constraint(equalToConstant: 16),
-            iv.heightAnchor.constraint(equalToConstant: 16),
-        ])
-
-        return effectView
-    }()
-
     private let referencesContainer = ReferencesContainerView()
 
     private lazy var expandArrowButton: HoverIconButton = {
@@ -890,7 +860,6 @@ public class ConversationViewController: NSViewController {
         cardView.layer?.cornerRadius = 16
         cardView.layer?.borderWidth = 1.0
         contentView.addSubview(cardView)
-        contentView.addSubview(memoryIndicatorContainer)
 
         referencesContainer.translatesAutoresizingMaskIntoConstraints = false
         referencesContainer.isHidden = true
@@ -968,7 +937,7 @@ public class ConversationViewController: NSViewController {
         responseTextView.isSelectable = true
         responseTextView.drawsBackground = false
         responseTextView.backgroundColor = .clear
-        responseTextView.font = .systemFont(ofSize: 14)
+        responseTextView.font = .systemFont(ofSize: 13)
         responseTextView.textColor = .labelColor
         responseTextView.isRichText = false
         responseTextView.importsGraphics = false
@@ -1110,13 +1079,6 @@ public class ConversationViewController: NSViewController {
         scrollViewBottomToCardConstraint?.isActive = true
 
         NSLayoutConstraint.activate([
-            memoryIndicatorContainer.bottomAnchor.constraint(
-                equalTo: cardView.bottomAnchor, constant: 6),
-            memoryIndicatorContainer.trailingAnchor.constraint(
-                equalTo: cardView.trailingAnchor, constant: 6),
-            memoryIndicatorContainer.widthAnchor.constraint(equalToConstant: 28),
-            memoryIndicatorContainer.heightAnchor.constraint(equalToConstant: 28),
-
             referencesContainer.bottomAnchor.constraint(
                 equalTo: cardView.bottomAnchor, constant: 14),
             referencesContainer.leadingAnchor.constraint(
@@ -1414,7 +1376,6 @@ public class ConversationViewController: NSViewController {
     private func setResponseText(_ text: String) {
         if text.isEmpty {
             responseTextView.string = ""
-            memoryIndicatorContainer.isHidden = true
             return
         }
 
@@ -1426,10 +1387,6 @@ public class ConversationViewController: NSViewController {
 
         selectedNodeIndex = nil
         updateNodeSelectionPill()
-
-        // Memory action tags embed detail after a pipe: ![action:memory|...] or just ![action:memory]
-        let hasMemory = text.contains("![action:memory")
-        memoryIndicatorContainer.isHidden = !hasMemory
 
         let theme = NerwTheme.current()
         let textColor: NSColor
@@ -1446,7 +1403,7 @@ public class ConversationViewController: NSViewController {
             accentColor = .controlAccentColor
         }
 
-        let font = responseTextView.font ?? .systemFont(ofSize: 14)
+        let font = responseTextView.font ?? .systemFont(ofSize: 13)
 
         let attrString = MarkdownParser.parse(
             markdown: text,
@@ -1675,7 +1632,6 @@ public class ConversationViewController: NSViewController {
             pciIcons: pciIcons)
         turns.append(newTurn)
         activeTurnIndex = turns.count - 1
-
         updateCard()
         startGeneratingAnimation()
 

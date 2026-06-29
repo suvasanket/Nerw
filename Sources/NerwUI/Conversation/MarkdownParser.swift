@@ -402,12 +402,6 @@ public struct MarkdownParser {
                 }
             }
 
-            // Memory — strip tag and surrounding whitespace silently
-            if actionType.lowercased() == "memory" {
-                str.replaceCharacters(in: deleteRange, with: "")
-                return
-            }
-
             // Resolve optional detail string embedded in the tag
             let detailRange = match.range(at: 2)
             let embeddedDetail: String? =
@@ -423,63 +417,41 @@ public struct MarkdownParser {
             case "timer":
                 symbolName = "timer"
                 tintColor = NSColor.systemOrange
-                displayText = embeddedDetail.map { " Timer — \($0)" } ?? " Timer set"
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
             case "reminder":
                 symbolName = "bell.badge.fill"
-                tintColor = NSColor.systemBlue
-                displayText = embeddedDetail.map { " Reminder: \($0)" } ?? " Reminder set"
+                tintColor = NSColor.systemTeal
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
             case "calendar":
                 symbolName = "calendar.badge.plus"
                 tintColor = NSColor.systemGreen
-                displayText = embeddedDetail.map { " Event added — \($0)" } ?? " Event added"
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
+            case "memory":
+                symbolName = "brain.fill"
+                tintColor = NSColor.systemCyan
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
+            case "menubar":
+                symbolName = "menubar.dock.rectangle"
+                tintColor = NSColor.systemPink
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
+            case "search":
+                symbolName = "magnifyingglass"
+                tintColor = NSColor.systemIndigo
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
             default:
                 symbolName = "wand.and.sparkles"
-                tintColor = accentColor
-                displayText = embeddedDetail.map { " \($0)" } ?? " \(actionType.capitalized)"
+                tintColor = NSColor.systemPurple
+                displayText = embeddedDetail.map { " \($0)" } ?? ""
             }
 
-            let pillContent = NSMutableAttributedString()
-
-            // Icon attachment — tinted to match action
-            let config = NSImage.SymbolConfiguration(
-                pointSize: baseFont.pointSize - 2, weight: .semibold)
-            if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-                .withSymbolConfiguration(config)
-            {
-                image.isTemplate = true
-                let attachment = NSTextAttachment()
-                attachment.image = image
-                attachment.bounds = NSRect(x: 0, y: -2.5, width: 13, height: 13)
-                let iconAttr = NSMutableAttributedString(attachment: attachment)
-                iconAttr.addAttributes(
-                    [.foregroundColor: tintColor, .font: baseFont, .baselineOffset: 2.5],
-                    range: NSRange(location: 0, length: iconAttr.length))
-                pillContent.append(iconAttr)
-            }
-
-            // Detail text
-            let textFont = NSFont.systemFont(ofSize: baseFont.pointSize - 1, weight: .medium)
-            let textAttr = NSAttributedString(
-                string: displayText,
-                attributes: [
-                    .font: textFont,
-                    .foregroundColor: tintColor,
-                    .baselineOffset: 2.5,
-                ])
-            pillContent.append(textAttr)
-
-            // Background + border pill styling
-            let pillStyle = NSMutableParagraphStyle()
-            pillStyle.lineSpacing = 4
-            pillStyle.paragraphSpacing = 12
-            pillStyle.minimumLineHeight = baseFont.pointSize * 1.5  // Prevents vertical clipping
-
-            pillContent.addAttributes(
-                [
-                    NerwInlineActionBackgroundKey: tintColor.withAlphaComponent(0.12),
-                    NerwInlineActionBorderKey: tintColor.withAlphaComponent(0.30),
-                    .paragraphStyle: pillStyle,
-                ], range: NSRange(location: 0, length: pillContent.length))
+            let pillContent = Self.createActionPill(
+                iconName: symbolName,
+                text: displayText,
+                color: tintColor,
+                font: baseFont,
+                actionType: actionType,
+                actionPayload: embeddedDetail ?? ""
+            )
 
             // Prepend a newline if not at the start to prevent inline overlapping
             if deleteRange.location > 0 {
@@ -508,5 +480,86 @@ public struct MarkdownParser {
         for match in matches.reversed() {
             handler(match, attrStr)
         }
+    }
+
+    private static func createActionPill(
+        iconName: String, text: String, color: NSColor, font: NSFont, actionType: String,
+        actionPayload: String
+    ) -> NSMutableAttributedString {
+        let textFont = NSFont.systemFont(ofSize: font.pointSize, weight: .medium)
+        let foregroundColor = NSColor.black.withAlphaComponent(0.6)
+        let textAttributes: [NSAttributedString.Key: Any] = [
+            .font: textFont,
+            .foregroundColor: foregroundColor,
+        ]
+
+        let textSize = (text as NSString).size(withAttributes: textAttributes)
+
+        let pillHeight: CGFloat = 24.0
+        let iconSize: CGFloat = 14.0
+        let iconPaddingLeft: CGFloat = 4.0
+        let iconSpacing: CGFloat = 4.0
+        let textPaddingRight: CGFloat = 8.0
+
+        let totalWidth =
+            iconPaddingLeft + iconSize + iconSpacing + textSize.width + textPaddingRight
+        let size = NSSize(width: totalWidth, height: pillHeight)
+
+        let image = NSImage(size: size, flipped: false) { rect in
+            // 1. Draw pill background
+            color.setFill()
+            let bgPath = NSBezierPath(
+                roundedRect: rect, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
+            bgPath.fill()
+
+            // 2. Draw dark circle for icon
+            let iconBgRect = NSRect(x: 0, y: 0, width: pillHeight, height: pillHeight)
+            NSColor.black.withAlphaComponent(0.15).setFill()
+            let iconBgPath = NSBezierPath(ovalIn: iconBgRect)
+            iconBgPath.fill()
+
+            // 3. Draw Icon
+            let config = NSImage.SymbolConfiguration(
+                pointSize: font.pointSize - 3, weight: .semibold)
+            if let iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)?
+                .withSymbolConfiguration(config)
+            {
+                iconImage.isTemplate = true
+                foregroundColor.set()
+                let iconRect = NSRect(
+                    x: iconPaddingLeft, y: (pillHeight - iconSize) / 2, width: iconSize,
+                    height: iconSize)
+                iconImage.draw(in: iconRect)
+            }
+
+            // 4. Draw Text
+            let textY = (pillHeight - textSize.height) / 2
+            let textRect = NSRect(
+                x: iconPaddingLeft + iconSize + iconSpacing, y: textY,
+                width: textSize.width, height: textSize.height)
+            (text as NSString).draw(in: textRect, withAttributes: textAttributes)
+
+            return true
+        }
+
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        let yOffset = (font.capHeight - pillHeight) / 2.0
+        attachment.bounds = NSRect(x: 0, y: yOffset, width: size.width, height: size.height)
+
+        let attrString = NSMutableAttributedString(attachment: attachment)
+
+        // Add paragraph style for spacing
+        let pillStyle = NSMutableParagraphStyle()
+        pillStyle.lineSpacing = 6
+        pillStyle.paragraphSpacing = 12
+
+        attrString.addAttributes(
+            [
+                NerwInlineActionBackgroundKey: color,
+                .paragraphStyle: pillStyle,
+            ], range: NSRange(location: 0, length: attrString.length))
+
+        return attrString
     }
 }
