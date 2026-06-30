@@ -84,7 +84,7 @@ class ResultCellView: NSTableCellView {
         iconView.imageScaling = .scaleProportionallyUpOrDown
         containerView.addSubview(iconView)
 
-        titleLabel.font = .systemFont(ofSize: metrics.Text.titleSize, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: metrics.Text.titleSize, weight: .bold)
         titleLabel.textColor = .labelColor
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.lineBreakMode = .byTruncatingTail
@@ -361,8 +361,7 @@ class ResultCellView: NSTableCellView {
         titleLabel.textColor = isSelected ? selectedTextColor : mainTextColor
 
         subtitleLabel.stringValue = displaySubtitle
-        subtitleLabel.textColor =
-            isSelected ? selectedTextColor.withAlphaComponent(0.8) : .secondaryLabelColor
+        subtitleLabel.textColor = mainTextColor.withAlphaComponent(0.5)
 
         containerView.layer?.backgroundColor =
             isSelected

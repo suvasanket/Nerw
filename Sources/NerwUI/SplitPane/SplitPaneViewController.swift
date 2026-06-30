@@ -121,6 +121,8 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         searchField.drawsBackground = false
         searchField.focusRingType = .none
         searchField.textColor = .labelColor
+        searchField.cell?.wraps = false
+        searchField.cell?.isScrollable = true
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(searchField)

@@ -297,6 +297,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputField.drawsBackground = false
         inputField.focusRingType = .none
         inputField.textColor = .labelColor
+        inputField.cell?.wraps = false
+        inputField.cell?.isScrollable = true
         inputField.delegate = self
         inputField.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(inputField)

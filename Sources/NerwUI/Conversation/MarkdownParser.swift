@@ -432,7 +432,7 @@ public struct MarkdownParser {
                 displayText = embeddedDetail.map { " \($0)" } ?? ""
             case "menubar":
                 symbolName = "menubar.dock.rectangle"
-                tintColor = NSColor.systemPink
+                tintColor = NSColor.systemPurple
                 displayText = embeddedDetail.map { " \($0)" } ?? ""
             case "search":
                 symbolName = "magnifyingglass"
@@ -440,7 +440,7 @@ public struct MarkdownParser {
                 displayText = embeddedDetail.map { " \($0)" } ?? ""
             default:
                 symbolName = "wand.and.sparkles"
-                tintColor = NSColor.systemPurple
+                tintColor = NSColor.systemPink
                 displayText = embeddedDetail.map { " \($0)" } ?? ""
             }
 

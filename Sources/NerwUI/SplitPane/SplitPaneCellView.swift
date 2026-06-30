@@ -21,11 +21,11 @@ class SplitPaneCellView: NSTableCellView {
 
     private func setupViews() {
         containerView.wantsLayer = true
-        containerView.layer?.cornerRadius = GlobalLayout.cornerRadius / 2
+        containerView.layer?.cornerRadius = GlobalLayout.cornerRadius * 0.75
         containerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(containerView)
 
-        titleLabel.font = .systemFont(ofSize: GlobalLayout.fontSizeSplitPaneItem, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: GlobalLayout.fontSizeSplitPaneItem, weight: .bold)
         titleLabel.textColor = .labelColor
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.lineBreakMode = .byTruncatingTail
