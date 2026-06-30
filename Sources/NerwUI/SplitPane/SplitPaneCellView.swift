@@ -1,4 +1,5 @@
 import Cocoa
+import NerwCore
 
 class SplitPaneCellView: NSTableCellView {
     private let rightIconView = NSImageView()
@@ -20,7 +21,7 @@ class SplitPaneCellView: NSTableCellView {
 
     private func setupViews() {
         containerView.wantsLayer = true
-        containerView.layer?.cornerRadius = 8
+        containerView.layer?.cornerRadius = GlobalLayout.cornerRadius / 2
         containerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(containerView)
 
@@ -57,14 +58,24 @@ class SplitPaneCellView: NSTableCellView {
         ])
     }
 
-    func configure(with item: SplitPaneItem, isSelected: Bool) {
+    func configure(with item: SplitPaneItem, isSelected: Bool, isExplicitNavigation: Bool = false) {
         titleLabel.stringValue = item.title
 
-        let selectedTextColor = NSColor.white
-        let mainTextColor = NSColor.labelColor
+        let config = ConfigManager.shared.config.uiConfig
+        let selectedTextColor = NSColor(hex: config?.selectionForegroundColor ?? "") ?? .white
+        let mainTextColor = NSColor(hex: config?.mainForegroundColor ?? "") ?? .labelColor
 
         // Only the selected item gets the background highlight
-        let activeBg = NSColor.controlAccentColor.withAlphaComponent(0.8)
+        let useSystemSelection = config?.useSystemSelectionColor ?? true
+        let activeBg: NSColor
+
+        if useSystemSelection {
+            activeBg = NSColor.controlAccentColor.withAlphaComponent(0.65)
+        } else {
+            activeBg =
+                NSColor(hex: config?.selectionBackgroundColor ?? "")?.withAlphaComponent(0.60)
+                ?? NSColor.controlAccentColor.withAlphaComponent(0.60)
+        }
 
         // Make unselected text/icon translucent
         titleLabel.textColor =
@@ -72,23 +83,34 @@ class SplitPaneCellView: NSTableCellView {
         rightIconView.contentTintColor =
             isSelected ? selectedTextColor : mainTextColor.withAlphaComponent(0.4)
 
-        // Show image icon to the right if the item is an image
-        let isImage = item.previewImagePath != nil
-        if isImage {
-            rightIconView.image = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
+        // Show image icon to the right if the item is an image, or 3 dots if selected
+        if isSelected {
+            rightIconView.image = ResultCellView.makeVerticalEllipsisImage()
             rightIconView.isHidden = false
             titleTrailingToContainerConstraint.isActive = false
             titleTrailingToRightIconConstraint.isActive = true
         } else {
-            rightIconView.image = nil
-            rightIconView.isHidden = true
-            titleTrailingToRightIconConstraint.isActive = false
-            titleTrailingToContainerConstraint.isActive = true
+            let isImage = item.previewImagePath != nil
+            if isImage {
+                rightIconView.image = NSImage(
+                    systemSymbolName: "photo", accessibilityDescription: nil)
+                rightIconView.isHidden = false
+                titleTrailingToContainerConstraint.isActive = false
+                titleTrailingToRightIconConstraint.isActive = true
+            } else {
+                rightIconView.image = nil
+                rightIconView.isHidden = true
+                titleTrailingToRightIconConstraint.isActive = false
+                titleTrailingToContainerConstraint.isActive = true
+            }
         }
 
+        let passiveBg = NSColor.white.withAlphaComponent(0.08)
+        let finalBgColor = isExplicitNavigation ? activeBg : passiveBg
+
         if isSelected {
-            containerView.layer?.backgroundColor = activeBg.cgColor
-            containerView.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+            containerView.layer?.backgroundColor = finalBgColor.cgColor
+            containerView.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
             containerView.layer?.borderWidth = 0.5
         } else {
             containerView.layer?.backgroundColor = NSColor.clear.cgColor

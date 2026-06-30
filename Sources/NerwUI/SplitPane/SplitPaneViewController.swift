@@ -30,6 +30,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     private let searchIconView = NSImageView()
 
     private var selectedIndex: Int = 0
+    private var userHasNavigated: Bool = false
     private var iconImage: NSImage?
     private var actionContextWindow: ActionContextPanel?
     private var actionContextOverlay: ActionContextOverlayView?
@@ -154,12 +155,6 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
         let iconSize: CGFloat = 24
         let iconToTextSpacing: CGFloat = 8
 
-        // Custom Separator
-        let separatorView = NSBox()
-        separatorView.boxType = .separator
-        separatorView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(separatorView)
-
         NSLayoutConstraint.activate([
             searchIconView.leadingAnchor.constraint(
                 equalTo: view.leadingAnchor, constant: searchHorizMargin),
@@ -174,13 +169,8 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
                 equalTo: view.trailingAnchor, constant: -searchHorizMargin),
             searchField.heightAnchor.constraint(equalToConstant: searchHeight),
 
-            separatorView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 12),
-            separatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            separatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            separatorView.heightAnchor.constraint(equalToConstant: 1),
-
             splitView.topAnchor.constraint(
-                equalTo: separatorView.bottomAnchor, constant: 0),
+                equalTo: searchField.bottomAnchor, constant: 12),
             splitView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             splitView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
@@ -220,6 +210,7 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
     public override func viewWillAppear() {
         super.viewWillAppear()
         selectedIndex = 0
+        userHasNavigated = false
         // Focus the search field initially
         view.window?.makeFirstResponder(searchField)
 
@@ -251,17 +242,22 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
     public func resetSelection() {
         selectedIndex = 0
+        userHasNavigated = false
         if tableView.numberOfRows > 0 {
             tableView.scrollRowToVisible(0)
         }
     }
 
-    private func updateSelection(to index: Int) {
+    private func updateSelection(to index: Int, isExplicitNavigation: Bool = false) {
         guard let ds = dataSource, ds.numberOfItems() > 0 else {
             dismissActionContext(animated: false, restoreFocus: false)
             previewView.configure(with: nil)
             delegate?.didSelect(item: nil)
             return
+        }
+
+        if isExplicitNavigation {
+            userHasNavigated = true
         }
 
         let oldIndex = selectedIndex
@@ -590,11 +586,11 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
         // We also want to capture Up / Down when in text field
         if commandSelector == #selector(NSResponder.moveUp(_:)) {
-            updateSelection(to: selectedIndex - 1)
+            updateSelection(to: selectedIndex - 1, isExplicitNavigation: true)
             return true
         }
         if commandSelector == #selector(NSResponder.moveDown(_:)) {
-            updateSelection(to: selectedIndex + 1)
+            updateSelection(to: selectedIndex + 1, isExplicitNavigation: true)
             return true
         }
         if let event = NSApp.currentEvent, event.modifierFlags.contains(.control) {
@@ -603,20 +599,27 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
 
             if navStyle == "vim" {
                 if chars == "j" {
-                    updateSelection(to: selectedIndex + 1)
+                    updateSelection(to: selectedIndex + 1, isExplicitNavigation: true)
                     return true
                 } else if chars == "k" {
-                    updateSelection(to: selectedIndex - 1)
+                    updateSelection(to: selectedIndex - 1, isExplicitNavigation: true)
                     return true
                 } else if chars == "n" || chars == "p" {
-                    return true
+                    if event.modifierFlags.contains(.control) {
+                        if chars == "n" {
+                            updateSelection(to: selectedIndex + 1, isExplicitNavigation: true)
+                        } else {
+                            updateSelection(to: selectedIndex - 1, isExplicitNavigation: true)
+                        }
+                        return true
+                    }
                 }
             } else {  // unix
                 if chars == "n" {
-                    updateSelection(to: selectedIndex + 1)
+                    updateSelection(to: selectedIndex + 1, isExplicitNavigation: true)
                     return true
                 } else if chars == "p" {
-                    updateSelection(to: selectedIndex - 1)
+                    updateSelection(to: selectedIndex - 1, isExplicitNavigation: true)
                     return true
                 } else if chars == "j" || chars == "k" {
                     return true
@@ -642,7 +645,9 @@ public class SplitPaneViewController: NSViewController, NSTableViewDataSource, N
             cell?.identifier = identifier
         }
         if let item = dataSource?.item(at: row) {
-            cell?.configure(with: item, isSelected: row == selectedIndex)
+            cell?.configure(
+                with: item, isSelected: row == selectedIndex, isExplicitNavigation: userHasNavigated
+            )
         }
         return cell
     }
