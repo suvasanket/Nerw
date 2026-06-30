@@ -32,6 +32,7 @@ class ResultCellView: NSTableCellView {
     private var normalIconCenterYConstraint: NSLayoutConstraint!
     private var peekIconTopConstraint: NSLayoutConstraint!
     private var normalTitleTopConstraint: NSLayoutConstraint!
+    private var normalTitleCenterYConstraint: NSLayoutConstraint!
     private var peekTitleCenterYConstraint: NSLayoutConstraint!
     private var normalSubtitleTopConstraint: NSLayoutConstraint!
     private var peekSubtitleTopConstraint: NSLayoutConstraint!
@@ -191,6 +192,8 @@ class ResultCellView: NSTableCellView {
 
         normalTitleTopConstraint = titleLabel.topAnchor.constraint(
             equalTo: containerView.topAnchor, constant: metrics.Text.titleTop)
+        normalTitleCenterYConstraint = titleLabel.centerYAnchor.constraint(
+            equalTo: containerView.centerYAnchor)
         peekTitleCenterYConstraint = titleLabel.centerYAnchor.constraint(
             equalTo: iconView.centerYAnchor)
 
@@ -509,18 +512,31 @@ class ResultCellView: NSTableCellView {
             // Normal Mode
             normalIconCenterYConstraint.isActive = true
             peekIconTopConstraint.isActive = false
-            normalTitleTopConstraint.isActive = true
             peekTitleCenterYConstraint.isActive = false
-            normalSubtitleTopConstraint.isActive = true
+
+            let hasSubtitle =
+                displaySubtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+
+            if hasSubtitle {
+                normalTitleCenterYConstraint.isActive = false
+                normalTitleTopConstraint.isActive = true
+                subtitleLabel.isHidden = false
+                normalSubtitleTopConstraint.isActive = true
+                normalSubtitleBottomConstraint.isActive = true
+            } else {
+                normalTitleTopConstraint.isActive = false
+                normalTitleCenterYConstraint.isActive = true
+                subtitleLabel.isHidden = true
+                normalSubtitleTopConstraint.isActive = false
+                normalSubtitleBottomConstraint.isActive = false
+            }
+
             peekSubtitleTopConstraint.isActive = false
             peekSubtitleTopNoTitleConstraint.isActive = false
             peekSubtitleBottomNoCourtesyConstraint.isActive = false
             peekSubtitleBottomConstraint.isActive = false
-            normalSubtitleBottomConstraint.isActive = true
-            peekSubtitleBottomConstraint.isActive = false
 
             titleLabel.isHidden = false
-            subtitleLabel.isHidden = false
             courtesyStack.isHidden = true
 
             // Revert icon size

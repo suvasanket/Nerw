@@ -59,7 +59,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         struct Results {
-            static let rowHeight: CGFloat = 50
+            static let rowHeight: CGFloat = 56
             static var maxVisibleRows: Int {
                 let overhead =
                     SearchField.top + SearchField.height + Separator.top + Separator.expandedHeight
@@ -80,9 +80,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             }
 
             struct Icon {
-                static let size: CGFloat = 28
+                static let size: CGFloat = 32
                 static let leading: CGFloat = 10
-                static let trailing: CGFloat = 6  // Spacing to text
+                static let trailing: CGFloat = 8  // Spacing to text
             }
 
             struct Text {
@@ -101,10 +101,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private(set) var inputField: ThemedTextField!
     private var resultsTableView: NSTableView!
     private var scrollView: NSScrollView!
-    private var separatorView: NSBox!
-    private var accessoryStackView: NSStackView!
-    private var accessoryStackViewHeightConstraint: NSLayoutConstraint!
-    private var statusIconContainer: NSStackView!
     private var panelView: NerwPanelView!
     private var scrollViewBottomConstraint: NSLayoutConstraint!
 
@@ -113,8 +109,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private var iconContainerHeightConstraints: [NSLayoutConstraint] = []
     private var inputFieldLeadingConstraint: NSLayoutConstraint!
     private var inputFieldTrailingConstraint: NSLayoutConstraint!
-    private var accessoryStackViewLeadingConstraint: NSLayoutConstraint!
-    private var accessoryStackViewTrailingConstraint: NSLayoutConstraint!
     private var formView: FormView?
     private var actionContextWindow: ActionContextPanel?
     private var actionContextOverlay: ActionContextOverlayView?
@@ -152,7 +146,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // 1. Reset standard visibility (States can override)
         inputField.isHidden = false
         iconContainer.isHidden = false
-        separatorView.isHidden = false
         inputField.isEditable = true
         inputField.isSelectable = true
         resultsTableView.alphaValue = 1.0
@@ -199,9 +192,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         case .form:
             inputField.isHidden = true
             iconContainer.isHidden = true
-            separatorView.isHidden = true
             scrollView.isHidden = true
-            accessoryStackView.isHidden = true
 
         case .executing(let action):
             inputField.placeholderString = action.title
@@ -310,33 +301,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         inputField.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.addSubview(inputField)
 
-        // Accessory Stack (Separator + Status Icons)
-        accessoryStackView = NSStackView()
-        accessoryStackView.orientation = .horizontal
-        accessoryStackView.spacing = 8
-        accessoryStackView.alignment = .centerY
-        accessoryStackView.translatesAutoresizingMaskIntoConstraints = false
-        accessoryStackView.isHidden = true
-        backgroundView.addSubview(accessoryStackView)
-
-        // Separator
-        separatorView = NSBox()
-        separatorView.boxType = .separator
-        separatorView.translatesAutoresizingMaskIntoConstraints = false
-        accessoryStackView.addArrangedSubview(separatorView)
-
-        // Ensure separator fills available space
-        separatorView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        // Status Icon Container
-        statusIconContainer = NSStackView()
-        statusIconContainer.orientation = .horizontal
-        statusIconContainer.spacing = 6
-        statusIconContainer.alignment = .centerY
-        statusIconContainer.translatesAutoresizingMaskIntoConstraints = false
-        statusIconContainer.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        accessoryStackView.addArrangedSubview(statusIconContainer)
-
         // Results table
         resultsTableView = NSTableView()
         resultsTableView.backgroundColor = .clear
@@ -382,12 +346,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             self, selector: #selector(scrollViewDidScroll),
             name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView)
-        accessoryStackViewLeadingConstraint = accessoryStackView.leadingAnchor.constraint(
-            equalTo: backgroundView.leadingAnchor,
-            constant: LayoutMetrics.Separator.leading)
-        accessoryStackViewTrailingConstraint = accessoryStackView.trailingAnchor.constraint(
-            equalTo: backgroundView.trailingAnchor,
-            constant: -LayoutMetrics.Separator.trailing)
 
         NSLayoutConstraint.activate([
             panelView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -407,25 +365,12 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             inputFieldTrailingConstraint,
             inputField.heightAnchor.constraint(equalToConstant: LayoutMetrics.SearchField.height),
 
-            accessoryStackView.topAnchor.constraint(
-                equalTo: inputField.bottomAnchor, constant: LayoutMetrics.Separator.top),
-            accessoryStackViewLeadingConstraint,
-            accessoryStackViewTrailingConstraint,
-
-            // Constrain separator height explicitly to the line height
-            separatorView.heightAnchor.constraint(
-                equalToConstant: LayoutMetrics.Separator.lineHeight),
-            separatorView.widthAnchor.constraint(greaterThanOrEqualToConstant: 10),  // Min width
-
             scrollView.topAnchor.constraint(
-                equalTo: accessoryStackView.bottomAnchor, constant: LayoutMetrics.Separator.bottom),
+                equalTo: inputField.bottomAnchor,
+                constant: LayoutMetrics.Separator.top + LayoutMetrics.Separator.bottom),
             scrollView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
         ])
-
-        accessoryStackViewHeightConstraint = accessoryStackView.heightAnchor.constraint(
-            equalToConstant: LayoutMetrics.Separator.height)
-        accessoryStackViewHeightConstraint.isActive = true
 
         scrollViewBottomConstraint = scrollView.bottomAnchor.constraint(
             equalTo: backgroundView.bottomAnchor, constant: -LayoutMetrics.Results.bottom
@@ -581,8 +526,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         // Update Constraints
         iconContainerLeadingConstraint.constant = LayoutMetrics.IconContainer.leading
         inputFieldTrailingConstraint.constant = -LayoutMetrics.SearchField.trailing
-        accessoryStackViewLeadingConstraint.constant = LayoutMetrics.Separator.leading
-        accessoryStackViewTrailingConstraint.constant = -LayoutMetrics.Separator.trailing
 
         for constraint in iconContainerWidthConstraints {
             constraint.constant = LayoutMetrics.IconContainer.iconSize
@@ -633,7 +576,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         isDebugMode.toggle()
 
         let views: [NSView?] = [
-            panelView, iconContainer, inputField, separatorView, scrollView,
+            panelView, iconContainer, inputField, scrollView,
         ]
 
         for view in views.compactMap({ $0 }) {
@@ -1846,7 +1789,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         }
 
         let hasActions = !actions.isEmpty
-        accessoryStackView.isHidden = isFormState ? true : !hasActions
         scrollView.isHidden = isFormState ? true : !hasActions
         scrollView.hasVerticalScroller = actions.count > LayoutMetrics.Results.maxVisibleRows
 
@@ -1860,11 +1802,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 IndexSet(integer: selectedIndex), byExtendingSelection: false)
         }
 
-        updateStatusIcons()
-
         let isExpanded = !actions.isEmpty
-        accessoryStackViewHeightConstraint.constant =
-            isExpanded ? LayoutMetrics.Separator.expandedHeight : LayoutMetrics.Separator.height
 
         let maxVisible = LayoutMetrics.Results.maxVisibleRows
         let baseHeight = CGFloat(min(actions.count, maxVisible)) * LayoutMetrics.Results.rowHeight
@@ -1883,45 +1821,6 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         updateSelectionIcon()
         refreshActionContextIfNeeded()
         updateFloatingContextButton()
-    }
-
-    @discardableResult
-    private func updateStatusIcons() -> Bool {
-        // Clear existing
-        for subview in statusIconContainer.subviews {
-            subview.removeFromSuperview()
-        }
-
-        var activeIcon: String? = nil
-        var activeColor: NSColor = .secondaryLabelColor
-
-        // 1. Scroll Indicator (Only icon shown now)
-        if actions.count > LayoutMetrics.Results.maxVisibleRows {
-            activeIcon = "arrow.down"
-            activeColor = .secondaryLabelColor
-        }
-
-        // Render if we have an active icon
-        if let iconName = activeIcon {
-            let iv = NSImageView()
-            iv.image = MainPanelContentViewController.getSymbolImage(for: iconName)
-            iv.contentTintColor = activeColor
-            if #available(macOS 12.0, *) {
-                iv.symbolConfiguration = NSImage.SymbolConfiguration(hierarchicalColor: activeColor)
-            }
-            iv.translatesAutoresizingMaskIntoConstraints = false
-            iv.heightAnchor.constraint(equalToConstant: 14).isActive = true
-            iv.widthAnchor.constraint(equalToConstant: 14).isActive = true
-            statusIconContainer.addArrangedSubview(iv)
-        }
-
-        let hasIcons = activeIcon != nil
-        statusIconContainer.isHidden = !hasIcons
-
-        // Ensure layout updates for the separator
-        accessoryStackView.layoutSubtreeIfNeeded()
-
-        return hasIcons
     }
 
     private func moveSelection(by delta: Int) {

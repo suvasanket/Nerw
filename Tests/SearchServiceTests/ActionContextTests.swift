@@ -130,7 +130,7 @@ func testActionContextHybridIncludesSecondaryOperation() {
     let action = NerwAction(
         id: "test.action.context.hybrid.\(UUID().uuidString)",
         title: "Activity Monitor",
-        subtitle: "Application",
+        subtitle: "",
         type: .hybrid(
             perform: { _ in },
             action: NerwActionBox(quickAction)

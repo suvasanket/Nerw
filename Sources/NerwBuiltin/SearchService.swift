@@ -468,7 +468,7 @@ public class SearchService {
         return NerwAction(
             id: "nerw.app.\(app.name)",
             title: app.name,
-            subtitle: "Application",
+            subtitle: "",
             icon: .file(URL(fileURLWithPath: app.path)),
             triggers: [app.name.lowercased()],
             type: actionType

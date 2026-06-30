@@ -18,11 +18,11 @@ public struct LayoutConfig: Codable {
     public var mainHeight: Double = 500
     public var cornerRadius: Double = 28
     public var horizontalMargin: Double = 20
-    public var fontSizeSearch: Double = 25.0
-    public var fontSizeResultTitle: Double = 14.0
-    public var fontSizeResultSubtitle: Double = 11.0
+    public var fontSizeSearch: Double = 28.0
+    public var fontSizeResultTitle: Double = 18.0
+    public var fontSizeResultSubtitle: Double = 12.0
     public var fontSizeSplitPaneItem: Double = 15.0
-    public var iconSizeMain: Double = 26.0
+    public var iconSizeMain: Double = 32.0
 
     public init() {}
 }
