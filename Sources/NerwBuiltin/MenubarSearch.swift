@@ -1,6 +1,7 @@
 import ApplicationServices
 import Cocoa
 import NerwAction
+import NerwUtils
 
 public class MenubarSearch {
     public static let shared = MenubarSearch()
@@ -89,12 +90,31 @@ public class MenubarSearch {
 
                         if !seenIds.contains(id) {
                             seenIds.insert(id)
+
+                            var finalIcon: NerwAction.IconType = .system("menubar.dock.rectangle")
+
+                            let config = NSImage.SymbolConfiguration(
+                                hierarchicalColor: .labelColor)
+                            if let mainImage = NSImage(
+                                systemSymbolName: "menubar.dock.rectangle",
+                                accessibilityDescription: nil)?.withSymbolConfiguration(config),
+                                let subImage = app.icon
+                            {
+                                let combined = IconUtils.combinedIcon(
+                                    mainImage: mainImage,
+                                    subImage: subImage,
+                                    subIconScale: 0.55,
+                                    isTemplate: false
+                                )
+                                finalIcon = .image(combined)
+                            }
+
                             actions.append(
                                 NerwAction(
                                     id: id,
                                     title: title,
                                     subtitle: "\(app.localizedName ?? "App") • Menu: \(actionPath)",
-                                    icon: .system("menubar.dock.rectangle"),
+                                    icon: finalIcon,
                                     category: nil,
                                     triggers: triggerTokens,
                                     type: .instant(perform: performBlock)

@@ -385,7 +385,7 @@ public class ClipboardManager {
                 id: "builtin.clipboard",
                 title: "Clipboard Manager",
                 subtitle: "View clipboard history",
-                icon: .system("document.on.document.fill"),
+                icon: .system("list.clipboard.fill"),
                 triggers: ["clipboard"],
                 type: .instant(perform: { _ in
                     DispatchQueue.main.async {
@@ -397,7 +397,19 @@ public class ClipboardManager {
                 id: "builtin.clipboard.clear",
                 title: "Clear Clipboard History",
                 subtitle: "Clear all or recent clipboard entries",
-                icon: .system("document.on.trash.fill"),
+                icon: {
+                    if let combinedImage = IconUtils.combinedIcon(
+                        mainSymbol: "list.clipboard.fill",
+                        mainConfig: NSImage.SymbolConfiguration(hierarchicalColor: .labelColor),
+                        subSymbol: "xmark.circle.fill",
+                        subConfig: NSImage.SymbolConfiguration(paletteColors: [.systemRed, .white]),
+                        subIconScale: 0.45,
+                        isTemplate: false
+                    ) {
+                        return .image(combinedImage)
+                    }
+                    return .system("list.clipboard.fill")
+                }(),
                 triggers: ["clearclipboard"],
                 type: .args(
                     placeholder: "Select time range to clear",

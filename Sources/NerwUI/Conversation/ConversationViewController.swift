@@ -937,7 +937,7 @@ public class ConversationViewController: NSViewController {
         responseTextView.isSelectable = true
         responseTextView.drawsBackground = false
         responseTextView.backgroundColor = .clear
-        responseTextView.font = .systemFont(ofSize: 13)
+        responseTextView.font = .systemFont(ofSize: 15)
         responseTextView.textColor = .labelColor
         responseTextView.isRichText = false
         responseTextView.importsGraphics = false
