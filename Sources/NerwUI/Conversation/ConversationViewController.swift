@@ -697,6 +697,7 @@ struct ChatTurn {
 
 // MARK: - ConversationViewController
 public class ConversationViewController: NSViewController {
+    private let responseFontSize: CGFloat = 15.0
     private var panelView: NerwPanelView!
     private let indicatorContainer = NSStackView()
     private let cardView = NSView()
@@ -937,7 +938,7 @@ public class ConversationViewController: NSViewController {
         responseTextView.isSelectable = true
         responseTextView.drawsBackground = false
         responseTextView.backgroundColor = .clear
-        responseTextView.font = .systemFont(ofSize: 15)
+        responseTextView.font = .systemFont(ofSize: responseFontSize)
         responseTextView.textColor = .labelColor
         responseTextView.isRichText = false
         responseTextView.importsGraphics = false
@@ -1403,7 +1404,7 @@ public class ConversationViewController: NSViewController {
             accentColor = .controlAccentColor
         }
 
-        let font = responseTextView.font ?? .systemFont(ofSize: 13)
+        let font = NSFont.systemFont(ofSize: responseFontSize)
 
         let attrString = MarkdownParser.parse(
             markdown: text,
@@ -1651,19 +1652,8 @@ public class ConversationViewController: NSViewController {
                     guard let self = self else { return }
                     self.stopGeneratingAnimation()
                     if self.activeTurnIndex == self.turns.count - 1 {
-                        var finalText = text
-                        // Replace the base tag from AIStreamParser with the detailed one
-                        if let type = self.turns[self.activeTurnIndex].actionType,
-                            let payload = self.turns[self.activeTurnIndex].actionPayload
-                        {
-                            let detail = Self.actionDetail(type: type, payload: payload)
-                            let tag =
-                                detail.isEmpty ? "![action:\(type)]" : "![action:\(type)|\(detail)]"
-                            finalText = finalText.replacingOccurrences(
-                                of: "![action:\(type)]", with: tag)
-                        }
-                        self.turns[self.activeTurnIndex].response = finalText
-                        self.setResponseText(finalText)
+                        self.turns[self.activeTurnIndex].response = text
+                        self.setResponseText(text)
                         self.updateCard()
                     }
                 }
@@ -1696,6 +1686,10 @@ public class ConversationViewController: NSViewController {
                         self.turns[self.activeTurnIndex].actionPayload = payload
                     }
                 }
+            }
+
+            parser.onActionFormat = { type, payload in
+                return Self.actionDetail(type: type, payload: payload)
             }
 
             do {

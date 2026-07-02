@@ -486,8 +486,8 @@ public struct MarkdownParser {
         iconName: String, text: String, color: NSColor, font: NSFont, actionType: String,
         actionPayload: String
     ) -> NSMutableAttributedString {
-        let textFont = NSFont.systemFont(ofSize: font.pointSize, weight: .medium)
-        let foregroundColor = NSColor.black.withAlphaComponent(0.6)
+        let textFont = NSFont.systemFont(ofSize: font.pointSize - 2, weight: .medium)
+        let foregroundColor = color.blended(withFraction: 0.7, of: .white) ?? .white
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: textFont,
             .foregroundColor: foregroundColor,
@@ -495,8 +495,8 @@ public struct MarkdownParser {
 
         let textSize = (text as NSString).size(withAttributes: textAttributes)
 
-        let pillHeight: CGFloat = 24.0
-        let iconSize: CGFloat = 14.0
+        let pillHeight: CGFloat = 20.0
+        let iconSize: CGFloat = 12.0
         let iconPaddingLeft: CGFloat = 4.0
         let iconSpacing: CGFloat = 4.0
         let textPaddingRight: CGFloat = 8.0
@@ -506,21 +506,26 @@ public struct MarkdownParser {
         let size = NSSize(width: totalWidth, height: pillHeight)
 
         let image = NSImage(size: size, flipped: false) { rect in
-            // 1. Draw pill background
-            color.setFill()
+            // 1. Draw pill background (Liquid glass style)
+            color.withAlphaComponent(0.2).setFill()
             let bgPath = NSBezierPath(
                 roundedRect: rect, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
             bgPath.fill()
 
-            // 2. Draw dark circle for icon
+            // Subtle border for glass effect
+            color.withAlphaComponent(0.4).setStroke()
+            bgPath.lineWidth = 1.0
+            bgPath.stroke()
+
+            // 2. Draw tinted circle for icon
             let iconBgRect = NSRect(x: 0, y: 0, width: pillHeight, height: pillHeight)
-            NSColor.black.withAlphaComponent(0.15).setFill()
+            color.withAlphaComponent(0.3).setFill()
             let iconBgPath = NSBezierPath(ovalIn: iconBgRect)
             iconBgPath.fill()
 
             // 3. Draw Icon
             let config = NSImage.SymbolConfiguration(
-                pointSize: font.pointSize - 3, weight: .semibold)
+                pointSize: font.pointSize - 4, weight: .semibold)
             if let iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)?
                 .withSymbolConfiguration(config)
             {
@@ -551,8 +556,8 @@ public struct MarkdownParser {
 
         // Add paragraph style for spacing
         let pillStyle = NSMutableParagraphStyle()
-        pillStyle.lineSpacing = 6
-        pillStyle.paragraphSpacing = 12
+        pillStyle.lineSpacing = 4
+        pillStyle.paragraphSpacing = 6
 
         attrString.addAttributes(
             [

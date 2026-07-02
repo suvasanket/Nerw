@@ -45,7 +45,7 @@ Settings are stored in the root `~/.nerw/config.json` inside the `aiConfig` bloc
 | Parameter | Type | Default Value | Description |
 |---|---|---|---|
 | `isEnabled` | `Bool` | `false` | Enables/Disables the AI subsystem and UDS socket server. |
-| `isConversationLogEnabled` | `Bool` | `true` | Enables/Disables logging of full conversation context and provider payloads to `~/.nerw/ai_logs/`. |
+| `isConversationLogEnabled` | `Bool` | `false` | Enables/Disables logging of full conversation context and provider payloads to `~/.nerw/ai_logs/`. |
 | `isMemoryEnabled` | `Bool` | `true` | Enables/Disables semantic long-term memory. |
 | `isNotesContextEnabled` | `Bool` | `false` | Enables/Disables injecting local Notes and Files into context. |
 | `notesDirectoryPath` | `String?` | `null` | The absolute path to the user's selected Notes directory. |

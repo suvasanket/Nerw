@@ -8,12 +8,22 @@ public class AIActionManager {
     public static let shared = AIActionManager()
 
     private let eventStore = EKEventStore()
+    private let actionExecutionQueue = DispatchQueue(label: "com.nerw.aiActionQueue")
 
     private init() {
         // No init required
     }
 
     public func handleAction(type: String, payload: [String: Any]) {
+        actionExecutionQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.performAction(type: type, payload: payload)
+            // Add a small delay (150ms) to ensure UI updates before next action fires
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+    }
+
+    private func performAction(type: String, payload: [String: Any]) {
         switch type {
         case "timer":
             handleTimer(payload: payload)

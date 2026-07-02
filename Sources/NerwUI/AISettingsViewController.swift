@@ -25,6 +25,7 @@ class AISettingsViewController: NSViewController {
 
     // General AI UI elements
     private let enableAISwitch = NSSwitch()
+    private let enableConversationLogSwitch = NSSwitch()
     private let enableMemorySwitch = NSSwitch()
     private let memoryRow = NSStackView()
     private let warningContainer = NSView()
@@ -107,6 +108,17 @@ class AISettingsViewController: NSViewController {
         enableRow.addArrangedSubview(spacer1)
         enableRow.addArrangedSubview(enableAISwitch)
 
+        enableConversationLogSwitch.controlSize = .mini
+        enableConversationLogSwitch.target = self
+        enableConversationLogSwitch.action = #selector(conversationLogToggleClicked(_:))
+        enableConversationLogSwitch.translatesAutoresizingMaskIntoConstraints = false
+
+        let logRow = createToggleRow(
+            title: "AI Logs",
+            subtitle: "Log full conversation context and provider payloads for debugging.",
+            switchControl: enableConversationLogSwitch
+        )
+
         enableMemorySwitch.controlSize = .mini
         enableMemorySwitch.target = self
         enableMemorySwitch.action = #selector(enableMemoryCheckboxToggled(_:))
@@ -169,7 +181,7 @@ class AISettingsViewController: NSViewController {
 
         activationSection = SettingsSection(
             title: "General",
-            contentViews: [enableRow, warningContainer]
+            contentViews: [enableRow, logRow, warningContainer]
         )
         stackView.addArrangedSubview(activationSection)
         activationSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
@@ -729,6 +741,11 @@ class AISettingsViewController: NSViewController {
         updateVisibility()
     }
 
+    @objc private func conversationLogToggleClicked(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.isConversationLogEnabled = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
     @objc private func enableMemoryCheckboxToggled(_ sender: NSSwitch) {
         ConfigManager.shared.config.aiConfig.isMemoryEnabled = (sender.state == .on)
         ConfigManager.shared.save()
@@ -855,6 +872,7 @@ class AISettingsViewController: NSViewController {
         let config = ConfigManager.shared.config.aiConfig
 
         enableAISwitch.state = config.isEnabled ? .on : .off
+        enableConversationLogSwitch.state = config.isConversationLogEnabled ? .on : .off
         enableMemorySwitch.state = config.isMemoryEnabled ? .on : .off
 
         // Rebuild provider rows in stack view

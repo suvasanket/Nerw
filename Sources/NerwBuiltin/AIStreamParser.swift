@@ -5,6 +5,7 @@ public class AIStreamParser {
     public var onTextReady: ((String) -> Void)?
     public var onThinkingStateChanged: ((Bool) -> Void)?
     public var onActionDetected: ((String, [String: Any]) -> Void)?
+    public var onActionFormat: ((String, [String: Any]) -> String)?
 
     private var buffer = ""
     private var isThinking = false
@@ -79,7 +80,14 @@ public class AIStreamParser {
                         let type = json["type"] as? String
                     {
                         onActionDetected?(type, json)
-                        appendToCurrentText("![action:\(type)]")
+                        if let formatter = onActionFormat {
+                            let detail = formatter(type, json)
+                            let tag =
+                                detail.isEmpty ? "![action:\(type)]" : "![action:\(type)|\(detail)]"
+                            appendToCurrentText(tag)
+                        } else {
+                            appendToCurrentText("![action:\(type)]")
+                        }
                     } else {
                         Logger.shared.warning(
                             "AIStreamParser: Failed to parse action JSON: \(actionPayloadBuffer)")
