@@ -153,21 +153,24 @@ class SnippetController: SplitPaneDataSource, SplitPaneDelegate {
             icon: .system("pencil"),
             triggers: [],
             type: .form(
-                fields: [
-                    .init(
-                        id: "name", title: "Name", placeholder: "e.g. Email signature",
-                        defaultValue: snippet.name),
-                    .init(
-                        id: "trigger", title: "Trigger", placeholder: "e.g. ;sig",
-                        defaultValue: snippet.trigger),
-                    .init(
-                        id: "content", title: "Content",
-                        subtext:
-                            "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
-                        placeholder: "Your text here",
-                        defaultValue: snippet.content, isMultiline: true),
-                ],
-                submitLabel: "Update Snippet",
+                fields: {
+                    [
+                        .init(
+                            id: "name", title: "Name", placeholder: "e.g. Email signature",
+                            defaultValue: snippet.name),
+                        .init(
+                            id: "trigger", title: "Trigger", placeholder: "e.g. ;sig",
+                            defaultValue: snippet.trigger),
+                        .init(
+                            id: "content", title: "Content",
+                            subtext:
+                                "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
+                            placeholder: "Your text here",
+                            defaultValue: snippet.content,
+                            isMultiline: true),
+                    ]
+                },
+                submitLabel: "Save Snippet",
                 perform: { _, values in
                     let name = values["name"] ?? ""
                     let trigger = values["trigger"] ?? ""

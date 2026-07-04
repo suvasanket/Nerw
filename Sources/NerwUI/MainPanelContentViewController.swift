@@ -1441,7 +1441,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func enterFormMode(action: NerwAction) {
-        guard case .form(let fields, let submitLabel, _) = action.type else { return }
+        guard case .form(let fieldsClosure, let submitLabel, _) = action.type else { return }
 
         dismissActionContext()
         inputState = .form(action: action)
@@ -1449,7 +1449,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         FrecencyManager.shared.recordUsage(id: action.id, forQuery: previousSearchText)
 
         // Setup Form View
-        let form = FormView(fields: fields, submitLabel: submitLabel)
+        let form = FormView(fields: fieldsClosure(), submitLabel: submitLabel)
         form.delegate = self
         form.translatesAutoresizingMaskIntoConstraints = false
         panelView.contentView.addSubview(form)

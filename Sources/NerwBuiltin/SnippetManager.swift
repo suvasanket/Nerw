@@ -155,17 +155,19 @@ public class SnippetManager {
                 icon: .system("text.pad.header.badge.plus"),
                 triggers: ["addsnippet"],
                 type: .form(
-                    fields: [
-                        .init(id: "name", title: "Name", placeholder: "e.g. Email signature"),
-                        .init(id: "trigger", title: "Trigger", placeholder: "e.g. ;sig"),
-                        .init(
-                            id: "content", title: "Content",
-                            subtext:
-                                "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
-                            placeholder: "Your text here",
-                            isMultiline: true),
-                    ],
-                    submitLabel: "Save Snippet",
+                    fields: {
+                        [
+                            .init(id: "name", title: "Name", placeholder: "e.g. Email signature"),
+                            .init(id: "trigger", title: "Trigger", placeholder: "e.g. ;sig"),
+                            .init(
+                                id: "content", title: "Content",
+                                subtext:
+                                    "You can use placeholders like {{date}}, {{time}}, or {{clipboard}}",
+                                placeholder: "Your text here",
+                                isMultiline: true),
+                        ]
+                    },
+                    submitLabel: "Create Snippet",
                     perform: { _, values in
                         let name = values["name"] ?? ""
                         let trigger = values["trigger"] ?? ""

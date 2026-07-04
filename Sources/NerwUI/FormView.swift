@@ -242,9 +242,13 @@ class FormView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Focus first field
-        if let first = orderedInputs.first, window?.firstResponder != first {
-            window?.makeFirstResponder(first)
+        // Find the field marked as isFocused
+        let focusedFieldIndex = fields.firstIndex(where: { $0.isFocused }) ?? 0
+        if focusedFieldIndex < orderedInputs.count {
+            let inputToFocus = orderedInputs[focusedFieldIndex]
+            if window?.firstResponder != inputToFocus {
+                window?.makeFirstResponder(inputToFocus)
+            }
         }
     }
 

@@ -984,7 +984,7 @@ public class ExtensionEngine {
             let submitLabel = formDict["submitLabel"] as? String
 
             type = .form(
-                fields: fields,
+                fields: { fields },
                 submitLabel: submitLabel,
                 perform: { [weak self] _, values in
                     self?.performAction(
@@ -1040,7 +1040,7 @@ public class ExtensionEngine {
                 }
                 let submitLabel = formDict["submitLabel"] as? String
                 type = .form(
-                    fields: fields,
+                    fields: { fields },
                     submitLabel: submitLabel,
                     perform: { [weak self] _, values in
                         self?.performAction(

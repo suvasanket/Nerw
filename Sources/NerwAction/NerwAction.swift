@@ -58,11 +58,12 @@ public struct NerwAction {
         public let defaultValue: String?
         public let isSecure: Bool
         public let isMultiline: Bool
+        public let isFocused: Bool
 
         public init(
             id: String, title: String, subtext: String? = nil, placeholder: String? = nil,
             defaultValue: String? = nil,
-            isSecure: Bool = false, isMultiline: Bool = false
+            isSecure: Bool = false, isMultiline: Bool = false, isFocused: Bool = false
         ) {
             self.id = id
             self.title = title
@@ -71,6 +72,7 @@ public struct NerwAction {
             self.defaultValue = defaultValue
             self.isSecure = isSecure
             self.isMultiline = isMultiline
+            self.isFocused = isFocused
         }
     }
 
@@ -110,7 +112,7 @@ public struct NerwAction {
 
         /// Form-based input with multiple named fields.
         case form(
-            fields: [Field],
+            fields: () -> [Field],
             submitLabel: String? = nil,
             perform: (NerwAction, [String: String]) -> Void
         )
