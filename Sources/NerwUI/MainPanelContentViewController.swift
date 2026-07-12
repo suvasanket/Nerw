@@ -2015,7 +2015,15 @@ extension MainPanelContentViewController: ActionContextViewControllerDelegate {
                 query: inputField.stringValue,
                 modifiers: modifierFlags(for: key)
             )
-        case .alias, .hotkey, .toggleEnabled, .toggleHidden, .custom:
+        case .custom(let key):
+            if let newAction = action.performCustomContextOperation?(action, key) {
+                _ = performPrimaryAction(for: newAction)
+            } else {
+                if case .search = inputState {
+                    search(query: inputField.stringValue)
+                }
+            }
+        case .alias, .hotkey, .toggleEnabled, .toggleHidden:
             break
         }
     }

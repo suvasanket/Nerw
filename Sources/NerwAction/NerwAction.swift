@@ -157,6 +157,9 @@ public struct NerwAction {
 
     public let isPersistent: Bool
 
+    public let customContextOperations: [NerwActionContext.Operation]
+    public let performCustomContextOperation: ((NerwAction, String) -> NerwAction?)?
+
     public init(
         id: String,
         title: String,
@@ -167,7 +170,9 @@ public struct NerwAction {
         triggers: [String] = [],
         modifiers: [ModifierKey: ModifierAction] = [:],
         type: ActionType,
-        isPersistent: Bool = false
+        isPersistent: Bool = false,
+        customContextOperations: [NerwActionContext.Operation] = [],
+        performCustomContextOperation: ((NerwAction, String) -> NerwAction?)? = nil
     ) {
         self.id = id
         self.title = title
@@ -175,6 +180,8 @@ public struct NerwAction {
         self.icon = icon
         self.peek = peek
         self.category = category
+        self.customContextOperations = customContextOperations
+        self.performCustomContextOperation = performCustomContextOperation
 
         // Merge custom aliases from config
         var allTriggers = triggers

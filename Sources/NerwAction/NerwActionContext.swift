@@ -99,6 +99,11 @@ public enum NerwActionContextBuilder {
                 operations: configurationOperations(for: action)
             ))
 
+        let customOperations = action.customContextOperations
+        if !customOperations.isEmpty {
+            sections.append(.init(id: "options", title: "Options", operations: customOperations))
+        }
+
         return NerwActionContext(
             actionID: action.id,
             actionTitle: action.title,

@@ -254,6 +254,70 @@ public class BookmarkManager {
                 icon = .image(mainImg)
             }
 
+            let customContextOperations: [NerwActionContext.Operation] = [
+                .init(
+                    id: "edit",
+                    kind: .custom("edit"),
+                    title: "Edit Bookmark",
+                    subtitle: "Modify URL or Name",
+                    icon: .system("pencil"),
+                    interaction: .execute
+                ),
+                .init(
+                    id: "delete",
+                    kind: .custom("delete"),
+                    title: "Delete Bookmark",
+                    subtitle: "Remove from bookmarks",
+                    icon: .system("trash"),
+                    interaction: .execute
+                ),
+            ]
+
+            let performCustomContextOperation: ((NerwAction, String) -> NerwAction?) = {
+                action, key in
+                if key == "delete" {
+                    BookmarkManager.shared.deleteBookmark(id: bookmark.id)
+                    return nil
+                } else if key == "edit" {
+                    return NerwAction(
+                        id: "builtin.bookmark.edit.\(bookmark.id.uuidString)",
+                        title: "Edit Bookmark",
+                        subtitle: "Modify details for \(bookmark.title)",
+                        type: .form(
+                            fields: {
+                                return [
+                                    .init(
+                                        id: "url", title: "URL", placeholder: "https://example.com",
+                                        defaultValue: bookmark.url,
+                                        isFocused: false
+                                    ),
+                                    .init(
+                                        id: "title", title: "Name", placeholder: "Example Website",
+                                        defaultValue: bookmark.title,
+                                        isFocused: true
+                                    ),
+                                ]
+                            },
+                            submitLabel: "Save Bookmark",
+                            perform: { _, values in
+                                let urlStr =
+                                    values["url"]?.trimmingCharacters(in: .whitespaces) ?? ""
+                                let title =
+                                    values["title"]?.trimmingCharacters(in: .whitespaces) ?? ""
+
+                                if !urlStr.isEmpty && !title.isEmpty {
+                                    BookmarkManager.shared.deleteBookmark(id: bookmark.id)
+                                    BookmarkManager.shared.addBookmark(url: urlStr, title: title)
+                                } else {
+                                    Nerw.notify("Please enter a valid URL and Name", level: .warn)
+                                }
+                            }
+                        )
+                    )
+                }
+                return nil
+            }
+
             let action = NerwAction(
                 id: "builtin.bookmark.\(bookmark.id.uuidString)",
                 title: bookmark.title,
@@ -264,7 +328,9 @@ public class BookmarkManager {
                     if let url = URL(string: bookmark.url) {
                         NSWorkspace.shared.open(url)
                     }
-                })
+                }),
+                customContextOperations: customContextOperations,
+                performCustomContextOperation: performCustomContextOperation
             )
             actions.append(action)
         }
