@@ -10,7 +10,7 @@ public class IconUtils {
             fileAt: resolvedURL,
             size: size,
             scale: NSScreen.main?.backingScaleFactor ?? 2.0,
-            representationTypes: .icon
+            representationTypes: .all
         )
 
         QLThumbnailGenerator.shared.generateRepresentations(for: request) {

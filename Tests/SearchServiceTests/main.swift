@@ -23,6 +23,7 @@ func runTests() {
     runExtensionPanelTests()
     runNotificationTests()
     runTextExpansionTests()
+    runBookmarkTests()
     runDaemonTests()
     runAITests()
 
