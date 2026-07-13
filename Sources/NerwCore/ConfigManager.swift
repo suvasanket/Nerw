@@ -176,7 +176,7 @@ extension AIConfig {
 }
 
 public struct Config: Codable {
-    public var fallbackActions: [String] = ["engine:Google"]
+    public var fallbackActions: [String] = ["engine:Google", "engine:NerwAI"]
     public var searchModMapper: [String: String] = [:]
     public var globalKeybind: String = "Cmd+Shift+Space"
     public var onFirstSpace: String = "findfile "
@@ -233,6 +233,7 @@ public struct Config: Codable {
             } else {
                 fallbackActions.append("engine:Google")
             }
+            fallbackActions.append("engine:NerwAI")
         }
 
         searchModMapper =

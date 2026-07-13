@@ -10,20 +10,6 @@ public class ConversationManager {
     private init() {}
 
     public static func builtinActions() -> [NerwAction] {
-        return [
-            NerwAction(
-                id: "builtin.aiquery",
-                title: "Ask AI",
-                subtitle: "Query NerwAi",
-                icon: .system("sparkle.magnifyingglass"),
-                category: .webSearch,
-                triggers: ["ai", "chat", "ask", "assistant"],
-                type: .inlineArg(perform: { _, query in
-                    DispatchQueue.main.async {
-                        ConversationManager.shared.showWindowCallback?(query)
-                    }
-                })
-            )
-        ]
+        return []
     }
 }

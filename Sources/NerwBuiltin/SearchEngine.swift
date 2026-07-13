@@ -34,7 +34,15 @@ public struct Engine: Codable {
 public class SearchEngine {
     public static let shared = SearchEngine()
 
-    public private(set) var engines: [Engine] = []
+    private var _engines: [Engine] = []
+
+    public var engines: [Engine] {
+        if ConfigManager.shared.config.aiConfig.isEnabled {
+            return _engines
+        } else {
+            return _engines.filter { $0.name != "NerwAI" }
+        }
+    }
 
     private let fileManager = FileManager.default
     private var storageURL: URL? {
@@ -58,6 +66,9 @@ public class SearchEngine {
                 name: "Google", triggers: ["google", "g"],
                 urlTemplate: "https://www.google.com/search?q=%@", icon: "se_google"),
             Engine(
+                name: "NerwAI", triggers: ["ai", "chat", "ask", "assistant"],
+                urlTemplate: "nerwai://?q=%@", icon: "sparkles"),
+            Engine(
                 name: "Google Lucky Search", triggers: ["lucky"],
                 urlTemplate: "https://www.google.com/search?q=%@&btnI=I", icon: "se_google"),
             Engine(
@@ -72,7 +83,7 @@ public class SearchEngine {
             var loaded = try? JSONDecoder().decode([Engine].self, from: data)
         else {
             // First run or error: Load defaults
-            engines = getDefaults()
+            _engines = getDefaults()
             saveEngines()
             return
         }
@@ -94,14 +105,14 @@ public class SearchEngine {
             }
         }
 
-        engines = loaded
+        _engines = loaded
         saveEngines()
     }
 
     private func saveEngines() {
         guard let url = storageURL else { return }
         do {
-            let data = try JSONEncoder().encode(engines)
+            let data = try JSONEncoder().encode(_engines)
             try data.write(to: url)
         } catch {
             print("Failed to save Bangs: \(error)")
@@ -112,24 +123,24 @@ public class SearchEngine {
         // Convert %s to %@ for format string if needed
         let template = url.replacingOccurrences(of: "%s", with: "%@")
         let newEngine = Engine(name: name, triggers: triggers, urlTemplate: template, icon: icon)
-        engines.append(newEngine)
+        _engines.append(newEngine)
         saveEngines()
     }
 
     public func removeEngine(name: String) {
         if isBuiltIn(name: name) { return }
-        engines.removeAll { $0.name == name }
+        _engines.removeAll { $0.name == name }
         saveEngines()
     }
 
     public func toggleEngine(name: String, enabled: Bool) {
-        guard let idx = engines.firstIndex(where: { $0.name == name }) else { return }
-        engines[idx].isEnabled = enabled
+        guard let idx = _engines.firstIndex(where: { $0.name == name }) else { return }
+        _engines[idx].isEnabled = enabled
         saveEngines()
     }
 
     public func isBuiltIn(name: String) -> Bool {
-        return name == "Google"
+        return name == "Google" || name == "NerwAI"
     }
 
     /// Updates an existing engine by replacing it with new values.
@@ -140,13 +151,13 @@ public class SearchEngine {
         if isBuiltIn(name: originalName) { return }
 
         let template = url.replacingOccurrences(of: "%s", with: "%@")
-        guard let idx = engines.firstIndex(where: { $0.name == originalName }) else { return }
-        engines[idx] = Engine(
+        guard let idx = _engines.firstIndex(where: { $0.name == originalName }) else { return }
+        _engines[idx] = Engine(
             name: name,
             triggers: triggers,
             urlTemplate: template,
-            icon: icon ?? engines[idx].icon,
-            isEnabled: engines[idx].isEnabled
+            icon: icon ?? _engines[idx].icon,
+            isEnabled: _engines[idx].isEnabled
         )
         saveEngines()
     }
@@ -163,7 +174,6 @@ public class SearchEngine {
             if token.starts(with: "!") {
                 let bangTrigger = String(token.dropFirst()).lowercased()
 
-                // Check All Enabled Engines
                 if let engine = engines.first(where: {
                     $0.isEnabled && $0.triggers.contains(bangTrigger)
                 }) {

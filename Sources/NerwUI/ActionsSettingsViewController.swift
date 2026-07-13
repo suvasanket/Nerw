@@ -108,14 +108,19 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                 [FindFile.shared.getTriggerAction()] + finderSystemActions
             let finderActions = self.makeRows(from: finderRawActions)
 
+            let allNerwActions = Nerw.shared.getAllActions()
+            let nerwAIActions = allNerwActions.filter { $0.id == "nerw.builtin.ai" }
+            let otherNerwActions = allNerwActions.filter { $0.id != "nerw.builtin.ai" }
+
             let miscRawActions =
-                Nerw.shared.getAllActions()
+                otherNerwActions
                 + systemActions.filter {
                     $0.id != "nerw.system.eject" && $0.id != "nerw.system.ejectall"
                         && $0.id != "nerw.system.emptydownloads"
                         && $0.id != "nerw.system.define" && $0.id != "nerw.system.wiki"
                 }
             let miscActions = self.makeRows(from: miscRawActions)
+            let aiActions = self.makeRows(from: nerwAIActions)
 
             let shortcuts = self.makeRows(from: ShortcutsEngine.shared.getAllActions())
             let extensions = self.makeExtensionRows()
@@ -124,6 +129,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                 guard generation == self.reloadGeneration else { return }
                 self.addLazySection(title: "Applications", actions: apps, isExpanded: false)
                 self.addLazySection(title: "Features", actions: featureActions)
+                self.addLazySection(title: "NerwAI", actions: aiActions)
                 self.addLazySection(title: "Finder", actions: finderActions)
                 self.addLazySection(title: "Misc", actions: miscActions)
                 self.addLazySection(title: "Shortcuts", actions: shortcuts)

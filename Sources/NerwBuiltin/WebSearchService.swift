@@ -18,6 +18,9 @@ public class WebSearchService {
             if let icon = IconManager.shared.icon(forKey: iconStr) {
                 return .image(icon)
             }
+            if NSImage(systemSymbolName: iconStr, accessibilityDescription: nil) != nil {
+                return .system(iconStr)
+            }
         }
 
         if domain.contains("google.com") {
@@ -57,6 +60,12 @@ public class WebSearchService {
             category: .webSearch,
             triggers: [],
             type: .instant(perform: { _ in
+                if engine.name == "NerwAI" || engine.urlTemplate.starts(with: "nerwai://") {
+                    DispatchQueue.main.async {
+                        ConversationManager.shared.showWindowCallback?(query)
+                    }
+                    return
+                }
                 let encodedQuery =
                     query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                 let urlString = String(format: engine.urlTemplate, encodedQuery)

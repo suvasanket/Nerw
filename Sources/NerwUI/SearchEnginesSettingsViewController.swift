@@ -237,6 +237,7 @@ class SearchEnginesSettingsViewController: NSViewController {
                         iconImage =
                             IconManager.shared.icon(forKey: iconStr)
                             ?? NSImage(named: NSImage.Name(iconStr))
+                            ?? NSImage(systemSymbolName: iconStr, accessibilityDescription: nil)
                     }
                     if iconImage == nil {
                         iconImage = IconManager.shared.icon(for: domain)
@@ -410,7 +411,9 @@ class SearchEnginesSettingsViewController: NSViewController {
 
         var iconImage: NSImage?
         if let key = engine.icon {
-            iconImage = IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+            iconImage =
+                IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+                ?? NSImage(systemSymbolName: key, accessibilityDescription: nil)
         }
         if iconImage == nil {
             iconImage =
@@ -510,6 +513,7 @@ class SearchEnginesSettingsViewController: NSViewController {
         if let key = existingIconKey {
             let existing =
                 IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+                ?? NSImage(systemSymbolName: key, accessibilityDescription: nil)
                 ?? IconManager.shared.icon(for: key)
             dropView.image = existing
         } else if let engine = engine {
@@ -634,6 +638,7 @@ class SearchEnginesSettingsViewController: NSViewController {
                 if let key = engine.icon {
                     iconImage =
                         IconManager.shared.icon(forKey: key) ?? NSImage(named: NSImage.Name(key))
+                        ?? NSImage(systemSymbolName: key, accessibilityDescription: nil)
                 }
                 if iconImage == nil {
                     iconImage =

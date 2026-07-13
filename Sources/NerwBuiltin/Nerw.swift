@@ -21,7 +21,7 @@ public class Nerw {
     }
 
     public func getAllActions() -> [NerwAction] {
-        return [
+        var actions = [
             NerwAction(
                 id: "nerw.builtin.quit",
                 title: "Quit Nerw",
@@ -33,5 +33,24 @@ public class Nerw {
                 })
             )
         ]
+
+        if ConfigManager.shared.config.aiConfig.isEnabled {
+            actions.append(
+                NerwAction(
+                    id: "nerw.builtin.ai",
+                    title: "NerwAI",
+                    subtitle: "Open NerwAI chat panel",
+                    icon: .system("sparkles"),
+                    triggers: ["nerwai", "ai", "chat"],
+                    type: .instant(perform: { _ in
+                        DispatchQueue.main.async {
+                            ConversationManager.shared.showWindowCallback?(nil)
+                        }
+                    })
+                )
+            )
+        }
+
+        return actions
     }
 }
