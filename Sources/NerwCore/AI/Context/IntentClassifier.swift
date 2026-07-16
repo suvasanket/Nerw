@@ -23,7 +23,7 @@ public enum ActionIntent: String, Hashable {
     case calendar
     case memory
     case note
-    case menubar
+    case app
     case email
 }
 
@@ -63,13 +63,13 @@ public class IntentClassifier {
         ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
             contextIntents.insert(.activeAppAndScreen)
-            actionIntents.insert(.menubar)
+            actionIntents.insert(.app)
         }
 
         // Menubar Action
         let menubarKeywords = ["menubar", "menu bar", "menu", "click menu"]
         if menubarKeywords.contains(where: { lower.contains($0) }) {
-            actionIntents.insert(.menubar)
+            actionIntents.insert(.app)
             contextIntents.insert(.activeAppAndScreen)
         }
 

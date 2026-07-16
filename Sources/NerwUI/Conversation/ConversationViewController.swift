@@ -1360,8 +1360,13 @@ public class ConversationViewController: NSViewController {
         case "memory":
             let content = payload["content"] as? String ?? ""
             return content.count > 50 ? String(content.prefix(50)) + "…" : content
-        case "menubar":
-            return payload["path"] as? String ?? "Menubar"
+        case "app":
+            let action = payload["action"] as? String ?? ""
+            if action == "menubar" {
+                let path = payload["path"] as? String ?? "Menubar"
+                return "menubar: \(path)"
+            }
+            return "App Action"
         case "note":
             let operation = payload["operation"] as? String ?? "edit"
             let filename = payload["filename"] as? String ?? "note"

@@ -29,9 +29,9 @@ public class AIInstructionManager {
             instructions +=
                 "\n- note: <action>{ \"type\": \"note\", \"operation\": \"append\", \"filename\": \"todo.md\", \"content\": \"- Buy milk\" }</action> (operations: create, append, overwrite)"
         }
-        if actionIntents.contains(.menubar) {
+        if actionIntents.contains(.app) {
             instructions +=
-                "\n- menubar: <action>{ \"type\": \"menubar\", \"path\": \"File > Save\" }</action>"
+                "\n- app: <action>{ \"type\": \"app\", \"action\": \"menubar\", \"path\": \"File > Save\" }</action> (actions: menubar, browser, app)"
         }
         if actionIntents.contains(.email) {
             instructions +=

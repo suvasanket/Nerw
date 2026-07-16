@@ -430,10 +430,17 @@ public struct MarkdownParser {
                 symbolName = "brain.fill"
                 tintColor = NSColor.systemCyan
                 displayText = embeddedDetail.map { " \($0)" } ?? ""
-            case "menubar":
-                symbolName = "menubar.dock.rectangle"
-                tintColor = NSColor.systemPurple
-                displayText = embeddedDetail.map { " \($0)" } ?? ""
+            case "app":
+                if let detail = embeddedDetail, detail.starts(with: "menubar: ") {
+                    symbolName = "menubar.dock.rectangle"
+                    tintColor = NSColor.systemPurple
+                    let displayDetail = detail.replacingOccurrences(of: "menubar: ", with: "")
+                    displayText = " \(displayDetail)"
+                } else {
+                    symbolName = "macwindow"
+                    tintColor = NSColor.systemPurple
+                    displayText = embeddedDetail.map { " \($0)" } ?? ""
+                }
             case "search":
                 symbolName = "magnifyingglass"
                 tintColor = NSColor.systemIndigo

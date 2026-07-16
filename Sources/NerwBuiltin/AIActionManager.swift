@@ -35,8 +35,8 @@ public class AIActionManager {
             handleMemory(payload: payload)
         case "note":
             handleNote(payload: payload)
-        case "menubar":
-            handleMenubar(payload: payload)
+        case "app":
+            handleApp(payload: payload)
         case "email":
             handleEmail(payload: payload)
         default:
@@ -272,6 +272,16 @@ public class AIActionManager {
             DispatchQueue.main.async {
                 Nerw.notify("Failed to save note: \(error.localizedDescription)", level: .error)
             }
+        }
+    }
+
+    private func handleApp(payload: [String: Any]) {
+        let action = payload["action"] as? String ?? ""
+        switch action {
+        case "menubar":
+            handleMenubar(payload: payload)
+        default:
+            Logger.shared.warning("AIActionManager: Unknown app action '\(action)'")
         }
     }
 

@@ -58,8 +58,8 @@ func testIntentClassifierActiveAppMenubar() {
         fatalError("FAIL: Expected .activeAppAndScreen in contextIntents for 'this app'")
     }
 
-    guard result.actionIntents.contains(.menubar) else {
-        fatalError("FAIL: Expected .menubar in actionIntents when .activeAppAndScreen is present")
+    guard result.actionIntents.contains(.app) else {
+        fatalError("FAIL: Expected .app in actionIntents when .activeAppAndScreen is present")
     }
 
     print("  ✓ testIntentClassifierActiveAppMenubar passed.")
