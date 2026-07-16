@@ -72,6 +72,26 @@ public class NerwActionPreferenceManager {
             name: Notification.Name("NerwActionPreferencesDidUpdate"), object: nil)
     }
 
+    public func removePreferences(for actionID: String) {
+        preferences.actionAliases.removeValue(forKey: actionID)
+        preferences.actionHotkeys.removeValue(forKey: actionID)
+        preferences.disabledActions.removeAll { $0 == actionID }
+        preferences.hiddenActions.removeAll { $0 == actionID }
+        save()
+    }
+
+    public func removePreferences(withPrefix prefix: String) {
+        preferences.actionAliases.keys.filter { $0.hasPrefix(prefix) }.forEach {
+            preferences.actionAliases.removeValue(forKey: $0)
+        }
+        preferences.actionHotkeys.keys.filter { $0.hasPrefix(prefix) }.forEach {
+            preferences.actionHotkeys.removeValue(forKey: $0)
+        }
+        preferences.disabledActions.removeAll { $0.hasPrefix(prefix) }
+        preferences.hiddenActions.removeAll { $0.hasPrefix(prefix) }
+        save()
+    }
+
     // MARK: - API
 
     public func aliases(for actionID: String) -> [String] {

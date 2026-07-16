@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import NerwAction
 
 public enum ExtensionInstallError: Error {
     case invalidPackage
@@ -138,6 +139,7 @@ public class ExtensionInstaller {
         if fileManager.fileExists(atPath: installPath.path) {
             try fileManager.removeItem(at: installPath)
         }
+        NerwActionPreferenceManager.shared.removePreferences(withPrefix: "ext.\(id).")
         ExtensionEngine.shared.reload()
     }
 

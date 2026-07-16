@@ -1,4 +1,5 @@
 import Cocoa
+import NerwAction
 import NerwCore
 import NerwSearchBackend
 
@@ -131,6 +132,9 @@ public class SearchEngine {
         if isBuiltIn(name: name) { return }
         _engines.removeAll { $0.name == name }
         saveEngines()
+
+        let actionID = "nerw.web.search.\(name)"
+        NerwActionPreferenceManager.shared.removePreferences(for: actionID)
     }
 
     public func toggleEngine(name: String, enabled: Bool) {

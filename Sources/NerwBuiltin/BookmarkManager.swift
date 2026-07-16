@@ -172,6 +172,8 @@ public class BookmarkManager {
             }
             bookmarks.remove(at: index)
             saveBookmarks()
+            NerwActionPreferenceManager.shared.removePreferences(
+                for: "builtin.bookmark.\(id.uuidString)")
             NotificationCenter.default.post(
                 name: Notification.Name("NerwConfigDidUpdate"), object: nil)
         }
