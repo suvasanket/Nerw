@@ -59,7 +59,7 @@ public class IntentClassifier {
             "this website", "this article", "look", "screen", "see", "what is this",
             "this thing", "visual", "image", "sum up the total usage", "this chart",
             "this graph", "screenshot", "this app", "this application", "active app",
-            "active application", "current application",
+            "active application", "current application", "in this", "in here", "here",
         ]
         if activeAppKeywords.contains(where: { lower.contains($0) }) {
             contextIntents.insert(.activeAppAndScreen)

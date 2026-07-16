@@ -62,6 +62,7 @@ class FeaturesSettingsViewController: NSViewController {
         return stack
     }()
 
+    private var bookmarkSwitch: NSSwitch!
     private var clipboardSwitch: NSSwitch!
     private var snippetSwitch: NSSwitch!
     private var clipboardHotkeyRecorder: KeybindRecorder!
@@ -87,6 +88,53 @@ class FeaturesSettingsViewController: NSViewController {
     private func setupUI() {
         view.addSubview(scrollView)
         scrollView.documentView = stackView
+
+        // 0. Bookmark Section
+        let bookmarkRow = NSStackView()
+        bookmarkRow.orientation = .horizontal
+        bookmarkRow.spacing = 10
+        bookmarkRow.alignment = .centerY
+
+        let bookmarkTextStack = NSStackView()
+        bookmarkTextStack.orientation = .vertical
+        bookmarkTextStack.spacing = 2
+        bookmarkTextStack.alignment = .leading
+
+        let bookmarkLabel = NSTextField(labelWithString: "Enable Bookmarks")
+        bookmarkLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        let bookmarkSubtitle = NSTextField(
+            labelWithString: "Save and search your favorite websites as bookmarks")
+        bookmarkSubtitle.font = .systemFont(ofSize: 11)
+        bookmarkSubtitle.textColor = .secondaryLabelColor
+
+        bookmarkLabel.lineBreakMode = .byTruncatingTail
+        bookmarkLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        bookmarkSubtitle.lineBreakMode = .byTruncatingTail
+        bookmarkSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        bookmarkTextStack.addArrangedSubview(bookmarkLabel)
+        bookmarkTextStack.addArrangedSubview(bookmarkSubtitle)
+
+        bookmarkSwitch = NSSwitch()
+        bookmarkSwitch.controlSize = .mini
+        bookmarkSwitch.state = ConfigManager.shared.config.bookmarksEnabled ? .on : .off
+        bookmarkSwitch.target = self
+        bookmarkSwitch.action = #selector(bookmarkToggled(_:))
+
+        let spacer0 = NSView()
+        spacer0.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        bookmarkRow.addArrangedSubview(bookmarkTextStack)
+        bookmarkRow.addArrangedSubview(spacer0)
+        bookmarkRow.addArrangedSubview(bookmarkSwitch)
+
+        let bookmarkSection = SettingsSection(
+            title: "Bookmarks",
+            contentViews: [bookmarkRow]
+        )
+        stackView.addArrangedSubview(bookmarkSection)
+        bookmarkSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
+            .isActive = true
 
         // 1. Clipboard Section
         let clipboardRow = NSStackView()
@@ -397,6 +445,16 @@ class FeaturesSettingsViewController: NSViewController {
         ])
     }
 
+    @objc private func bookmarkToggled(_ sender: NSSwitch) {
+        let isEnabled = sender.state == .on
+        ConfigManager.shared.config.bookmarksEnabled = isEnabled
+        ConfigManager.shared.save()
+
+        NerwActionPreferenceManager.shared.updateActionEnabled(
+            isEnabled, for: "builtin.bookmark.add")
+        SearchService.shared.loadCache(asyncUpdate: true)
+    }
+
     @objc private func clipboardToggled(_ sender: NSSwitch) {
         let isEnabled = sender.state == .on
         ConfigManager.shared.config.clipboardEnabled = isEnabled
@@ -433,6 +491,7 @@ class FeaturesSettingsViewController: NSViewController {
 
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config
+        bookmarkSwitch.state = config.bookmarksEnabled ? .on : .off
         clipboardSwitch.state = config.clipboardEnabled ? .on : .off
         snippetSwitch.state = config.snippetExpansionEnabled ? .on : .off
         menubarSearchSwitch.state = config.menubarSearchEnabled ? .on : .off

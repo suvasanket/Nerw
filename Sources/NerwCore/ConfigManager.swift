@@ -186,6 +186,7 @@ public struct Config: Codable {
     public var snippetExpansionEnabled: Bool = true
     public var clipboardEnabled: Bool = true
     public var menubarSearchEnabled: Bool = true
+    public var bookmarksEnabled: Bool = true
     public var navigationStyle: String = "unix"
     public var aiConfig: AIConfig = AIConfig()
 
@@ -200,6 +201,7 @@ public struct Config: Codable {
         case snippetExpansionEnabled
         case clipboardEnabled
         case menubarSearchEnabled
+        case bookmarksEnabled
         case navigationStyle
         case aiConfig
     }
@@ -257,6 +259,8 @@ public struct Config: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .clipboardEnabled) ?? true
         menubarSearchEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .menubarSearchEnabled) ?? true
+        bookmarksEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .bookmarksEnabled) ?? true
         navigationStyle =
             try container.decodeIfPresent(String.self, forKey: .navigationStyle) ?? "unix"
         aiConfig =

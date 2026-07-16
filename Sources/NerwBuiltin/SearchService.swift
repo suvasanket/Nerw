@@ -143,7 +143,9 @@ public class SearchService {
             if ConfigManager.shared.config.snippetExpansionEnabled {
                 candidates.append(contentsOf: SnippetManager.builtinActions())
             }
-            candidates.append(contentsOf: BookmarkManager.builtinActions())
+            if ConfigManager.shared.config.bookmarksEnabled {
+                candidates.append(contentsOf: BookmarkManager.builtinActions())
+            }
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts
