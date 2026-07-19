@@ -472,8 +472,9 @@ class AISettingsViewController: NSViewController {
         nameLabel.textColor = .labelColor
         row.addArrangedSubview(nameLabel)
 
+        let preset = AIProviderPreset.preset(forUrl: provider.url)
         let typeString =
-            provider.type == "foundation" ? "Foundation" : "BYOK (\(provider.modelName))"
+            provider.type == "foundation" ? "Foundation" : "\(preset.name) (\(provider.modelName))"
         let typeLabel = NSTextField(labelWithString: typeString)
         typeLabel.font = .systemFont(ofSize: 11)
         typeLabel.textColor = .secondaryLabelColor
@@ -545,44 +546,49 @@ class AISettingsViewController: NSViewController {
     }
 
     private func showProviderSheet(editing provider: AIProvider?, copying: Bool = false) {
+        let isEdit = provider != nil && !copying
+        let isFoundation = provider?.type == "foundation"
+
         guard let window = self.view.window else { return }
 
-        let isEdit = provider != nil && !copying
-        let isFoundation = (provider?.type == "foundation") && !copying
-
         let alert = NSAlert()
-        alert.messageText = isEdit ? "Edit AI Provider" : "Add AI Provider"
-        alert.informativeText =
-            isEdit
-            ? "Update configuration for this provider."
-            : "Configure a new AI model provider backend."
+        alert.messageText =
+            isFoundation
+            ? "Foundation Model Configuration"
+            : (isEdit ? "Edit Model Provider" : "Add Model Provider")
 
         let outerHeight: CGFloat = isFoundation ? 40 : 220
         let outer = NSStackView(frame: NSRect(x: 0, y: 0, width: 440, height: outerHeight))
         outer.orientation = .vertical
-        outer.spacing = 10
         outer.alignment = .leading
+        outer.spacing = 10
 
-        func createAlertRow(label: String, control: NSView, width: CGFloat = 260) -> NSStackView {
+        func createAlertRow(label: String, control: NSView) -> NSStackView {
             let row = NSStackView()
             row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 10
+            row.alignment = .firstBaseline
+            row.spacing = 8
+
             let lbl = NSTextField(labelWithString: label)
             lbl.font = .systemFont(ofSize: 12)
-            lbl.textColor = .labelColor
+            lbl.alignment = .right
             lbl.translatesAutoresizingMaskIntoConstraints = false
             lbl.widthAnchor.constraint(equalToConstant: 120).isActive = true
-            control.translatesAutoresizingMaskIntoConstraints = false
-            control.widthAnchor.constraint(equalToConstant: width).isActive = true
+
             row.addArrangedSubview(lbl)
             row.addArrangedSubview(control)
+            control.translatesAutoresizingMaskIntoConstraints = false
+            control.widthAnchor.constraint(equalToConstant: 250).isActive = true
             row.addArrangedSubview(NSView())  // Spacer
             return row
         }
 
         let dialogNameField = PasteableTextField()
         dialogNameField.placeholderString = "e.g., OpenRouter Gemini"
+
+        let providerDropdown = NSPopUpButton()
+        providerDropdown.addItems(withTitles: AIProviderPreset.allPresets.map { $0.name })
+        providerDropdown.font = .systemFont(ofSize: 12)
 
         let dialogUrlField = PasteableTextField()
         dialogUrlField.placeholderString = "https://openrouter.ai/api/v1/chat/completions"
@@ -593,29 +599,35 @@ class AISettingsViewController: NSViewController {
         let dialogModelField = PasteableTextField()
         dialogModelField.placeholderString = "google/gemini-2.5-flash"
 
-        let dialogSearchToolField = PasteableTextField()
-        dialogSearchToolField.placeholderString = "e.g. googleSearch or web_search"
-
         let dialogVisionCheckbox = NSButton()
         dialogVisionCheckbox.setButtonType(.switch)
         dialogVisionCheckbox.title = "Supports multimodal image inputs"
         dialogVisionCheckbox.font = .systemFont(ofSize: 12)
 
+        let dialogSearchCheckbox = NSButton()
+        dialogSearchCheckbox.setButtonType(.switch)
+        dialogSearchCheckbox.title = "Supports web search"
+        dialogSearchCheckbox.font = .systemFont(ofSize: 12)
+
         let nameRow = createAlertRow(label: "Provider Name:", control: dialogNameField)
         outer.addArrangedSubview(nameRow)
 
+        var urlRow: NSStackView!
+
         if !isFoundation {
-            let urlRow = createAlertRow(label: "API Endpoint URL:", control: dialogUrlField)
+            let providerRow = createAlertRow(label: "Provider:", control: providerDropdown)
+            urlRow = createAlertRow(label: "Endpoint URL:", control: dialogUrlField)
             let keyRow = createAlertRow(label: "API Key:", control: dialogKeyField)
             let modelRow = createAlertRow(label: "Model Name:", control: dialogModelField)
-            let toolRow = createAlertRow(label: "Search Tool Name:", control: dialogSearchToolField)
             let imgRow = createAlertRow(label: "Vision Support:", control: dialogVisionCheckbox)
+            let searchRow = createAlertRow(label: "Web Search:", control: dialogSearchCheckbox)
 
+            outer.addArrangedSubview(providerRow)
             outer.addArrangedSubview(urlRow)
             outer.addArrangedSubview(keyRow)
             outer.addArrangedSubview(modelRow)
-            outer.addArrangedSubview(toolRow)
             outer.addArrangedSubview(imgRow)
+            outer.addArrangedSubview(searchRow)
         }
 
         var targetProvider: AIProvider? = nil
@@ -654,12 +666,31 @@ class AISettingsViewController: NSViewController {
         }
 
         dialogNameField.stringValue = initialName
+        var observer: NSObjectProtocol?
+
         if !isFoundation {
             dialogUrlField.stringValue = initialUrl
             dialogKeyField.stringValue = initialKey
             dialogModelField.stringValue = initialModel
-            dialogSearchToolField.stringValue = initialSearchTool
             dialogVisionCheckbox.state = initialVision ? .on : .off
+            dialogSearchCheckbox.state = initialSearchTool.isEmpty ? .off : .on
+
+            // Set initial dropdown based on URL using provider table
+            let initialPreset = AIProviderPreset.preset(forUrl: initialUrl)
+            providerDropdown.selectItem(withTitle: initialPreset.name)
+            urlRow.isHidden = !initialPreset.supportsCustomUrl
+
+            observer = NotificationCenter.default.addObserver(
+                forName: NSMenu.didSendActionNotification, object: providerDropdown.menu,
+                queue: .main
+            ) { _ in
+                let selectedName = providerDropdown.titleOfSelectedItem ?? "Custom"
+                let selectedPreset = AIProviderPreset.preset(forName: selectedName)
+                urlRow.isHidden = !selectedPreset.supportsCustomUrl
+                if !selectedPreset.supportsCustomUrl {
+                    dialogUrlField.stringValue = selectedPreset.defaultUrl
+                }
+            }
         }
 
         alert.accessoryView = outer
@@ -667,6 +698,9 @@ class AISettingsViewController: NSViewController {
         alert.addButton(withTitle: "Cancel")
 
         alert.beginSheetModal(for: window) { [weak self] response in
+            if let obs = observer {
+                NotificationCenter.default.removeObserver(obs)
+            }
             guard response == .alertFirstButtonReturn else { return }
             let name = dialogNameField.stringValue.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty else { return }
@@ -688,8 +722,15 @@ class AISettingsViewController: NSViewController {
             let url = dialogUrlField.stringValue.trimmingCharacters(in: .whitespaces)
             let apiKey = dialogKeyField.stringValue.trimmingCharacters(in: .whitespaces)
             let modelName = dialogModelField.stringValue.trimmingCharacters(in: .whitespaces)
-            let searchTool = dialogSearchToolField.stringValue.trimmingCharacters(in: .whitespaces)
             let supportsImages = dialogVisionCheckbox.state == .on
+            let supportsSearch = dialogSearchCheckbox.state == .on
+
+            var searchTool = ""
+            if supportsSearch {
+                let selectedName = providerDropdown.titleOfSelectedItem ?? "Custom"
+                let selectedPreset = AIProviderPreset.preset(forName: selectedName)
+                searchTool = selectedPreset.defaultSearchToolName
+            }
 
             if let p = targetProvider {
                 if let idx = ConfigManager.shared.config.aiConfig.providers.firstIndex(where: {
@@ -724,7 +765,6 @@ class AISettingsViewController: NSViewController {
             ConfigManager.shared.reload()
             self?.refreshUI()
         }
-
         if copying {
             DispatchQueue.main.async {
                 alert.window.makeFirstResponder(dialogModelField)

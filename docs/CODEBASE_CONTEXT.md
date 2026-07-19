@@ -80,6 +80,7 @@ The source code is organized into modular targets within `Sources/`:
 - **Role**: Fundamental data models and the extension engine.
 - **Key Components**:
     - `ConfigManager.swift`: Manages global application settings and `~/.nerw/config.json`.
+    - `AIProviderPreset.swift`: Central lookup table and registry for AI model provider presets (OpenAI, Google Gemini, Claude, OpenRouter, Custom). Defines default endpoint URLs, domain match patterns, default search tool names, and model placeholders.
     - `NerwTheme.swift`: Pure data struct representing a normalized snapshot of the UI state (e.g. colors, rounded corners) computed from `ConfigManager`.
     - `NerwPanelContext.swift`: Shared state for window positioning and font synchronization.
     - `ExtensionEngine.swift`: Process-based Swift extension engine. Compiles `main.swift` via `swiftc` at install time, executes extensions as child processes communicating via JSON stdin/stdout. Supports multiple actions per extension and smart trigger resolution. Automatically injects current `NerwThemeConfig` into extension runtime. Also tracks long-running extension processes and renames them using hardlinks for easy identification in Activity Monitor. **When a daemon is running, queries and actions are routed through `DaemonManager` instead of spawning a fresh process.**

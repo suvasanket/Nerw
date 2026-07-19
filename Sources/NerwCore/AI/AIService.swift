@@ -51,6 +51,11 @@ public class AIService {
         if activeProvider.type == "foundation" {
             Logger.shared.info("AIService: Selected FoundationModelHandler")
             handler = FoundationModelHandler()
+        } else if activeProvider.url.contains("generativelanguage.googleapis.com") {
+            Logger.shared.info(
+                "AIService: Selected GeminiNativeModelHandler (Model: \(activeProvider.modelName))"
+            )
+            handler = GeminiNativeModelHandler(provider: activeProvider)
         } else {
             Logger.shared.info(
                 "AIService: Selected BYOKModelHandler (API URL: \(activeProvider.url), Model: \(activeProvider.modelName))"
