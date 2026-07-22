@@ -68,7 +68,6 @@ class FeaturesSettingsViewController: NSViewController {
     private var clipboardHotkeyRecorder: KeybindRecorder!
     private var onFirstSpaceField: NSTextField!
     private var shortcutsSwitch: NSSwitch!
-    private var menubarSearchSwitch: NSSwitch!
 
     override func loadView() {
         self.view = NSView()
@@ -270,56 +269,7 @@ class FeaturesSettingsViewController: NSViewController {
         snippetSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
             .isActive = true
 
-        // 3. Menubar Search Section
-        let menubarRow = NSStackView()
-        menubarRow.orientation = .horizontal
-        menubarRow.spacing = 10
-        menubarRow.alignment = .centerY
-
-        let menubarTextStack = NSStackView()
-        menubarTextStack.orientation = .vertical
-        menubarTextStack.spacing = 2
-        menubarTextStack.alignment = .leading
-
-        let menubarLabel = NSTextField(labelWithString: "Enable Menubar Search")
-        menubarLabel.font = .systemFont(ofSize: 13, weight: .regular)
-        let menubarSubtitle = NSTextField(
-            labelWithString:
-                "Index and search the menubar items of the active application prior to opening Nerw"
-        )
-        menubarSubtitle.font = .systemFont(ofSize: 11)
-        menubarSubtitle.textColor = .secondaryLabelColor
-
-        menubarLabel.lineBreakMode = .byTruncatingTail
-        menubarLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        menubarSubtitle.lineBreakMode = .byTruncatingTail
-        menubarSubtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        menubarTextStack.addArrangedSubview(menubarLabel)
-        menubarTextStack.addArrangedSubview(menubarSubtitle)
-
-        menubarSearchSwitch = NSSwitch()
-        menubarSearchSwitch.controlSize = .mini
-        menubarSearchSwitch.state = ConfigManager.shared.config.menubarSearchEnabled ? .on : .off
-        menubarSearchSwitch.target = self
-        menubarSearchSwitch.action = #selector(menubarSearchToggled(_:))
-
-        let spacerMenubar = NSView()
-        spacerMenubar.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        menubarRow.addArrangedSubview(menubarTextStack)
-        menubarRow.addArrangedSubview(spacerMenubar)
-        menubarRow.addArrangedSubview(menubarSearchSwitch)
-
-        let menubarSection = SettingsSection(
-            title: "Menubar Search",
-            contentViews: [menubarRow]
-        )
-        stackView.addArrangedSubview(menubarSection)
-        menubarSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -40)
-            .isActive = true
-
-        // 4. Misc Section
+        // 3. Misc Section
         let findFileRow = NSStackView()
         findFileRow.orientation = .horizontal
         findFileRow.spacing = 10
@@ -483,18 +433,11 @@ class FeaturesSettingsViewController: NSViewController {
         ConfigManager.shared.save()
     }
 
-    @objc private func menubarSearchToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.menubarSearchEnabled = (sender.state == .on)
-        ConfigManager.shared.save()
-        SearchService.shared.loadCache(asyncUpdate: true)
-    }
-
     @objc private func refreshUI() {
         let config = ConfigManager.shared.config
         bookmarkSwitch.state = config.bookmarksEnabled ? .on : .off
         clipboardSwitch.state = config.clipboardEnabled ? .on : .off
         snippetSwitch.state = config.snippetExpansionEnabled ? .on : .off
-        menubarSearchSwitch.state = config.menubarSearchEnabled ? .on : .off
         onFirstSpaceField.stringValue = config.onFirstSpace
         shortcutsSwitch.state = config.showShortcutsInMain ? .on : .off
 

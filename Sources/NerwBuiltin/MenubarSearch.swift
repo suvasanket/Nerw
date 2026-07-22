@@ -1,6 +1,7 @@
 import ApplicationServices
 import Cocoa
 import NerwAction
+import NerwSearchBackend
 import NerwUtils
 
 public class MenubarSearch {
@@ -8,6 +9,46 @@ public class MenubarSearch {
     public var isEnabled = true
 
     private init() {}
+
+    public static func builtinActions() -> [NerwAction] {
+        return [shared.getSearchAction()]
+    }
+
+    public func getSearchAction() -> NerwAction {
+        return NerwAction(
+            id: "builtin.menubar.search",
+            title: "Search Menubar",
+            subtitle: "Search menu items of the active application",
+            icon: .system("menubar.dock.rectangle"),
+            triggers: ["menubar", "menu"],
+            type: .args(
+                placeholder: "Menubar Items",
+                searcher: { [weak self] _, query, completion in
+                    guard let self = self else {
+                        completion([])
+                        return
+                    }
+                    let menubarActions = self.getMenubarActions()
+                    let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+                    if trimmedQuery.isEmpty {
+                        completion(menubarActions)
+                    } else {
+                        let searchStrings = menubarActions.map { action in
+                            action.title + " " + action.subtitle
+                        }
+                        let fuse = Fuse()
+                        let safeQuery = String(trimmedQuery.prefix(100))
+                        let results = fuse.searchSync(safeQuery, in: searchStrings)
+                        let matched = results.filter { $0.index < menubarActions.count }.map {
+                            menubarActions[$0.index]
+                        }
+                        completion(matched)
+                    }
+                },
+                perform: nil
+            )
+        )
+    }
 
     public func getMenubarActions() -> [NerwAction] {
         guard isEnabled else { return [] }
@@ -91,23 +132,9 @@ public class MenubarSearch {
                         if !seenIds.contains(id) {
                             seenIds.insert(id)
 
-                            var finalIcon: NerwAction.IconType = .system("menubar.dock.rectangle")
-
-                            let config = NSImage.SymbolConfiguration(
-                                hierarchicalColor: .labelColor)
-                            if let mainImage = NSImage(
-                                systemSymbolName: "menubar.dock.rectangle",
-                                accessibilityDescription: nil)?.withSymbolConfiguration(config),
-                                let subImage = app.icon
-                            {
-                                let combined = IconUtils.combinedIcon(
-                                    mainImage: mainImage,
-                                    subImage: subImage,
-                                    subIconScale: 0.55,
-                                    isTemplate: false
-                                )
-                                finalIcon = .image(combined)
-                            }
+                            let finalIcon: NerwAction.IconType =
+                                app.icon != nil
+                                ? .image(app.icon!) : .system("menubar.dock.rectangle")
 
                             actions.append(
                                 NerwAction(

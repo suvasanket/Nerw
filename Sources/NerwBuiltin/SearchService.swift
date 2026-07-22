@@ -29,18 +29,11 @@ public class SearchService {
 
     public func loadCache(asyncUpdate: Bool = true) {
         cacheLock.lock()
-        let initiallyLoaded = isCacheLoaded
         if !isCacheLoaded {
             cachedCandidates = buildCandidates()
             isCacheLoaded = true
         }
         cacheLock.unlock()
-
-        if !initiallyLoaded {
-            if ConfigManager.shared.config.menubarSearchEnabled {
-                loadMenubarActionsAsync()
-            }
-        }
 
         if asyncUpdate {
             cacheRefreshWorkItem?.cancel()
@@ -51,9 +44,6 @@ public class SearchService {
                 self.cacheLock.lock()
                 if self.isCacheLoaded, workItem?.isCancelled == false {
                     self.cachedCandidates = fresh
-                    if ConfigManager.shared.config.menubarSearchEnabled {
-                        self.loadMenubarActionsAsync()
-                    }
                 }
                 self.cacheLock.unlock()
             }
@@ -61,22 +51,6 @@ public class SearchService {
             if let workItem {
                 DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
             }
-        }
-    }
-
-    private func loadMenubarActionsAsync() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            let menubarActions = MenubarSearch.shared.getMenubarActions()
-            self.cacheLock.lock()
-            if self.isCacheLoaded {
-                // Filter out any existing menubar actions to prevent duplicates
-                self.cachedCandidates = self.cachedCandidates.filter {
-                    !$0.id.starts(with: "nerw.menubar.")
-                }
-                self.cachedCandidates.append(contentsOf: menubarActions)
-            }
-            self.cacheLock.unlock()
         }
     }
 
@@ -121,9 +95,6 @@ public class SearchService {
             cachedCandidates = cache
             isCacheLoaded = true
             cacheLock.unlock()
-            if ConfigManager.shared.config.menubarSearchEnabled {
-                loadMenubarActionsAsync()
-            }
         } else {
             cacheLock.unlock()
         }
@@ -146,6 +117,7 @@ public class SearchService {
             if ConfigManager.shared.config.bookmarksEnabled {
                 candidates.append(contentsOf: BookmarkManager.builtinActions())
             }
+            candidates.append(contentsOf: MenubarSearch.builtinActions())
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts
