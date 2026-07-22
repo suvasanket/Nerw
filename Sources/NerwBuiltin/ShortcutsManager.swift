@@ -25,12 +25,12 @@ public final class ShortcutsManager: Sendable {
         }
     }
 
-    /// Runs a shortcut by name.
-    public func runShortcut(_ name: String) async throws {
+    /// Runs a shortcut by name with an optional text argument.
+    public func runShortcut(_ name: String, input: String? = nil) async throws {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    _ = try self.runShortcutsCommandSync(args: ["run", name])
+                    _ = try self.runShortcutsCommandSync(args: ["run", name], input: input)
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
@@ -40,7 +40,7 @@ public final class ShortcutsManager: Sendable {
     }
 
     // Synchronous internal helper
-    private func runShortcutsCommandSync(args: [String]) throws -> String {
+    private func runShortcutsCommandSync(args: [String], input: String? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: shortcutsPath) else {
             throw NSError(
                 domain: "NerwBuiltin.ShortcutsManager",
@@ -58,7 +58,22 @@ public final class ShortcutsManager: Sendable {
         task.standardOutput = outPipe
         task.standardError = errPipe
 
+        var inPipe: Pipe? = nil
+        if let input = input, !input.isEmpty {
+            let pipe = Pipe()
+            task.standardInput = pipe
+            inPipe = pipe
+        }
+
         try task.run()
+
+        if let input = input, !input.isEmpty, let pipe = inPipe {
+            if let data = input.data(using: .utf8) {
+                pipe.fileHandleForWriting.write(data)
+            }
+            pipe.fileHandleForWriting.closeFile()
+        }
+
         task.waitUntilExit()
 
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
@@ -68,8 +83,6 @@ public final class ShortcutsManager: Sendable {
             let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
             let errOutput = String(data: errData, encoding: .utf8) ?? ""
 
-            // Should we return empty if it's just no output but success?
-            // terminationStatus != 0 means error.
             throw NSError(
                 domain: "NerwBuiltin.ShortcutsManager",
                 code: Int(task.terminationStatus),

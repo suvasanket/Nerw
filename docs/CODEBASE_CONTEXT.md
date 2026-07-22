@@ -61,7 +61,7 @@ The source code is organized into modular targets within `Sources/`:
     - `MenubarSearch.swift`: Active application menubar item search. Provides an on-demand `.args` action ("Search Menubar") using Accessibility APIs to search and trigger click-able menu actions for the frontmost app.
     - `System.swift`: System commands (Dictionary, Wikipedia, file cleanup, volume ejection, etc.), plus WiFi and Bluetooth integration.
     - `QuickAction.swift`: Real-time process management (Quit/Force Quit).
-    - `ShortcutsManager.swift`: Integration with macOS Shortcuts system.
+    - `ShortcutsManager.swift` & `ShortcutsEngine.swift`: Integration with macOS Shortcuts system. Features on-demand `stat()` file modification checking for zero-overhead background reindexing and `.hybrid` action generation (`Enter` for instant execution, `Tab` for piped stdin argument input).
     - `IconManager.swift`: Built-in component for icon lifecycle and resource management.
     - `MathConversionService.swift`: Handles `.mathConversion` category queries. Evaluates simple math expressions using `JavaScriptCore`, converts Foundation units via `MeasurementFormatter`, and fetches real-time currency conversions from Frankfurter API.
     - `Nerw.swift`: Global singleton for cross-module command execution. Exposes built-in actions (e.g. `quit`) and internal APIs such as:

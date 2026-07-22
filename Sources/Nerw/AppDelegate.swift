@@ -46,6 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             TextExpansionEngine.shared.start()
         }
 
+        if ConfigManager.shared.config.showShortcutsInMain {
+            ShortcutsEngine.shared.refreshIfStale()
+        }
+
         conversationWindowController = ConversationWindowController()
 
         ConversationManager.shared.showWindowCallback = { [weak self] prompt in

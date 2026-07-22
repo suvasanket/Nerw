@@ -233,9 +233,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        // Refresh Shortcuts if enabled
+        // Refresh Shortcuts asynchronously if enabled & stale
         if ConfigManager.shared.config.showShortcutsInMain {
-            ShortcutsEngine.shared.refresh()
+            ShortcutsEngine.shared.refreshIfStale()
         }
         SearchService.shared.loadCache()
     }

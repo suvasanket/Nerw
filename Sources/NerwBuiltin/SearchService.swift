@@ -121,7 +121,9 @@ public class SearchService {
             candidates.append(FindFile.shared.getTriggerAction())
 
             // Shortcuts
-            candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
+            if ConfigManager.shared.config.showShortcutsInMain {
+                candidates.append(contentsOf: ShortcutsEngine.shared.getAllActions())
+            }
 
             // Extensions
             candidates.append(contentsOf: ExtensionEngine.shared.getAllEntryActions())
@@ -345,7 +347,7 @@ public class SearchService {
                 id: "nerw.quick.shortcuts",
                 title: "Run Shortcut",
                 subtitle: "Run a shortcut from your library",
-                icon: .file(URL(fileURLWithPath: app.path)),
+                icon: ShortcutsEngine.shared.icon,
                 triggers: [],
                 type: .args(
                     placeholder: "Shortcut Name",
@@ -364,7 +366,7 @@ public class SearchService {
                                         id: "nerw.shortcuts.run.\(name)",
                                         title: name,
                                         subtitle: "Run Shortcut",
-                                        icon: .file(URL(fileURLWithPath: app.path)),
+                                        icon: ShortcutsEngine.shared.icon,
                                         triggers: [name],
                                         type: .instant(perform: { _ in
                                             Task {

@@ -253,7 +253,7 @@ public struct NerwAction {
         case .form(_, let submitLabel, _):
             return submitLabel ?? "Submit"
         case .hybrid(_, let box):
-            return box.value.title
+            return box.value.modeHintText ?? box.value.title
         }
     }
 

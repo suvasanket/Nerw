@@ -429,8 +429,14 @@ class FeaturesSettingsViewController: NSViewController {
     }
 
     @objc private func shortcutsToggled(_ sender: NSSwitch) {
-        ConfigManager.shared.config.showShortcutsInMain = (sender.state == .on)
+        let isEnabled = (sender.state == .on)
+        ConfigManager.shared.config.showShortcutsInMain = isEnabled
         ConfigManager.shared.save()
+
+        if isEnabled {
+            ShortcutsEngine.shared.refreshIfStale()
+        }
+        SearchService.shared.loadCache(asyncUpdate: true)
     }
 
     @objc private func refreshUI() {
