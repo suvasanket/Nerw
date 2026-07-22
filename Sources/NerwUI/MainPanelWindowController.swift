@@ -16,6 +16,8 @@ public class MainPanelWindowController: NSObject {
         NerwSystem.shared.ui = self
     }
 
+    public var suspendResign: Bool = false
+
     private func setupPanel() {
         // Create content view controller
         contentViewController = MainPanelContentViewController()
@@ -38,7 +40,8 @@ public class MainPanelWindowController: NSObject {
 
         // Click outside to dismiss
         panel.resignHandler = { [weak self] in
-            self?.hide()
+            guard let self = self, !self.suspendResign else { return }
+            self.hide()
         }
 
         centerOnScreen()
@@ -85,8 +88,11 @@ public class MainPanelWindowController: NSObject {
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(contentViewController.inputField)
     }
-
     public func hide(restoreFocus: Bool = true) {
+        let trace = Thread.callStackSymbols.joined(separator: "\n")
+        try? trace.write(
+            to: URL(fileURLWithPath: "/tmp/nerw_hide_trace.txt"), atomically: true, encoding: .utf8)
+
         guard isVisible else { return }
 
         contentViewController.reset(restoreFocus: false)

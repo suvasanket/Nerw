@@ -628,7 +628,10 @@ class SearchEnginesSettingsViewController: NSViewController {
         var iconImage: NSImage? = NSImage(
             systemSymbolName: "puzzlepiece", accessibilityDescription: nil)
 
-        if actionId.starts(with: "engine:") {
+        if actionId == "special:async_app_open" {
+            title = "Async app open"
+            iconImage = NSImage(systemSymbolName: "bolt.horizontal", accessibilityDescription: nil)
+        } else if actionId.starts(with: "engine:") {
             let engineName = String(actionId.dropFirst("engine:".count))
             title = engineName
             if let engine = engines.first(where: { $0.name == engineName }) {
@@ -741,6 +744,8 @@ class SearchEnginesSettingsViewController: NSViewController {
         actionPopUp.pullsDown = false
 
         var availableOptions: [(title: String, id: String)] = []
+        availableOptions.append((title: "Async app open", id: "special:async_app_open"))
+
         for engine in engines {
             if engine.isEnabled {
                 availableOptions.append((title: engine.name, id: "engine:\(engine.name)"))

@@ -1178,7 +1178,9 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     }
 
     private func dispatchActionExecution(
-        action: NerwAction, query: String?, performBlock: @escaping () -> Void
+        action: NerwAction, query: String?, keepOpen: Bool = false,
+        showExecutingState: Bool = true,
+        performBlock: @escaping () -> Void
     ) {
         if let q = query, !q.isEmpty {
             FrecencyManager.shared.recordUsage(id: action.id, forQuery: q)
@@ -1187,23 +1189,34 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
         let executionId = UUID()
         self.currentExecutionId = executionId
 
-        if action.isPersistent {
-            self.inputState = .executing(action: action)
-        } else {
-            // Delay visual feedback for non-persistent actions by 50ms to prevent flicker
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                guard let self = self, self.currentExecutionId == executionId else { return }
+        if showExecutingState {
+            if action.isPersistent || keepOpen {
                 self.inputState = .executing(action: action)
+            } else {
+                // Delay visual feedback for non-persistent actions by 50ms to prevent flicker
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    guard let self = self, self.currentExecutionId == executionId else { return }
+                    self.inputState = .executing(action: action)
+                }
             }
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             performBlock()
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, self.currentExecutionId == executionId else { return }
-                if !action.isPersistent {
+                if !(action.isPersistent || keepOpen) {
                     self.closeSession(restoreText: false)
+                } else if keepOpen {
+                    if showExecutingState
+                        || {
+                            if case .search = self.inputState { return false } else { return true }
+                        }()
+                    {
+                        self.inputState = .search
+                    }
+                    self.updateActions()
                 }
             }
         }
@@ -1212,8 +1225,125 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
     private func executeResult(
         _ result: NerwAction, query: String, modifiers: NSEvent.ModifierFlags = []
     ) -> Bool {
+        var keepOpen = false
+        let mapper = ConfigManager.shared.config.searchModMapper
+        if modifiers.contains(.command) && mapper["cmd"] == "special:async_app_open" {
+            keepOpen = true
+        } else if modifiers.contains(.option) && mapper["opt"] == "special:async_app_open" {
+            keepOpen = true
+        } else if modifiers.contains(.control) && mapper["ctrl"] == "special:async_app_open" {
+            keepOpen = true
+        } else if modifiers.contains(.shift) && mapper["shift"] == "special:async_app_open" {
+            keepOpen = true
+        }
+
+        if keepOpen {
+            if result.id.starts(with: "nerw.app."), case .file(let url) = result.icon {
+                // Temporarily suspend the resign handler to prevent the panel from closing
+                if let windowController = NerwSystem.shared.ui as? MainPanelWindowController {
+                    windowController.suspendResign = true
+                }
+
+                // Execute directly with activates = true so the app opens its windows
+                dispatchActionExecution(
+                    action: result, query: query, keepOpen: true, showExecutingState: false
+                ) {
+                    let config = NSWorkspace.OpenConfiguration()
+                    config.activates = true
+                    NSWorkspace.shared.openApplication(at: url, configuration: config) {
+                        app, error in
+                        guard let app = app else {
+                            DispatchQueue.main.async {
+                                if let windowController = NerwSystem.shared.ui
+                                    as? MainPanelWindowController
+                                {
+                                    windowController.suspendResign = false
+                                }
+                            }
+                            return
+                        }
+
+                        DispatchQueue.main.async {
+                            if app.isActive {
+                                NSLog(
+                                    "Nerw: App is already active, stealing key window immediately")
+                                self.restoreInputFocusPreservingCaret()
+                                if let windowController = NerwSystem.shared.ui
+                                    as? MainPanelWindowController
+                                {
+                                    windowController.suspendResign = false
+                                }
+                            } else {
+                                NSLog(
+                                    "Nerw: Waiting for app to activate (PID: \(app.processIdentifier))..."
+                                )
+                                class ObserverRef { var value: NSObjectProtocol? }
+                                let ref = ObserverRef()
+
+                                ref.value = NSWorkspace.shared.notificationCenter.addObserver(
+                                    forName: NSWorkspace.didActivateApplicationNotification,
+                                    object: nil,
+                                    queue: .main
+                                ) { [weak self] notification in
+                                    guard let userInfo = notification.userInfo,
+                                        let activatedApp = userInfo[
+                                            NSWorkspace.applicationUserInfoKey]
+                                            as? NSRunningApplication
+                                    else { return }
+
+                                    if activatedApp.processIdentifier == app.processIdentifier {
+                                        NSLog(
+                                            "Nerw: App activated (PID: \(app.processIdentifier)), stealing key window in 0.5s"
+                                        )
+                                        if let obs = ref.value {
+                                            NSWorkspace.shared.notificationCenter.removeObserver(
+                                                obs)
+                                            ref.value = nil
+                                        }
+
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            // Restore key window WITHOUT activating Nerw.
+                                            // This allows the launched app to remain the active app (e.g. its menu bar is visible)
+                                            // while Nerw's panel receives keyboard input.
+                                            self?.restoreInputFocusPreservingCaret()
+
+                                            if let windowController = NerwSystem.shared.ui
+                                                as? MainPanelWindowController
+                                            {
+                                                windowController.suspendResign = false
+                                            }
+                                        }
+                                    }
+                                }
+
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                                    if let obs = ref.value {
+                                        NSLog(
+                                            "Nerw: Observer timeout, stealing key window as failsafe"
+                                        )
+                                        NSWorkspace.shared.notificationCenter.removeObserver(obs)
+                                        ref.value = nil
+
+                                        self.restoreInputFocusPreservingCaret()
+                                        if let windowController = NerwSystem.shared.ui
+                                            as? MainPanelWindowController
+                                        {
+                                            windowController.suspendResign = false
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return true
+            } else {
+                keepOpen = false
+            }
+        }
+
         // Check for modifiers first
-        if !result.modifiers.isEmpty {
+        if !result.modifiers.isEmpty && !keepOpen {
             let key: NerwAction.ModifierKey?
             if modifiers.contains(.command) {
                 key = .command
@@ -1237,7 +1367,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         switch result.type {
         case .instant(let perform):
-            dispatchActionExecution(action: result, query: query) {
+            dispatchActionExecution(action: result, query: query, keepOpen: keepOpen) {
                 perform(result)
             }
             return true
@@ -1251,7 +1381,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
             return true
 
         case .hybrid(let perform, _):
-            dispatchActionExecution(action: result, query: query) {
+            dispatchActionExecution(action: result, query: query, keepOpen: keepOpen) {
                 perform(result)
             }
             return true
@@ -1648,8 +1778,8 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                 case "k":
                     toggleActionContext()
                     return true
-                // Command+Enter: route to Enter handler (Return key = \r)
-                case "\r":
+                // Command+Enter: route to Enter handler (Return key = \r, \n, or \u{03})
+                case "\r", "\n", "\u{03}":
                     return handleEnter()
                 default: break
                 }
@@ -1744,6 +1874,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
                     let mapper = ConfigManager.shared.config.searchModMapper
                     let candidates = SearchService.shared.getCandidates()
                     for (mod, id) in mapper {
+                        if id == "special:async_app_open" { continue }
                         if let action = FallbackSearchService.shared.getFallbackAction(
                             for: id, query: query, allCandidates: candidates)
                         {
@@ -2072,7 +2203,6 @@ class ThemedTextField: NSTextField {
     private func updatePlaceholder() {
         guard let text = _rawPlaceholder else {
             self.placeholderAttributedString = nil
-            super.placeholderString = nil
             return
         }
 
@@ -2095,8 +2225,6 @@ class ThemedTextField: NSTextField {
         style.alignment = self.alignment
         attr.addAttribute(.paragraphStyle, value: style, range: range)
 
-        // Sync both for consistency
-        super.placeholderString = text
         self.placeholderAttributedString = attr
         self.needsDisplay = true
     }
