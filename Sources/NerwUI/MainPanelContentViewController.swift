@@ -398,7 +398,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Monitor modifier flags to update UI (alternate titles/subtitles) and swap fallback results
         NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            guard let self = self else { return event }
+            guard let self = self, self.view.window?.isKeyWindow == true else { return event }
 
             if case .search = self.inputState {
                 let currentFlags = event.modifierFlags
@@ -452,7 +452,7 @@ class MainPanelContentViewController: NSViewController, NSTextFieldDelegate, NST
 
         // Monitor key down events when fallback modifier is held to allow navigation (Mod+N/P or Mod+J/K) and execution (Mod+Enter)
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
+            guard let self = self, self.view.window?.isKeyWindow == true else { return event }
 
             if case .search = self.inputState, self.preModifierActions != nil {
                 let currentFlags = event.modifierFlags
