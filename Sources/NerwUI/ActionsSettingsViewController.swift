@@ -114,12 +114,20 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             let nerwAIActions = allNerwActions.filter { $0.id == "nerw.builtin.ai" }
             let otherNerwActions = allNerwActions.filter { $0.id != "nerw.builtin.ai" }
 
+            let powerActionIDs: Set<String> = [
+                "nerw.system.sleep", "nerw.system.restart", "nerw.system.shutdown",
+                "nerw.system.logout", "nerw.system.lock",
+            ]
+            let powerSystemActions = systemActions.filter { powerActionIDs.contains($0.id) }
+            let systemPowerRows = self.makeRows(from: powerSystemActions)
+
             let miscRawActions =
                 otherNerwActions
                 + systemActions.filter {
                     $0.id != "nerw.system.eject" && $0.id != "nerw.system.ejectall"
                         && $0.id != "nerw.system.emptydownloads"
                         && $0.id != "nerw.system.define" && $0.id != "nerw.system.wiki"
+                        && !powerActionIDs.contains($0.id)
                 }
             let miscActions = self.makeRows(from: miscRawActions)
             let aiActions = self.makeRows(from: nerwAIActions)
@@ -130,6 +138,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
             DispatchQueue.main.async {
                 guard generation == self.reloadGeneration else { return }
                 self.addLazySection(title: "Applications", actions: apps, isExpanded: false)
+                self.addLazySection(title: "System", actions: systemPowerRows)
                 self.addLazySection(title: "Features", actions: featureActions)
                 self.addLazySection(title: "NerwAI", actions: aiActions)
                 self.addLazySection(title: "Finder", actions: finderActions)

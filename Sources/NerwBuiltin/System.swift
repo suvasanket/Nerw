@@ -86,6 +86,64 @@ public class System {
                 )
             ),
 
+            // Sleep
+            NerwAction(
+                id: "nerw.system.sleep",
+                title: "Sleep",
+                subtitle: "Put the computer to sleep",
+                icon: .system("sleep.circle.fill"),
+                triggers: ["sleep"],
+                type: .instant(perform: { _ in self.runShellCommand(command: "pmset sleepnow") })
+            ),
+
+            // Restart
+            NerwAction(
+                id: "nerw.system.restart",
+                title: "Restart",
+                subtitle: "Restart the computer",
+                icon: .system("restart.circle.fill"),
+                triggers: ["restart", "reboot"],
+                type: .instant(perform: { _ in
+                    self.runAppleScript("tell app \"loginwindow\" to «event aevtrrst»")
+                })
+            ),
+
+            // Shut Down
+            NerwAction(
+                id: "nerw.system.shutdown",
+                title: "Shut Down",
+                subtitle: "Shut down the computer",
+                icon: .system("power.circle.fill"),
+                triggers: ["shutdown", "poweroff"],
+                type: .instant(perform: { _ in
+                    self.runAppleScript("tell app \"loginwindow\" to «event aevtrsdn»")
+                })
+            ),
+
+            // Log Out
+            NerwAction(
+                id: "nerw.system.logout",
+                title: "Log Out",
+                subtitle: "Log out the current user",
+                icon: .system("person.crop.circle.badge.minus"),
+                triggers: ["logout", "log off"],
+                type: .instant(perform: { _ in
+                    self.runAppleScript("tell app \"loginwindow\" to «event aevtrlgo»")
+                })
+            ),
+
+            // Lock Screen
+            NerwAction(
+                id: "nerw.system.lock",
+                title: "Lock Screen",
+                subtitle: "Lock the computer screen",
+                icon: .system("lock.circle.fill"),
+                triggers: ["lock", "lockscreen"],
+                type: .instant(perform: { _ in
+                    self.runShellCommand(command: "pmset displaysleepnow")
+                })
+            ),
+
             // Clear Downloads
             NerwAction(
                 id: "nerw.system.emptydownloads",
