@@ -111,7 +111,7 @@ public class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
 class SettingsTabViewController: NSTabViewController {
 
-    static let windowSize = NSSize(width: 680, height: 480)
+    static let windowSize = NSSize(width: 800, height: 600)
 
     override func viewDidLoad() {
         super.viewDidLoad()
