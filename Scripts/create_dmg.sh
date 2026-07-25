@@ -40,8 +40,17 @@ ln -s /Applications "$DMG_DIR/Applications"
 
 echo "Preparing background image..."
 mkdir -p "$DMG_DIR/.background"
-# Resize the background image to 540x380 dynamically to fit a smaller window
-sips -z 380 540 "$BACKGROUND_IMAGE" --out "$DMG_DIR/.background/dmg_background.png" > /dev/null
+
+# Get original dimensions of the background image
+BG_W=$(sips -g pixelWidth "$BACKGROUND_IMAGE" | tail -1 | awk '{print $NF}')
+BG_H=$(sips -g pixelHeight "$BACKGROUND_IMAGE" | tail -1 | awk '{print $NF}')
+
+# Calculate target dimensions (width 900, maintain aspect ratio) to safely bypass Finder's minimum width limit
+TARGET_W=900
+TARGET_H=$(( BG_H * TARGET_W / BG_W ))
+
+# Resize the background image dynamically based on the aspect ratio
+sips -z $TARGET_H $TARGET_W "$BACKGROUND_IMAGE" --out "$DMG_DIR/.background/dmg_background.png" > /dev/null
 
 echo "Creating raw temporary disk image..."
 hdiutil create -srcfolder "$DMG_DIR" -volname "$VOLUME_NAME" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW -size 150m "$TMP_DMG"
@@ -66,21 +75,28 @@ tell application "Finder"
         set containerWindow to container window
         set toolbar visible of containerWindow to false
         set statusbar visible of containerWindow to false
+        try
+            set sidebar width of containerWindow to 0
+        end try
+
+        -- Set bounds dynamically based on target dimensions
+        set the bounds of containerWindow to {100, 100, $(( 100 + TARGET_W )), $(( 100 + TARGET_H ))}
         
-        -- Set bounds to exactly 540x380 (100, 100 to 640, 480)
-        set the bounds of containerWindow to {100, 100, 640, 480}
-        
+        -- macOS bug workaround: delay and re-apply bounds to ensure Finder respects them
+        delay 2
+        set the bounds of containerWindow to {100, 100, $(( 100 + TARGET_W )), $(( 100 + TARGET_H ))}
+
         set theViewOptions to icon view options of containerWindow
         set arrangement of theViewOptions to not arranged
         set icon size of theViewOptions to 72
-        
+
         -- Set background picture
         set background picture of theViewOptions to file ".background:dmg_background.png"
-        
-        -- Position items (scale of 540x380: left icon = 140, right icon = 400, vertical center = 190)
-        set position of item "$APP_BUNDLE" of containerWindow to {140, 190}
-        set position of item "Applications" of containerWindow to {400, 190}
-        
+
+        -- Position items dynamically based on target dimensions (26% and 74% horizontally, 50% vertically)
+        set position of item "$APP_BUNDLE" of containerWindow to {$(( TARGET_W * 26 / 100 )), $(( TARGET_H * 50 / 100 ))}
+        set position of item "Applications" of containerWindow to {$(( TARGET_W * 74 / 100 )), $(( TARGET_H * 50 / 100 ))}
+
         -- Force update Finder visual state
         update every item
         close
