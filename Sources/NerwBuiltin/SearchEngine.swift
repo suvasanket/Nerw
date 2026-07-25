@@ -191,4 +191,122 @@ public class SearchEngine {
 
         return nil
     }
+
+    public func addEngineWithFavicon(
+        name: String, url: String, triggers: [String], iconKey: String? = nil
+    ) {
+        addEngine(name: name, url: url, triggers: triggers, icon: iconKey)
+
+        guard iconKey == nil else { return }  // If icon is already provided, skip fetch
+
+        // Fetch favicon asynchronously
+        if let domain = URL(
+            string: url.replacingOccurrences(of: "%s", with: "").replacingOccurrences(
+                of: "%@", with: ""))?.host,
+            let urlObj = URL(string: "https://\(domain)")
+        {
+            Task {
+                if let image = await IconManager.shared.fetchFavicon(for: urlObj) {
+                    let newKey =
+                        "custom_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
+                    IconManager.shared.saveCustomIcon(image: image, key: newKey)
+
+                    DispatchQueue.main.async {
+                        self.updateEngine(
+                            originalName: name, name: name, url: url, triggers: triggers,
+                            icon: newKey)
+                        NotificationCenter.default.post(
+                            name: Notification.Name("NerwConfigDidUpdate"), object: nil)
+                    }
+                }
+            }
+        }
+    }
+
+    public static func builtinActions() -> [NerwAction] {
+        let addAction = NerwAction(
+            id: "builtin.searchengine.add",
+            title: "Add Search Engine",
+            subtitle: "Create a new custom search engine",
+            icon: .system("magnifyingglass.circle.fill"),
+            category: .webSearch,
+            triggers: ["add search engine", "search engine"],
+            type: .form(
+                fields: {
+                    let info = BrowserURLFetcher.shared.getBrowserInfo()
+                    var templateURL = info?.url ?? ""
+                    var suggestedName = info?.title ?? ""
+
+                    if let url = URL(string: templateURL),
+                        url.absoluteString.lowercased().contains("search")
+                    {
+                        if var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                            let queryItems = components.queryItems
+                        {
+                            var newQueryItems = [URLQueryItem]()
+                            for item in queryItems {
+                                if ["q", "query", "search", "p", "text", "term"].contains(
+                                    item.name.lowercased())
+                                {
+                                    newQueryItems.append(URLQueryItem(name: item.name, value: "%@"))
+                                } else {
+                                    newQueryItems.append(item)
+                                }
+                            }
+                            components.queryItems = newQueryItems
+                            if let newURLString = components.string {
+                                templateURL = newURLString.replacingOccurrences(
+                                    of: "%25@", with: "%@")
+                            }
+                        }
+                    }
+
+                    // clean up name
+                    if suggestedName.lowercased().contains("search") {
+                        suggestedName =
+                            suggestedName.components(separatedBy: " - ").last ?? suggestedName
+                        suggestedName = suggestedName.replacingOccurrences(of: " Search", with: "")
+                            .trimmingCharacters(in: .whitespaces)
+                    }
+
+                    return [
+                        .init(
+                            id: "name", title: "Name", placeholder: "e.g. Wikipedia",
+                            defaultValue: suggestedName, isFocused: true),
+                        .init(
+                            id: "triggers", title: "Bang Triggers",
+                            subtext:
+                                "Space separated abbreviations to use as bangs (e.g. g google)",
+                            placeholder: "e.g. w wiki",
+                            defaultValue: "", isFocused: false),
+                        .init(
+                            id: "url", title: "URL Template",
+                            subtext: "Use %@ as the marker for the search query.",
+                            placeholder: "https://.../?q=%@",
+                            defaultValue: templateURL, isFocused: false),
+                    ]
+                },
+                submitLabel: "Add Engine",
+                perform: { _, values in
+                    let name = values["name"]?.trimmingCharacters(in: .whitespaces) ?? ""
+                    let triggersStr =
+                        values["triggers"]?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
+                    let url = values["url"]?.trimmingCharacters(in: .whitespaces) ?? ""
+
+                    let triggers = triggersStr.components(separatedBy: .whitespaces).filter {
+                        !$0.isEmpty
+                    }
+
+                    if !name.isEmpty && !triggers.isEmpty && !url.isEmpty {
+                        SearchEngine.shared.addEngineWithFavicon(
+                            name: name, url: url, triggers: triggers)
+                        Nerw.notify("Search Engine Added: \(name)")
+                    } else {
+                        Nerw.notify("Please fill all fields", level: .warn)
+                    }
+                }
+            )
+        )
+        return [addAction]
+    }
 }

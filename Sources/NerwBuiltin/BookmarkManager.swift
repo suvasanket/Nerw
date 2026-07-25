@@ -68,100 +68,33 @@ public class BookmarkManager {
         // Fetch favicon asynchronously
         if let urlObj = URL(string: url) {
             Task {
-                if let iconURL = await fetchFaviconURL(for: urlObj) {
-                    let success = await downloadAndSaveFavicon(
-                        iconURL: iconURL, destPath: faviconPath)
-                    if success {
-                        // Update bookmark
-                        DispatchQueue.main.async {
-                            if let index = self.bookmarks.firstIndex(where: { $0.id == id }) {
-                                self.bookmarks[index] = Bookmark(
-                                    id: id, url: url, title: title,
-                                    faviconPath: faviconPath.path,
-                                    createdAt: bookmark.createdAt)
-                                self.saveBookmarks()
-                                NotificationCenter.default.post(
-                                    name: Notification.Name("NerwConfigDidUpdate"),
-                                    object: nil)
+                if let image = await IconManager.shared.fetchFavicon(for: urlObj) {
+                    if let tiff = image.tiffRepresentation,
+                        let bitmap = NSBitmapImageRep(data: tiff),
+                        let pngData = bitmap.representation(using: .png, properties: [:])
+                    {
+                        do {
+                            try pngData.write(to: faviconPath)
+                            // Update bookmark
+                            DispatchQueue.main.async {
+                                if let index = self.bookmarks.firstIndex(where: { $0.id == id }) {
+                                    self.bookmarks[index] = Bookmark(
+                                        id: id, url: url, title: title,
+                                        faviconPath: faviconPath.path,
+                                        createdAt: bookmark.createdAt)
+                                    self.saveBookmarks()
+                                    NotificationCenter.default.post(
+                                        name: Notification.Name("NerwConfigDidUpdate"),
+                                        object: nil)
+                                }
                             }
+                        } catch {
+                            print("[BookmarkManager] Failed to save favicon image: \(error)")
                         }
                     }
                 }
             }
         }
-    }
-
-    private func fetchFaviconURL(for url: URL) async -> URL? {
-        var fallbackURL: URL?
-        if let scheme = url.scheme, let host = url.host {
-            fallbackURL = URL(string: "\(scheme)://\(host)/favicon.ico")
-        }
-
-        do {
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 5.0
-
-            let (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200
-            else {
-                return fallbackURL
-            }
-
-            var data = Data()
-            let maxBytes = 65536  // 64KB
-
-            for try await byte in asyncBytes {
-                data.append(byte)
-                if data.count >= maxBytes {
-                    break
-                }
-            }
-
-            if let html = String(data: data, encoding: .utf8)
-                ?? String(data: data, encoding: .ascii)
-            {
-                let pattern =
-                    "<link[^>]*rel=[\"']?(?:shortcut icon|icon|apple-touch-icon)[\"']?[^>]*href=[\"']?([^\"'>\\s]+)[\"']?"
-                if let regex = try? NSRegularExpression(
-                    pattern: pattern, options: [.caseInsensitive]),
-                    let match = regex.firstMatch(
-                        in: html, options: [], range: NSRange(location: 0, length: html.utf16.count)
-                    )
-                {
-
-                    if let hrefRange = Range(match.range(at: 1), in: html) {
-                        let href = String(html[hrefRange])
-                        if let iconURL = URL(string: href, relativeTo: url) {
-                            return iconURL
-                        }
-                    }
-                }
-            }
-        } catch {
-            print("[BookmarkManager] Error fetching HTML for favicon: \(error)")
-        }
-
-        return fallbackURL
-    }
-
-    private func downloadAndSaveFavicon(iconURL: URL, destPath: URL) async -> Bool {
-        do {
-            var request = URLRequest(url: iconURL)
-            request.timeoutInterval = 5.0
-            let (data, _) = try await URLSession.shared.data(for: request)
-
-            if let image = NSImage(data: data),
-                let tiff = image.tiffRepresentation,
-                let bitmap = NSBitmapImageRep(data: tiff),
-                let pngData = bitmap.representation(using: .png, properties: [:])
-            {
-                try pngData.write(to: destPath)
-                return true
-            }
-        } catch {
-            print("[BookmarkManager] Failed to download favicon image: \(error)")
-        }
-        return false
     }
 
     public func deleteBookmark(id: UUID) {

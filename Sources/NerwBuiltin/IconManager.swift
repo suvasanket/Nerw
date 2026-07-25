@@ -133,6 +133,84 @@ public class IconManager {
         return safeKey
     }
 
+    public func fetchFavicon(for url: URL) async -> NSImage? {
+        var fallbackURL: URL?
+        if let scheme = url.scheme, let host = url.host {
+            fallbackURL = URL(string: "\(scheme)://\(host)/favicon.ico")
+        }
+
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 5.0
+
+            let (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                var data = Data()
+                let maxBytes = 65536  // 64KB
+
+                for try await byte in asyncBytes {
+                    data.append(byte)
+                    if data.count >= maxBytes {
+                        break
+                    }
+                }
+
+                if let html = String(data: data, encoding: .utf8)
+                    ?? String(data: data, encoding: .ascii)
+                {
+                    let pattern =
+                        "<link[^>]*rel=[\"']?(?:shortcut icon|icon|apple-touch-icon)[\"']?[^>]*href=[\"']?([^\"'>\\s]+)[\"']?"
+                    if let regex = try? NSRegularExpression(
+                        pattern: pattern, options: [.caseInsensitive]),
+                        let match = regex.firstMatch(
+                            in: html, options: [],
+                            range: NSRange(location: 0, length: html.utf16.count)
+                        )
+                    {
+                        if let hrefRange = Range(match.range(at: 1), in: html) {
+                            let href = String(html[hrefRange])
+                            if let iconURL = URL(string: href, relativeTo: url) {
+                                if let image = await downloadImage(from: iconURL) {
+                                    return image
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("[IconManager] Error fetching HTML for favicon: \(error)")
+        }
+
+        // Try fallback
+        if let fallback = fallbackURL, let image = await downloadImage(from: fallback) {
+            return image
+        }
+
+        // Try DuckDuckGo
+        if let domain = url.host,
+            let duckURL = URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico")
+        {
+            if let image = await downloadImage(from: duckURL) {
+                return image
+            }
+        }
+
+        return nil
+    }
+
+    private func downloadImage(from url: URL) async -> NSImage? {
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 5.0
+            let (data, _) = try await URLSession.shared.data(for: request)
+            return NSImage(data: data)
+        } catch {
+            print("[IconManager] Failed to download image from \(url): \(error)")
+            return nil
+        }
+    }
+
     public func clearMemoryCache() {
         memoryCache.removeAllObjects()
     }

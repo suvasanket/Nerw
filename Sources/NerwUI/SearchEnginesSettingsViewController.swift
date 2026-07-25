@@ -581,8 +581,8 @@ class SearchEnginesSettingsViewController: NSViewController {
                     originalName: original.name, name: name, url: url, triggers: triggers,
                     icon: iconKey)
             } else {
-                SearchEngine.shared.addEngine(
-                    name: name, url: url, triggers: triggers, icon: iconKey)
+                SearchEngine.shared.addEngineWithFavicon(
+                    name: name, url: url, triggers: triggers, iconKey: iconKey)
             }
             self.reloadData()
         }
