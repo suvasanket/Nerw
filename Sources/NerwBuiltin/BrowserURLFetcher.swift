@@ -6,114 +6,80 @@ public class BrowserURLFetcher {
 
     private init() {}
 
-    public enum SupportedBrowser: String, CaseIterable {
-        case safari = "Safari"
-        case orion = "Orion"
-        case chrome = "Google Chrome"
-        case chromium = "Chromium"
-        case edge = "Microsoft Edge"
-        case brave = "Brave Browser"
-        case helium = "Helium"
-        case arc = "Arc"
-        case opera = "Opera"
-        case firefox = "Firefox"
+    private func isBrowser(app: NSRunningApplication) -> Bool {
+        guard let bundleURL = app.bundleURL,
+            let bundle = Bundle(url: bundleURL),
+            let urlTypes = bundle.object(forInfoDictionaryKey: "CFBundleURLTypes")
+                as? [[String: Any]]
+        else {
+            return false
+        }
 
-        public var appleScriptForURLAndTitle: String {
-            switch self {
-            case .safari, .orion, .arc:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
-                        set tabURL to URL of current tab of front window
-                        set tabTitle to name of current tab of front window
-                        return tabURL & "|||" & tabTitle
-                    end if
-                    end tell
-                    """
-            case .chrome, .chromium, .edge, .brave, .helium, .opera:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
+        for type in urlTypes {
+            if let schemes = type["CFBundleURLSchemes"] as? [String] {
+                if schemes.contains("http") || schemes.contains("https") {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private func appleScriptForURL(appName: String) -> String {
+        return """
+            tell application "\(appName)"
+                if it is running then
+                    try
+                        return URL of active tab of front window
+                    end try
+                    try
+                        return URL of front document
+                    end try
+                end if
+            end tell
+            """
+    }
+
+    private func appleScriptForURLAndTitle(appName: String) -> String {
+        return """
+            tell application "\(appName)"
+                if it is running then
+                    try
                         set tabURL to URL of active tab of front window
                         set tabTitle to title of active tab of front window
                         return tabURL & "|||" & tabTitle
-                    end if
-                    end tell
-                    """
-            case .firefox:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
-                        set tabURL to URL of active tab of front window
-                        set tabTitle to name of active tab of front window
+                    end try
+                    try
+                        set tabURL to URL of front document
+                        set tabTitle to name of front document
                         return tabURL & "|||" & tabTitle
-                    end if
-                    end tell
-                    """
-            }
-        }
-
-        public var appleScriptForURL: String {
-            switch self {
-            case .safari, .orion, .arc:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
-                        get URL of current tab of front window
-                    end if
-                    end tell
-                    """
-            case .chrome, .chromium, .edge, .brave, .helium, .opera:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
-                        get URL of active tab of front window
-                    end if
-                    end tell
-                    """
-            case .firefox:
-                return """
-                    tell application "\(self.rawValue)"
-                    if it is running then
-                        get URL of active tab of front window
-                    end if
-                    end tell
-                    """
-            }
-        }
+                    end try
+                end if
+            end tell
+            """
     }
 
     public func getFrontBrowserURL() -> String? {
         guard let frontApp = System.shared.lastActiveApp ?? NSWorkspace.shared.frontmostApplication,
+            isBrowser(app: frontApp),
             let appName = frontApp.localizedName
         else {
             return nil
         }
 
-        guard let browser = SupportedBrowser(rawValue: appName) else {
-            return nil
-        }
-
-        return getURL(for: browser)
-    }
-
-    public func getURL(for browser: SupportedBrowser) -> String? {
-        return executeAppleScript(browser.appleScriptForURL)
+        return executeAppleScript(appleScriptForURL(appName: appName))
     }
 
     // Get URL + Title together
     public func getBrowserInfo() -> (url: String?, title: String?)? {
         guard let frontApp = System.shared.lastActiveApp ?? NSWorkspace.shared.frontmostApplication,
+            isBrowser(app: frontApp),
             let appName = frontApp.localizedName
         else {
             return nil
         }
 
-        guard let browser = SupportedBrowser(rawValue: appName) else {
-            return nil
-        }
-
-        if let result = executeAppleScript(browser.appleScriptForURLAndTitle) {
+        if let result = executeAppleScript(appleScriptForURLAndTitle(appName: appName)) {
             let parts = result.components(separatedBy: "|||")
             return (url: parts.first, title: parts.last)
         }
