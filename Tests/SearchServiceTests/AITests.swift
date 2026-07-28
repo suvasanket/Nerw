@@ -10,6 +10,9 @@ func runAITests() {
     testIntentClassifierActiveAppMenubar()
     testIntentClassifierConversationContinuation()
     testAIInstructionManagerConversationContinuation()
+    testIntentClassifierTypoResilience()
+    testIntentClassifierGrammaticalVariations()
+    testIntentClassifierSemanticSynonyms()
 }
 
 func testAIStreamParserActionExtraction() {
@@ -139,4 +142,73 @@ func testAIInstructionManagerConversationContinuation() {
             "FAIL: Expected app action schema in buildSystemPrompt when continuing conversation")
     }
     print("  ✓ testAIInstructionManagerConversationContinuation passed.")
+}
+
+func testIntentClassifierTypoResilience() {
+    let result1 = IntentClassifier.shared.classify("set a remiindr for tomorrow")
+    guard result1.actionIntents.contains(.reminder) else {
+        fatalError("FAIL: Expected .reminder action intent for typo 'remiindr'")
+    }
+    guard result1.contextIntents.contains(.reminder(TimeFrame: .week)) else {
+        fatalError("FAIL: Expected .reminder(week) context intent for typo 'remiindr'")
+    }
+
+    let result2 = IntentClassifier.shared.classify("show my clander meetings")
+    guard result2.contextIntents.contains(.calendar(TimeFrame: .today)) else {
+        fatalError("FAIL: Expected .calendar(today) context intent for typo 'clander'")
+    }
+
+    let result3 = IntentClassifier.shared.classify("newtba in safari")
+    guard result3.actionIntents.contains(.app) else {
+        fatalError("FAIL: Expected .app action intent for typo 'newtba'")
+    }
+    guard result3.contextIntents.contains(.activeAppAndScreen) else {
+        fatalError("FAIL: Expected .activeAppAndScreen context intent for typo 'newtba'")
+    }
+
+    let result4 = IntentClassifier.shared.classify("timr for 10 minutes")
+    guard result4.actionIntents.contains(.timer) else {
+        fatalError("FAIL: Expected .timer action intent for typo 'timr'")
+    }
+
+    print("  ✓ testIntentClassifierTypoResilience passed.")
+}
+
+func testIntentClassifierGrammaticalVariations() {
+    let result1 = IntentClassifier.shared.classify("scheduling an appointment tomorrow")
+    guard result1.actionIntents.contains(.calendar) else {
+        fatalError("FAIL: Expected .calendar action intent for lemma 'scheduling' -> 'schedule'")
+    }
+    guard result1.contextIntents.contains(.calendar(TimeFrame: .week)) else {
+        fatalError("FAIL: Expected .calendar context intent for grammatical variation")
+    }
+
+    let result2 = IntentClassifier.shared.classify("creating a note for my project")
+    guard result2.actionIntents.contains(.note) else {
+        fatalError("FAIL: Expected .note action intent for lemma 'creating' -> 'create'")
+    }
+    guard
+        result2.contextIntents.contains(where: {
+            if case .notes = $0 { return true }
+            return false
+        })
+    else {
+        fatalError("FAIL: Expected .notes context intent for grammatical variation")
+    }
+
+    print("  ✓ testIntentClassifierGrammaticalVariations passed.")
+}
+
+func testIntentClassifierSemanticSynonyms() {
+    let result1 = IntentClassifier.shared.classify("set an alarm for 5 minutes")
+    guard result1.actionIntents.contains(.timer) else {
+        fatalError("FAIL: Expected .timer action intent for semantic synonym 'alarm'")
+    }
+
+    let result2 = IntentClassifier.shared.classify("schedule a briefing tomorrow")
+    guard result2.actionIntents.contains(.calendar) else {
+        fatalError("FAIL: Expected .calendar action intent for semantic synonym 'briefing'")
+    }
+
+    print("  ✓ testIntentClassifierSemanticSynonyms passed.")
 }

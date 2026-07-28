@@ -1,7 +1,7 @@
 import Foundation
 
 extension String {
-    func levenshteinDistanceScore(
+    public func levenshteinDistanceScore(
         to string: String, ignoreCase: Bool = true, trimWhiteSpacesAndNewLines: Bool = true
     ) -> Double {
         var firstString = self
