@@ -690,6 +690,7 @@ class ReferencesContainerView: NSView {
 struct ChatTurn {
     let query: String
     var response: String
+    var rawResponse: String?
     var actionType: String?
     var actionPayload: [String: Any]?
     var pciIcons: [(icon: String, name: String)] = []
@@ -1658,6 +1659,7 @@ public class ConversationViewController: NSViewController {
                     self.stopGeneratingAnimation()
                     if self.activeTurnIndex == self.turns.count - 1 {
                         self.turns[self.activeTurnIndex].response = text
+                        self.turns[self.activeTurnIndex].rawResponse = parser.rawText
                         self.setResponseText(text)
                         self.updateCard()
                     }
@@ -1705,7 +1707,8 @@ public class ConversationViewController: NSViewController {
                 // dropLast() because the last item is the newly appended "Generating..." turn
                 for turn in self.turns.dropLast() {
                     messages.append(AIChatMessage(role: .user, content: turn.query))
-                    let responseText = turn.response.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let responseText = (turn.rawResponse ?? turn.response).trimmingCharacters(
+                        in: .whitespacesAndNewlines)
                     if !responseText.isEmpty && !responseText.hasPrefix("Generating") {
                         messages.append(AIChatMessage(role: .assistant, content: responseText))
                     }

@@ -12,10 +12,12 @@ public class AIStreamParser {
     private var isAction = false
     private var actionPayloadBuffer = ""
     private var currentText = ""
+    public private(set) var rawText = ""
 
     public init() {}
 
     public func append(text: String) {
+        rawText += text
         buffer += text
         processBuffer()
     }
@@ -104,7 +106,47 @@ public class AIStreamParser {
                     break
                 }
             } else {
-                if let nextTagRange = buffer.range(of: "<") {
+                let lessRange = buffer.range(of: "<")
+                let actionRange = buffer.range(of: "![action:")
+
+                if let actRange = actionRange,
+                    lessRange == nil || actRange.lowerBound < lessRange!.lowerBound
+                {
+                    if let endRange = buffer.range(
+                        of: "]", range: actRange.upperBound..<buffer.endIndex)
+                    {
+                        let beforeTag = String(
+                            buffer[buffer.startIndex..<actRange.lowerBound])
+                        if !beforeTag.isEmpty {
+                            appendToCurrentText(beforeTag)
+                        }
+                        let tagContent = String(
+                            buffer[actRange.upperBound..<endRange.lowerBound])
+                        let fullTag = String(
+                            buffer[actRange.lowerBound...endRange.lowerBound])
+                        buffer.removeSubrange(buffer.startIndex...endRange.lowerBound)
+
+                        let components = tagContent.split(separator: "|", maxSplits: 1)
+                            .map(String.init)
+                        if let type = components.first {
+                            let detail = components.count > 1 ? components[1] : ""
+                            let payload = Self.reconstructPayload(
+                                type: type, detail: detail)
+                            onActionDetected?(type, payload)
+                        }
+                        appendToCurrentText(fullTag)
+                        continue
+                    } else {
+                        let before = String(
+                            buffer[buffer.startIndex..<actRange.lowerBound])
+                        if !before.isEmpty {
+                            appendToCurrentText(before)
+                            buffer.removeSubrange(
+                                buffer.startIndex..<actRange.lowerBound)
+                        }
+                        break
+                    }
+                } else if let nextTagRange = lessRange {
                     let beforeTag = String(buffer[buffer.startIndex..<nextTagRange.lowerBound])
                     if !beforeTag.isEmpty {
                         appendToCurrentText(beforeTag)
@@ -138,6 +180,33 @@ public class AIStreamParser {
                     buffer = ""
                 }
             }
+        }
+    }
+
+    public static func reconstructPayload(type: String, detail: String) -> [String: Any] {
+        switch type {
+        case "app":
+            if detail.hasPrefix("menubar: ") {
+                let path = String(detail.dropFirst("menubar: ".count))
+                    .trimmingCharacters(in: .whitespaces)
+                return ["type": "app", "action": "menubar", "path": path]
+            } else {
+                return ["type": "app", "action": "menubar", "path": detail]
+            }
+        case "timer":
+            return ["type": "timer", "duration": 60, "label": detail]
+        case "reminder":
+            return ["type": "reminder", "title": detail]
+        case "calendar":
+            return ["type": "calendar", "title": detail, "date": ""]
+        case "note":
+            return ["type": "note", "operation": "append", "filename": "", "content": detail]
+        case "memory":
+            return ["type": "memory", "action": "save", "content": detail]
+        case "email":
+            return ["type": "email", "subject": detail, "body": ""]
+        default:
+            return ["type": type, "detail": detail]
         }
     }
 }

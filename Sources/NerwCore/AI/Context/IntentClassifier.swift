@@ -35,7 +35,7 @@ public class IntentClassifier {
 
     private init() {}
 
-    public func classify(_ query: String) -> (
+    public func classify(_ query: String, history: [AIChatMessage] = []) -> (
         contextIntents: Set<ContextIntent>, actionIntents: Set<ActionIntent>
     ) {
         var contextIntents = Set<ContextIntent>()
@@ -67,7 +67,12 @@ public class IntentClassifier {
         }
 
         // Menubar Action
-        let menubarKeywords = ["menubar", "menu bar", "menu", "click menu"]
+        let menubarKeywords = [
+            "menubar", "menu bar", "menu", "click menu",
+            "new tab", "new window", "close tab", "close window",
+            "split right", "split left", "split down", "split up",
+            "tab", "window",
+        ]
         if menubarKeywords.contains(where: { lower.contains($0) }) {
             actionIntents.insert(.app)
             contextIntents.insert(.activeAppAndScreen)
@@ -162,7 +167,86 @@ public class IntentClassifier {
             contextIntents.insert(.clipboard)
         }
 
+        // --- Conversation Continuation from History ---
+        if !history.isEmpty {
+            let continuationKeywords = [
+                "another", "again", "repeat", "reexecute", "re-execute", "more", "one more",
+                "same", "previous", "do it", "do that", "continue", "next", "also", "too",
+                "once more", "second", "third", "other",
+            ]
+            let isContinuation =
+                actionIntents.isEmpty
+                || continuationKeywords.contains(where: { lower.contains($0) })
+
+            if isContinuation {
+                let priorMessages = history.dropLast(
+                    history.last?.content == query ? 1 : 0)
+                for msg in priorMessages.reversed() {
+                    if msg.role == .assistant {
+                        let inherited = extractActionIntents(fromAssistantMessage: msg.content)
+                        if !inherited.isEmpty {
+                            for action in inherited {
+                                actionIntents.insert(action)
+                                appendContextIntent(
+                                    for: action, into: &contextIntents, query: query)
+                            }
+                            break
+                        }
+                    } else if msg.role == .user {
+                        let priorClassification = classify(msg.content, history: [])
+                        if !priorClassification.actionIntents.isEmpty {
+                            for action in priorClassification.actionIntents {
+                                actionIntents.insert(action)
+                                appendContextIntent(
+                                    for: action, into: &contextIntents, query: query)
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
         return (contextIntents, actionIntents)
+    }
+
+    private func extractActionIntents(fromAssistantMessage content: String) -> Set<ActionIntent> {
+        var actions = Set<ActionIntent>()
+        let mappings: [(keywords: [String], intent: ActionIntent)] = [
+            (["\"type\": \"app\"", "\"type\":\"app\"", "[action:app", "type = app"], .app),
+            (["\"type\": \"timer\"", "\"type\":\"timer\"", "[action:timer"], .timer),
+            (["\"type\": \"reminder\"", "\"type\":\"reminder\"", "[action:reminder"], .reminder),
+            (["\"type\": \"calendar\"", "\"type\":\"calendar\"", "[action:calendar"], .calendar),
+            (["\"type\": \"note\"", "\"type\":\"note\"", "[action:note"], .note),
+            (["\"type\": \"email\"", "\"type\":\"email\"", "[action:email"], .email),
+            (["\"type\": \"memory\"", "\"type\":\"memory\"", "[action:memory"], .memory),
+        ]
+
+        for mapping in mappings {
+            if mapping.keywords.contains(where: { content.contains($0) }) {
+                actions.insert(mapping.intent)
+            }
+        }
+        return actions
+    }
+
+    private func appendContextIntent(
+        for action: ActionIntent,
+        into contextIntents: inout Set<ContextIntent>,
+        query: String
+    ) {
+        switch action {
+        case .app:
+            contextIntents.insert(.activeAppAndScreen)
+        case .calendar:
+            contextIntents.insert(.calendar(TimeFrame: .today))
+        case .reminder:
+            contextIntents.insert(.reminder(TimeFrame: .today))
+        case .note:
+            contextIntents.insert(.notes(query: query))
+        case .timer, .memory, .email:
+            break
+        }
     }
 
     private func extractTimeFrame(from text: String) -> ContextTimeFrame {

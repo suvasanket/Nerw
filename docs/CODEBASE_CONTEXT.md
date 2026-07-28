@@ -314,8 +314,8 @@ A modular backend AI subsystem orchestrating queries to foundation on-device mod
 ### IPC & Socket Connection
 Clients (e.g. frontends) communicate with Nerw's background server by connecting to `~/.nerw/run/ai.sock` and writing/reading JSON envelopes framed by `\n` characters.
 
-### Precise Context Injection (PCI)
-The AI backend automatically detects intents (e.g., active website, clipboard, calendar, reminders) from the user's prompt using `ContextIntentClassifier` and dynamically injects the relevant local data using `ContextInjectionManager` before querying the model.
+### Precise Context Injection (PCI) & Conversation Continuation
+The AI backend automatically detects intents (e.g., active website, clipboard, calendar, reminders, menubar actions) from the user's prompt and conversation history using `IntentClassifier` and dynamically injects the relevant local data using `ContextInjectionManager` before querying the model. When continuing a conversation with follow-up queries (e.g. "create another one", "do it again"), `IntentClassifier` inspects previous turns in history to inherit action schemas and context intents. `ConversationViewController` tracks `rawResponse` in `ChatTurn` so conversation history passed to `AIService` preserves exact `<action>JSON_PAYLOAD</action>` schemas instead of UI markdown badges, while `AIStreamParser` provides fallback execution for markdown action pills (`![action:type|detail]`).
 
 ---
 

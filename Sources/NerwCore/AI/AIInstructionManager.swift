@@ -58,8 +58,11 @@ public class AIInstructionManager {
         }
     }
 
-    public func resolveContext(for userMessage: String) async -> InjectedContext {
-        let classification = IntentClassifier.shared.classify(userMessage)
+    public func resolveContext(
+        for userMessage: String,
+        history: [AIChatMessage] = []
+    ) async -> InjectedContext {
+        let classification = IntentClassifier.shared.classify(userMessage, history: history)
         return await ContextInjectionManager.shared.fetchAllContext(
             for: Array(classification.contextIntents))
     }
