@@ -1,206 +1,129 @@
-# Nerw Features Guide
+# Quick Start
 
-Nerw is a Keyboard-First Spotlight replacement for macOS, designed for speed and extensibility.
+To use Nerw, activate the main panel with your global hotkey (default: `Cmd + Shift + Space`) and start typing. As you type, Nerw dynamically filters and ranks results called **Actions**. An action can be executed directly by pressing `Enter`, or it may accept input—either by typing arguments inline after a trigger word, pressing `Tab` to enter a secondary Quick Action mode, or filling out a structured form. Every action also features a dedicated **Action Context** panel (accessible via `Cmd + K` or the 3-dot row button), which opens a compact inline overlay where you can run secondary operations, configure custom aliases, record global hotkeys, or toggle action visibility.
 
-## 🚀 Core Features
 
-### Global Hotkey
-- **Toggle**: `Cmd + Shift + Space` (Configurable in `config.json`)
-- Activates the Main Panel instantly from anywhere in macOS.
+# 🤖 Nerw AI
 
-### Unified Search
-Nerw intelligently routes your query to the best provider via the `SearchService`:
-1.  **Applications**: Fuzzy search installed apps (e.g., "xcode" -> Xcode).
-2.  **Web Search (Bang Search)**:
-    -   **Explicit Trigger**: Use "bangs" to search specific engines instantly (e.g., `!g swift` for Google, `!yt cat videos` for YouTube).
-    -   **Supported Bangs**:
-        -  `!g` or `!google` : Google
-        -  `!ddg` or `!duckduckgo` : DuckDuckGo
-        - More can added by user.
-    -   **Smart History**: Nerw remembers your preference. If you type `!yt swift`, the next time you type `swift`, Nerw will suggest **YouTube** automatically.
-    -   **Strict Recency**: The suggestion always tracks your *last used* engine for a query, allowing you to switch preferences instantly.
-    -   **Default Fallback**: If no bang is used and no history exists, a **Google Search** fallback is added to the bottom of the results.
-    -   **Smart Categorizer**: Nerw uses Apple's NaturalLanguage framework to classify your query in real-time. If the query looks like a web search (e.g., "how to install docker", "best restaurants near me") or a URL (e.g., "github.com"), the web search result is automatically boosted to the top. If the query matches an app name or trigger, the real match always stays on top (trigger-match guard).
-3.  **Native File Search**:
-    - **Trigger**: `find [query]`, `file [query]`.
-    - **Engine**: Native Spotlight index access via `MDQuery` for near-instant results with zero process spawning.
-    - **Filtering**: Automatically excludes developer artifacts like `node_modules`, `.git`, and `build` folders for cleaner results.
-4.  **Dictionary Lookup**:
-    - **Trigger**: `define [word]` or `def [word]`.
-    - **Engine**: Uses native macOS Dictionary index (`CoreServices.DCSCopyTextDefinition`).
-    - **Action**: Opens the native Dictionary app to the exact word.
-5.  **Wikipedia Search**:
-    - **Trigger**: `wiki [query]`.
-    - **Engine**: Real-time fetching from `en.wikipedia.org/api/rest_v1/page/summary`.
-    - **Action**: Opens the article in your default browser.
-6.  **System Commands**: Quick access to common macOS actions:
-    - `empty downloads` - Move Downloads folder contents to Trash
-    - `eject [volume]` - Eject a specific volume (shows available volumes)
-    - `eject all` - Eject all external volumes
-    - `wifi` - Toggle WiFi or connect to known networks.
-    - `bluetooth` - Toggle Bluetooth or connect to devices.
-7.  **Inline Arguments (Alfred-style)**:
-    - **Behavior**: Some actions allow you to type an argument directly in the main search field after the trigger word (e.g., `map London`).
-    - **Discovery**: When you type a trigger word exactly (like `map`), the corresponding action is pinned to the top of the results.
-    - **Execution**: Pressing Enter executes the pinned action with the currently typed argument.
-    - **Integrated**: Other search results (apps, files, web) continue to appear below the pinned inline action.
-8.  **Peek (Inline Previews)**: Provides rich, dynamic, multi-line expanded previews for selected results without leaving the search bar. Supported actions (like Dictionary definitions and Wikipedia summaries) can show extended titles, long typography-aware text blocks, custom icons, and interactive buttons right inside the list window that seamlessly scales vertically to fit exactly what you need.
-9.  **Calculator**: (Planned/Upcoming) Basic math operations.
-10. **Notification System**:
-    - **Glassmorphic Alerts**: Native pill-shaped frosted-glass notifications stack at the top center of the screen.
-    - **Dynamic Elements**: Supports various tint types (`warn`, `error`, `info`) and optional unbounded progressive spinners.
-    - **3D Stacking**: When multiple notifications overlap elegantly natively mirroring macOS "deck of cards" behaviors.
-    - **Extensions Integration**: Can be triggered seamlessly via custom Extensions using the `Nerw.notify` hook.
-11. **App Menubar Search**:
-    - **Action**: Dedicated `.args` action ("Search Menubar", icon: `menubar.dock.rectangle`) that dynamically fetches and searches menubar items of the active frontmost application on demand.
-    - **Execution**: Searching and pressing Enter on a menu item action triggers it directly in the active app. Each menu item displays the target application's icon.
-    - **Control**: Configurable in Settings > Actions > Features. Requires Accessibility permissions.
+Nerw integrates a powerful, privacy-aware AI assistant that can be invoked on demand or directly from search. Rather than requiring manual copy-pasting, Nerw AI intelligently interacts with your live macOS environment.
 
-### Trigger Rules
-- **Prefix Only**: Action triggers (like `find`, `google`, `add`) must be typed at the **start** of your query (e.g. `find report.pdf`).
-- **No Suffix**: Typing triggers at the end (e.g. `report.pdf find`) is treated as literal text to prevent accidental activation.
+## Dual Backend Support
+Run locally with Apple Intelligence on Apple Silicon, or connect custom Bring-Your-Own-Key (BYOK) providers including OpenAI-compatible APIs, OpenRouter, Claude, and local Ollama.
 
-### 🔌 Extensions System
-Extend Nerw with **Swift** extensions — compiled executables that communicate via JSON stdin/stdout.
-- **Location**: `~/.nerw/extensions/`
-- **Format**: Each extension is a folder with `manifest.json` + `main.swift`.
-- **Compilation**: Extensions are compiled during installation. No app restart required.
-- **Capabilities**: Full access to macOS frameworks (EventKit, Contacts, URLSession, AppleScript, etc.).
-- **See**: [Extension API Documentation](EXTENSION_API.md) for full details.
+## Precise Context Injection (PCI)
+Automatically detects what you are asking about and injects relevant context—including your active browser tab, foreground application, clipboard history, calendar events, reminders, local notes/files, and an instant screen capture.
 
-### 🖥 Nerw CLI
-Nerw includes a powerful command-line interface for advanced users.
-- **Location**: `Nerw.app/Contents/cli_bin/nerw`.
-- **Activation**: Toggle via the **bolt icon** in the macOS menu bar.
-- **Setup**: Enabling the CLI creates a symlink at `~/.nerw/bin/nerw` and automatically adds it to your `$PATH` (supporting `zsh` and `bash`).
-- **Commands**:
-    - `help`: Show usage instructions.
-    - `extension`: Manage Nerw extensions from the terminal.
+## Semantic Long-Term Memory
+Automatically identifies and remembers key user facts, preferences, and personal details across conversations.
 
-### 🧠 Frecency Algorithm
-Nerw learns from you. It uses a **Frecency** (Frequency + Recency) algorithm to rank results.
-- **Bonus**: Items used recently and frequently float to the top.
-- **Decay**: Scores decay over time to keep results fresh.
-- **Storage**: Persistent cache using `CacheManager`.
+## Native System Action Hooks
+- Performs real macOS actions directly from chat, such as scheduling calendar events, performing menubar action of an app, and creating reminders.
+- Can also perform multiple actions in-series.
 
-## 🛠 Advanced Workflows
+## Interactive Markdown UI
+Features a floating, premium card-based conversation window with timeline paging, streaming generation, and keyboard-navigable markdown nodes for copying code blocks or opening links.
 
-### Clipboard History
-Search for `clipboard`, `clip`, or `paste` to open the clipboard history split pane.
-- `Enter`: Paste the selected clipboard entry.
-- `Cmd + Backspace`: Delete the selected clipboard entry.
-- `Cmd + K`: Open the clipboard entry context popup with Paste, Delete, and Pin/Unpin operations.
-- `Cmd + P`: Pin or unpin the selected entry. Pinned entries stay at the top of clipboard history.
 
-### Custom Search Engine Modifiers
-Map keyboard modifier keys to specific search engines for instant "Feeling Lucky" or alternative searches.
-1.  **Default**: `Shift + Enter` is mapped to **Google Lucky Search** (skips the search results page and goes directly to the first result).
-2.  **Customization**:
-    -   Add or remove mappings in **Settings > Search Engines**.
-    -   Map `Shift`, `Command`, `Option`, or `Control` to any of your added search engines or bangs.
-3.  **Use**: Type a query and press the modifier key with `Enter` (e.g., `Shift + Enter`) to use the alternative engine.
+# 🛠 Built-in Actions
 
-### Action Context
-Open a side popup for the currently selected action to inspect and trigger the operations available for that action.
-1.  **Trigger**: Press `Cmd + K` while an action is selected in the main panel.
-2.  **Scope**: The popup is always built from the currently selected action only.
-3.  **Layout**:
-    -   The popup opens as a compact, glassy menu-style operation list without a search field.
-    -   The first operation is selected by default.
-    -   The list uses grouped separators and concise trailing metadata instead of repeating section/subtitle text on every row.
-    -   Alias and hotkey configuration open inline editors inside the same popup.
-4.  **Contents**:
-    -   Default action execution for the selected result.
-    -   Secondary/quick actions for hybrid results.
-    -   Modifier-backed actions, such as alternate search-engine actions.
-    -   Global per-action configuration entries like **Set Alias** and **Set Hotkey**.
-5.  **Navigation**:
-    -   `Enter`: Execute the selected operation.
-    -   `Esc` or `Cmd + K`: Close the popup.
-    -   `Down Arrow` / `Ctrl + N`: Move selection down.
-    -   `Up Arrow` / `Ctrl + P`: Move selection up.
-    -   Typing letters or initials jumps selection to the matching operation, similar to a native macOS context menu.
-6.  **Editing**:
-    -   Aliases are saved as space-separated triggers for the selected action.
-    -   Hotkeys are recorded directly from the popup and registered as action-specific global shortcuts.
-7.  **Close**: Press `Esc` or execute/save an operation to close the popup.
+Nerw comes equipped with a comprehensive suite of native built-in actions, covering system control, file search, knowledge lookup, clipboard management, and automation.
 
-### Hide Actions
-You can hide actions from the main search results if you prefer to trigger them exclusively via hotkeys.
-1.  **Requirement**: An action can only be hidden if it has a custom hotkey assigned to it.
-2.  **Toggle**:
-    - You can hide/unhide an action using the **Hide Action** toggle in the Action Context popup (`Cmd + K`).
-    - Alternatively, you can use the **Eye** icon button in the **Settings > Actions** tab next to the enable toggle.
-3.  **Behavior**: Hidden actions will not appear in search results but can still be executed instantly using their assigned hotkey. If the hotkey is removed, the action will automatically unhide itself to remain accessible.
+## Applications (`app`)
+Fast fuzzy search and instant launching of installed macOS applications across your system.
+- **Hybrid App Actions (via `Tab`)**: Certain applications offer powerful secondary modes when you press `Tab`:
 
-### Snippets & Text Expansion
-Nerw includes a powerful system-wide text expansion utility. Define snippets that automatically expand into larger blocks of text anywhere in macOS.
-1.  **Creation**: Search for `addsnippet` to create a new snippet. You must provide a **Name**, **Trigger**, and **Content**.
-2.  **Dynamic Placeholders**: You can use placeholders in your snippet content:
-    -   `{{clipboard}}`: Inserts the last copied text.
-    -   `{{time}}`: Inserts the current time in the default format (HH:mm).
-    -   `{{yyyy-MM-dd}}` (or any `DateFormatter` syntax): Inserts the current time in a custom format.
-3.  **Expansion**: Type your trigger word (e.g., `;sig`) in any app, and Nerw will automatically erase the trigger and type out the expanded content. (Requires Accessibility permissions).
-4.  **Management**: Search for `snippet` to open the Snippet Manager list view. From here you can search, preview, and manage your snippets.
-    -   `Enter`: Type the snippet directly into the frontmost app.
-    -   `Cmd + K`: Open the context menu to Edit or Delete the snippet.
-5.  **Toggle**: You can temporarily disable text expansion globally in **Settings > General > Enable Snippet Expansion**.
+## Finder related actions
+- **Find File**: Near-instant file and document lookup without indexing lag, automatically excluding developer clutter like `node_modules` and `.git`.
+  - Supports nested file or directory name matching using space-separated search terms.
+- **empty downloads**: Instantly moves all contents of your Downloads folder to the Trash.
+- **eject [volume] / eject all**: Safely unmounts a specific external disk or all connected external drives.
 
-### UI Theming & Typography
-Nerw supports custom theming via `config.json` located at `~/.nerw/config.json`. Core dimensions and typography are centralized in `GlobalLayout.swift`.
-You can customize:
-- `font`: Custom font name (Global tokens in `GlobalLayout.swift` define sizes).
-- `mainBackgroundColor`: Hex color for the panel background.
-- `selectionBackgroundColor`: Hex color for the selected item background.
-- `mainForegroundColor`: Hex color for primary text.
-- `selectionForegroundColor`: Hex color for selected item text.
-- `hintColor`: Hex color for placeholder/hint text.
+## Dictionary, Wikipedia & Menubar Search
+- **Dictionary Lookup (`define` / `def`)**: Look up word definitions instantly with rich **Peek** expandable previews; press `Enter` to open the Dictionary app.
+- **Wikipedia Search (`wiki`)**: Get instant Wikipedia article summaries right inside the search list with **Peek** cards; press `Enter` to open the full article in your browser.
+- **Active App Menubar Search**: Search and trigger any clickable menu command for your currently active frontmost application without reaching for the mouse.
 
-Recent UI updates have increased the default font sizes (e.g., Search input to 24pt, Result titles to 16pt) for a more premium, high-readability experience.
+## Clipboard History (`clipboard`, `clip`, `paste`)
+Automatically tracks your last 200 copied text items and images. Search your history, pin important entries (`Cmd + P`), and paste directly into your active app (`Enter`).
 
-### Multi-Argument Navigation
-For actions requiring multiple inputs (like adding a search engine):
-- **Tab**: Advance to the next argument step.
-- **Shift + Tab / Backspace**: Go back to the previous step.
-- **Enter**: Submit the current step or execute the final action.
+## Snippet Manager & Text Expansion (`snippet`, `addsnippet`)
+System-wide text expansion that replaces short trigger words (e.g., `;sig`) with full templates in any macOS app. Supports dynamic placeholders like `{{clipboard}}`, `{{time}}`, and custom dates (`{{yyyy-MM-dd}}`).
 
-### Multi-Field Input (Forms)
-Some complex actions require structured input. Nerw renders these as native forms directly in the main panel.
-1.  **UI**: Displays multiple fields (e.g., Text, Secure Password, Multiline Text) in a vertical stack. Fields can include helpful subtext beneath their titles.
-2.  **Navigation**:
-    -   `Tab`: Move focus to the next field.
-    -   `Shift+Tab`: Move focus to the previous field.
-    -   `Enter` (on last field): Submit the form.
-    -   `Esc`: Return to main search (Clears previous input).
-3.  **Extensions**: [Extensions](EXTENSION_API.md) can also trigger form inputs.
+## System Commands
+- **shut down (`shutdown` / `poweroff`)**: Safely shut down your computer.
+- **restart (`restart` / `reboot`)**: Safely restart your Mac.
+- **sleep (`sleep`)**: Put your computer to sleep immediately.
+- **lock screen (`lock` / `lockscreen`)**: Lock your display instantly.
+- **log out (`logout` / `log off`)**: Log out of your current user session.
 
-### Quick Actions (Secondary Actions)
-Some results offer a secondary action, indicated by a **lightning bolt icon** when selected.
-1.  **Trigger**: Press `Tab` on a supported result.
-2.  **Behavior**: The search bar transforms to the secondary action mode.
-3.  **Example**:
-    -   Search for **Finder**.
-    -   Press `Tab` -> Enters "Find File" mode.
-    -   Type a filename to search within Finder's scope.
-    -   **System Settings**:
-        -   Search for **System Settings**.
-        -   Press `Tab` -> Lists all individual settings panes (Appearance, Sound, Network, etc.).
-        -   Type to filter (e.g. "Sound") and Enter to open directly.
+## macOS Shortcuts Integration
+Search, run, and pass input into your native macOS Shortcuts instantly.
 
-### ⌨️ Keyboard Navigation
-Designed for mouse-free usage:
-- **Navigation**:
-  - `Ctrl + N` or `Down Arrow`: Next Result
-  - `Ctrl + P` or `Up Arrow`: Previous Result
-- **Actions**:
-  - `Enter`: Open/Execute selected result. (Hold `Cmd` to Reveal in Finder for files).
-  - `Tab`: Enter Argument Mode (if supported) or trigger **Quick Action** (if available).
-  - `Cmd + K`: Open or close **Action Context** for the selected action.
-  - `Esc`: Close Nerw.
+## Math, Units & Currency Conversion
+Evaluate math expressions, convert measurement units, and check real-time currency conversions right in the search bar.
 
-## ⚡ Performance
-- **Native Swift**: Built with AppKit/Core Graphics for maximum performance.
-- **Low Footprint**: Minimal resource usage (`.accessory` activation policy).
-- **Fast Fuzzy Search**: Uses the integrated `NerwSearchBackend` search library (Fuse implementation).
-- **NLP Query Categorizer**: Uses Apple's NaturalLanguage framework with pre-compiled regex and reusable NLTagger for microsecond-speed query classification.
-- **Async Icons**: Icons are loaded asynchronously to prevent UI stalling. Cached at `~/Library/Application Support/Nerw/Icons`.
+
+# 🔍 Search Engines
+
+Nerw provides a dedicated web search and search-engine routing system designed for speed and flexibility.
+
+## Web Search and Bangs
+Instant searches across your favorite web engines using short prefixes (e.g., `!g` for Google, `!yt` for YouTube, `!ddg` for DuckDuckGo).
+
+## Adding Search Engines & Auto URL Detect
+Add custom search engines on the fly by searching for `addsearch` in Nerw. Simply paste or type a website URL, and Nerw's **auto URL detect** automatically formats the query link for you. You can also add, edit, or remove custom engines anytime in **Settings > Search Engines**.
+
+## Fallback Search Engines
+When your search doesn't match an application or local command, Nerw automatically provides your configured fallback search engines at the bottom of the list so you can launch a web search instantly.
+
+## Smart Recency & Suggestions
+When searching without a bang prefix (e.g., `swift`), Nerw remembers your preferred search engine for that term and automatically suggests it at the top of results.
+
+## Natural Language Query Categorizer
+Intelligently recognizes questions (`"how to install docker"`) or URLs (`"github.com"`) and automatically elevates web search results without overriding exact keyword triggers.
+
+## Search Modifier Mapper
+Map keyboard modifier keys (`Shift`, `Command`, `Option`, `Control`) to specific search providers in **Settings > Search Engines**. By default, `Shift + Enter` triggers **Google Lucky Search**, skipping search result pages and jumping directly to the first website.
+
+
+# 🔌 Extensions
+
+Nerw is designed for unlimited extensibility via **native Swift extensions**.
+
+## Native Speed & Access
+Built as native macOS extensions that run with lightning speed and integrate smoothly with macOS apps and services.
+
+## Process & Daemon Modes
+Extensions can run on-demand or as background daemons for continuous monitoring and instant execution.
+
+## No Restarts Required
+Install and test extensions on the fly without ever restarting the app.
+
+## Unified UI Theming
+Extensions automatically adopt Nerw's design themes, rendering native panels, forms, and lists that look and feel right at home.
+
+## CLI Control
+Includes a terminal command (`nerw`) to manage extensions directly from your shell.
+
+
+# ⚙️ Search Backend & Performance
+
+At the core of Nerw is **`NerwSearchBackend`**, an ultra-efficient search engine built specifically for macOS.
+
+## Native Architecture
+Written in native Swift to ensure instant startup, fluid animations, and zero Dock clutter.
+
+## Frecency Ranking Algorithm
+Automatically adapts to your habits by ranking search results based on how frequently and recently you use them.
+
+## Natural Language Query Categorizer
+Under-the-hood language intelligence that instantly identifies questions and URLs to show the most relevant actions first.
+
+## Async Icon & Thumbnail Rendering
+Previews and application icons load asynchronously in the background so your search panel never stutters or lags.
+
+## Fuzzy Matching
+Smart typo-tolerant searching ensures you find the right application, file, or command even if you misspell a word.
+
+## Daemon Resource Monitoring
+Background extensions are monitored continuously to keep CPU and memory usage minimal.

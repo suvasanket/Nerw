@@ -1,27 +1,8 @@
-# Nerw Extension API Documentation
+# Extension Development
 
 Nerw extensions are written in **Swift** and run as compiled executables. By importing `NerwExtensionKit`, you get a clean, type-safe builder API to create search results and handle actions.
 
 You have full access to all macOS frameworks (EventKit, Contacts, URLSession, AppleScript, etc.).
-
----
-
-## Table of Contents
-
-1. [Extension Structure](#extension-structure)
-2. [NerwExtension Protocol](#nerwextension-protocol)
-3. [QueryInput Struct](#queryinput-struct)
-4. [ActionInput Struct](#actioninput-struct)
-5. [NerwResult Struct](#nerwresult-struct)
-6. [NerwIcon Enum](#nerwicon-enum)
-7. [NerwField Struct](#nerwfield-struct)
-8. [NerwPeek Struct](#nerwpeek-struct)
-9. [Nerw API (Host Commands)](#nerw-api-host-commands)
-10. [Extension Settings & Theme](#extension-settings--theme)
-11. [Example Extensions](#example-extensions)
-12. [CLI Tools](#cli-tools)
-
----
 
 ## Extension Structure
 
