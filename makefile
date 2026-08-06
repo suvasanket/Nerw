@@ -71,3 +71,7 @@ dmg-signed: bundle
 dmg: clean-bundle
 	@$(MAKE) bundle CODESIGN_ID=
 	@./Scripts/create_dmg.sh
+
+version:
+	@if [ -z "$(v)" ]; then echo "Error: Please specify version (e.g. make version v=0.1.0-beta.1)"; exit 1; fi
+	@./Scripts/bump_version.sh $(v)
