@@ -68,7 +68,7 @@ public class SearchEngine {
                 urlTemplate: "https://www.google.com/search?q=%@", icon: "se_google"),
             Engine(
                 name: "NerwAI", triggers: ["ai", "chat", "ask", "assistant"],
-                urlTemplate: "nerwai://?q=%@", icon: "sparkles"),
+                urlTemplate: "nerwai://?q=%@", icon: "00.circle.fill.hi"),
             Engine(
                 name: "Google Lucky Search", triggers: ["lucky"],
                 urlTemplate: "https://www.google.com/search?q=%@&btnI=I", icon: "se_google"),

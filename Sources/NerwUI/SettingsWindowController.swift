@@ -182,12 +182,12 @@ class SettingsTabViewController: NSTabViewController {
 
         // 5. AI Tab
         let aiVC = AISettingsViewController()
-        aiVC.title = "AI"
+        aiVC.title = "NerwAI"
         aiVC.preferredContentSize = Self.windowSize
         let aiItem = NSTabViewItem(viewController: aiVC)
-        aiItem.label = "AI"
+        aiItem.label = "NerwAI"
         aiItem.image = NSImage(
-            systemSymbolName: "sparkle",
+            systemSymbolName: "00.circle.fill.hi",
             accessibilityDescription: "AI Settings")
         self.addTabViewItem(aiItem)
 

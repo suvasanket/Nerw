@@ -40,7 +40,7 @@ public class Nerw {
                     id: "nerw.builtin.ai",
                     title: "NerwAI",
                     subtitle: "Open NerwAI chat panel",
-                    icon: .system("sparkles"),
+                    icon: .system("00.circle.fill.hi"),
                     triggers: ["nerwai", "ai", "chat"],
                     type: .instant(perform: { _ in
                         DispatchQueue.main.async {
