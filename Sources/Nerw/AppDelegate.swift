@@ -6,6 +6,7 @@ import NerwCore
 import NerwSearchBackend
 import NerwUI
 import NerwUtils
+import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupController: MainPanelWindowController!
@@ -230,18 +231,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         menu.addItem(
-            NSMenuItem(
-                title: "Toggle Search", action: #selector(togglePopup), keyEquivalent: "Space"))
+            NSMenuItem(title: "Toggle Nerw", action: #selector(togglePopup), keyEquivalent: "")
+        )
         menu.addItem(NSMenuItem.separator())
 
-        let cliTitle = CLIUtils.shared.isInstalled() ? "Disable CLI" : "Enable CLI"
-        menu.addItem(
-            NSMenuItem(title: cliTitle, action: #selector(enableCLI), keyEquivalent: "")
-        )
+        let cliItem = NSMenuItem(title: "Nerw CLI", action: #selector(toggleCLI), keyEquivalent: "")
+        cliItem.state = CLIUtils.shared.isInstalled() ? .on : .off
+        menu.addItem(cliItem)
 
         menu.addItem(
             NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
         )
+
+        let startupItem = NSMenuItem(
+            title: "Launch at Startup", action: #selector(toggleLaunchAtStartup), keyEquivalent: "")
+        if #available(macOS 13.0, *) {
+            startupItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        }
+        menu.addItem(startupItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
             NSMenuItem(title: "Quit Nerw", action: #selector(terminateApp), keyEquivalent: "q"))
@@ -251,7 +259,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = nil
     }
 
-    @objc private func enableCLI() {
+    @objc private func toggleLaunchAtStartup(_ sender: NSMenuItem) {
+        if #available(macOS 13.0, *) {
+            do {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                    sender.state = .off
+                } else {
+                    try SMAppService.mainApp.register()
+                    sender.state = .on
+                }
+            } catch {
+                NerwNotificationManager.shared.show(
+                    content: "Failed to toggle startup: \(error.localizedDescription)",
+                    level: .error)
+            }
+        } else {
+            NerwNotificationManager.shared.show(
+                content: "Launch at startup requires macOS 13.0 or later.", level: .error)
+        }
+    }
+
+    @objc private func toggleCLI(_ sender: NSMenuItem) {
         if CLIUtils.shared.isInstalled() {
             CLIUtils.shared.uninstallCLI { success, error in
                 if success {
