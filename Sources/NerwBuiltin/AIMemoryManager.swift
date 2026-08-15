@@ -1,16 +1,22 @@
 import Foundation
 import NaturalLanguage
+import NerwAction
 import NerwUtils
 
 public struct MemoryEntry: Codable, Identifiable {
     public let id: UUID
+    public let title: String
+    public let category: String
     public let content: String
     public let importance: Int
     public let timestamp: Date
+    public var lastRecalled: Date?
 }
 
 public class AIMemoryManager {
     public static let shared = AIMemoryManager()
+
+    public var showWindowCallback: (() -> Void)?
 
     private let memoryFile: URL
     public private(set) var entries: [MemoryEntry] = []
@@ -22,7 +28,7 @@ public class AIMemoryManager {
         load()
     }
 
-    public func save(content: String, importance: Int) {
+    public func save(title: String, category: String, content: String, importance: Int) {
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Exact match check
@@ -33,9 +39,12 @@ public class AIMemoryManager {
             let newImportance = min(existing.importance + 1, 10)
             entries[index] = MemoryEntry(
                 id: existing.id,
+                title: title,
+                category: category,
                 content: existing.content,
                 importance: max(newImportance, min(max(importance, 1), 10)),
-                timestamp: Date()
+                timestamp: Date(),
+                lastRecalled: existing.lastRecalled
             )
             Logger.shared.info(
                 "AIMemoryManager: Updated existing memory (exact match) '\(existing.content)' to importance \(entries[index].importance)"
@@ -44,44 +53,31 @@ public class AIMemoryManager {
             return
         }
 
-        // Semantic similarity check using NLP
-        if #available(macOS 10.15, *) {
-            if let embedding = NLEmbedding.sentenceEmbedding(for: .english) {
-                for (index, existing) in entries.enumerated() {
-                    let distance = embedding.distance(
-                        between: trimmedContent, and: existing.content)
-                    // NLEmbedding distance < 0.3 generally means highly similar sentences
-                    if distance < 0.3 {
-                        let newImportance = min(existing.importance + 1, 10)
-                        let bestContent =
-                            existing.content.count >= trimmedContent.count
-                            ? existing.content : trimmedContent
-                        entries[index] = MemoryEntry(
-                            id: existing.id,
-                            content: bestContent,
-                            importance: max(newImportance, min(max(importance, 1), 10)),
-                            timestamp: Date()
-                        )
-                        Logger.shared.info(
-                            "AIMemoryManager: Updated existing memory (semantic dist: \(distance)) '\(entries[index].content)' to importance \(entries[index].importance)"
-                        )
-                        saveToDisk()
-                        return
-                    }
-                }
-            }
-        }
+        // TODO: NLP Deduplication removed for now. Plan to implement a better approach in the future.
 
         let entry = MemoryEntry(
             id: UUID(),
+            title: title,
+            category: category,
             content: trimmedContent,
             importance: min(max(importance, 1), 10),  // Clamp 1-10
-            timestamp: Date()
+            timestamp: Date(),
+            lastRecalled: nil
         )
 
         entries.append(entry)
         enforceLimit()
         saveToDisk()
+    }
+
+    public func getAllCategories() -> [String] {
+        let categories = entries.map { $0.category }
+        return Array(Set(categories)).sorted()
+    }
+
+    public func getMemories(byCategory category: String) -> [MemoryEntry] {
+        return entries.filter { $0.category.lowercased() == category.lowercased() }
+            .sorted(by: { $0.timestamp > $1.timestamp })
     }
 
     public func clear() {
@@ -128,5 +124,22 @@ public class AIMemoryManager {
             Logger.shared.error(
                 "AIMemoryManager: Failed to save memory: \(error.localizedDescription)")
         }
+    }
+
+    public static func builtinActions() -> [NerwAction] {
+        return [
+            NerwAction(
+                id: "builtin.memory",
+                title: "Nerw Hub Memory",
+                subtitle: "View and manage AI memories",
+                icon: .system("brain.head.profile"),
+                triggers: ["memory", "hub", "ai memory"],
+                type: .instant(perform: { _ in
+                    DispatchQueue.main.async {
+                        AIMemoryManager.shared.showWindowCallback?()
+                    }
+                })
+            )
+        ]
     }
 }

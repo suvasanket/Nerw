@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var extensionInstallController: ExtensionInstallWindowController?
     private var clipboardController = ClipboardController()
     private var snippetController = SnippetController()
+    private var memoryController = MemoryController()
     private var conversationWindowController: ConversationWindowController!
     private var statusItem: NSStatusItem?
 
@@ -41,6 +42,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         SnippetManager.shared.showWindowCallback = { [weak self] in
             self?.popupController.hide(restoreFocus: false)
             self?.snippetController.show()
+        }
+
+        AIMemoryManager.shared.showWindowCallback = { [weak self] in
+            self?.popupController.hide(restoreFocus: false)
+            self?.memoryController.show()
         }
 
         if ConfigManager.shared.config.snippetExpansionEnabled {

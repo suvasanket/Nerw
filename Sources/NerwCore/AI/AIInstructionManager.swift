@@ -10,7 +10,7 @@ public class AIInstructionManager {
             To show that you are thinking, wrap your thoughts in <think>...</think>.
             To perform an action, output an <action>JSON_PAYLOAD</action>.
             Supported actions:
-            - memory: <action>{ "type": "memory", "action": "save", "content": "prefers dark mode", "importance": 8 }</action>
+            - memory: <action>{ "type": "memory", "action": "save", "title": "Theme Preference", "category": "Preferences", "content": "prefers dark mode", "importance": 8 }</action>
             """
 
         if actionIntents.contains(.timer) {
