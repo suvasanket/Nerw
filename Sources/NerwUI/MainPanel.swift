@@ -54,6 +54,8 @@ class ActionContextPanel: NSPanel {
                 mainPanel.resignHandler?()
             } else if let splitPanel = self.parent as? SplitPanel {
                 splitPanel.resignHandler?()
+            } else if let hubPanel = self.parent as? NerwHubPanel {
+                hubPanel.resignHandler?()
             }
         }
     }

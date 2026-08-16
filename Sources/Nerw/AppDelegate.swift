@@ -14,7 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var extensionInstallController: ExtensionInstallWindowController?
     private var clipboardController = ClipboardController()
     private var snippetController = SnippetController()
-    private var memoryController = MemoryController()
+    private var nerwHubController = NerwHubWindowController()
     private var conversationWindowController: ConversationWindowController!
     private var statusItem: NSStatusItem?
 
@@ -46,7 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         AIMemoryManager.shared.showWindowCallback = { [weak self] in
             self?.popupController.hide(restoreFocus: false)
-            self?.memoryController.show()
+            self?.nerwHubController.show(tab: .memory)
         }
 
         if ConfigManager.shared.config.snippetExpansionEnabled {
