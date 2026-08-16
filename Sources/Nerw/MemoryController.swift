@@ -97,7 +97,8 @@ struct MemoryItemAdapter: SplitPaneItem {
     }
 
     var subtitle: String? {
-        return "[\(entry.category)] Importance: \(entry.importance)/10"
+        return
+            "[\(entry.type.rawValue.capitalized)] [\(entry.category)] Importance: \(entry.importance)/10"
     }
 
     var timestamp: Date? { entry.timestamp }

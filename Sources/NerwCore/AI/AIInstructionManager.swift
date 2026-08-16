@@ -10,7 +10,8 @@ public class AIInstructionManager {
             To show that you are thinking, wrap your thoughts in <think>...</think>.
             To perform an action, output an <action>JSON_PAYLOAD</action>.
             Supported actions:
-            - memory: <action>{ "type": "memory", "action": "save", "title": "Theme Preference", "category": "Preferences", "content": "prefers dark mode", "importance": 8 }</action>
+            - memory: <action>{ "type": "memory", "action": "save", "memoryType": "active|passive", "title": "Theme Preference", "category": "Preferences", "content": "prefers dark mode", "importance": 8 }</action>
+              Use "passive" for personal preferences/facts. Use "active" when the user explicitly asks you to remember an article, picture, or specific information.
             """
 
         if actionIntents.contains(.timer) {

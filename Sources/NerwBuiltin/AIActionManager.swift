@@ -57,10 +57,15 @@ public class AIActionManager {
         let importance = payload["importance"] as? Int ?? 5
         let title = payload["title"] as? String ?? "General Memory"
         let category = payload["category"] as? String ?? "General"
+        let memoryTypeStr = payload["memoryType"] as? String ?? "passive"
+        let memoryType: MemoryType = (memoryTypeStr.lowercased() == "active") ? .active : .passive
 
         AIMemoryManager.shared.save(
-            title: title, category: category, content: content, importance: importance)
-        Logger.shared.info("AIActionManager: Saved memory: \(content) (importance: \(importance))")
+            type: memoryType, title: title, category: category, content: content,
+            importance: importance)
+        Logger.shared.info(
+            "AIActionManager: Saved memory: \(content) (type: \(memoryType), importance: \(importance))"
+        )
         DispatchQueue.main.async {
             Nerw.notify("Memory Saved", level: .info)
         }

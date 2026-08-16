@@ -174,14 +174,14 @@ public class AIMemoryContextFetcher: ContextFetching {
     public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
         guard ConfigManager.shared.config.aiConfig.isMemoryEnabled else { return nil }
 
-        let entries = AIMemoryManager.shared.entries
-        guard !entries.isEmpty else { return nil }
+        let passiveEntries = AIMemoryManager.shared.entries.filter { $0.type == .passive }
+        guard !passiveEntries.isEmpty else { return nil }
 
         var contextStr = "[Persistent Memory]\n"
         contextStr +=
             "The following are important facts or preferences about the user from previous interactions:\n"
 
-        let sortedEntries = entries.sorted(by: { $0.timestamp > $1.timestamp })
+        let sortedEntries = passiveEntries.sorted(by: { $0.timestamp > $1.timestamp })
         for entry in sortedEntries {
             contextStr += "- \(entry.content)\n"
         }
@@ -318,5 +318,72 @@ public class NotesContextFetcher: ContextFetching {
             last = cur
         }
         return last.last ?? 0
+    }
+}
+
+public class ActiveMemoryContextFetcher: ContextFetching {
+    public var intentType: String { return "activeMemory" }
+
+    public init() {}
+
+    public func canHandle(intent: ContextIntent) -> Bool {
+        if case .activeMemory = intent { return true }
+        return false
+    }
+
+    public func fetchContext(for intent: ContextIntent) async -> FetchedContext? {
+        guard ConfigManager.shared.config.aiConfig.isMemoryEnabled else { return nil }
+        guard case .activeMemory(let query) = intent else { return nil }
+
+        let activeEntries = AIMemoryManager.shared.entries.filter { $0.type == .active }
+        guard !activeEntries.isEmpty else { return nil }
+
+        var matchedEntries: [MemoryEntry] = []
+        let queryWords = query.components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+            .filter { !$0.isEmpty }
+
+        for entry in activeEntries {
+            var matched = false
+            let contentLower = entry.content.lowercased()
+            let titleLower = entry.title.lowercased()
+            let categoryLower = entry.category.lowercased()
+
+            if contentLower.contains(query) || titleLower.contains(query)
+                || categoryLower.contains(query)
+            {
+                matched = true
+            } else {
+                for word in queryWords {
+                    if word.count >= 4
+                        && (contentLower.contains(word) || titleLower.contains(word)
+                            || categoryLower.contains(word))
+                    {
+                        matched = true
+                        break
+                    }
+                }
+            }
+
+            if matched {
+                matchedEntries.append(entry)
+            }
+        }
+
+        if matchedEntries.isEmpty {
+            return nil
+        }
+
+        var contextStr = "[Active Memory Search Results]\n"
+        contextStr +=
+            "The user has asked you to remember the following information in the past:\n\n"
+
+        let sortedEntries = matchedEntries.sorted(by: { $0.timestamp > $1.timestamp })
+        for entry in sortedEntries {
+            contextStr += "--- \(entry.title) (Category: \(entry.category)) ---\n"
+            contextStr += "\(entry.content)\n\n"
+        }
+
+        return FetchedContext(text: contextStr.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

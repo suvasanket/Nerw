@@ -3,8 +3,14 @@ import NaturalLanguage
 import NerwAction
 import NerwUtils
 
+public enum MemoryType: String, Codable {
+    case active
+    case passive
+}
+
 public struct MemoryEntry: Codable, Identifiable {
     public let id: UUID
+    public let type: MemoryType
     public let title: String
     public let category: String
     public let content: String
@@ -28,7 +34,9 @@ public class AIMemoryManager {
         load()
     }
 
-    public func save(title: String, category: String, content: String, importance: Int) {
+    public func save(
+        type: MemoryType, title: String, category: String, content: String, importance: Int
+    ) {
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Exact match check
@@ -39,6 +47,7 @@ public class AIMemoryManager {
             let newImportance = min(existing.importance + 1, 10)
             entries[index] = MemoryEntry(
                 id: existing.id,
+                type: type,
                 title: title,
                 category: category,
                 content: existing.content,
@@ -57,6 +66,7 @@ public class AIMemoryManager {
 
         let entry = MemoryEntry(
             id: UUID(),
+            type: type,
             title: title,
             category: category,
             content: trimmedContent,

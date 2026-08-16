@@ -1619,6 +1619,8 @@ public class ConversationViewController: NSViewController {
                 pciIcons.append(("checklist", "Reminders"))
             case .notes:
                 pciIcons.append(("text.page.fill", "Notes"))
+            case .activeMemory:
+                pciIcons.append(("brain.head.profile", "Active Memory"))
             case .system:
                 break
             }

@@ -100,6 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ContextInjectionManager.shared.register(CalendarContextFetcher())
         ContextInjectionManager.shared.register(ReminderContextFetcher())
         ContextInjectionManager.shared.register(AIMemoryContextFetcher())
+        ContextInjectionManager.shared.register(ActiveMemoryContextFetcher())
         ContextInjectionManager.shared.register(NotesContextFetcher())
 
         // Listen for daemon approval requests from installer

@@ -16,6 +16,7 @@ public enum ContextIntent: Hashable {
     case clipboard
     case activeAppAndScreen
     case system
+    case activeMemory(query: String)
 }
 
 public enum ActionIntent: String, Hashable {
@@ -142,6 +143,7 @@ public class IntentClassifier {
             for: .memory, queryLower: lower, tokens: tokens, lemmas: lemmas)
         if memoryEv.isActivated {
             actionIntents.insert(.memory)
+            contextIntents.insert(.activeMemory(query: lower))
         }
 
         let emailEv = evaluateDomain(for: .email, queryLower: lower, tokens: tokens, lemmas: lemmas)
@@ -452,7 +454,9 @@ public class IntentClassifier {
             contextIntents.insert(.reminder(TimeFrame: .today))
         case .note:
             contextIntents.insert(.notes(query: query))
-        case .timer, .memory, .email:
+        case .memory:
+            contextIntents.insert(.activeMemory(query: query))
+        case .timer, .email:
             break
         }
     }
