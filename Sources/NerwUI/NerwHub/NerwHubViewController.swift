@@ -31,13 +31,8 @@ public class NerwHubPanel: NSPanel {
 
     public override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown {
-            // Esc key
             if event.keyCode == 53 {
-                if let vc = contentViewController as? NerwHubViewController, vc.isSidebarExpanded {
-                    vc.dismissSidebar()
-                } else {
-                    self.resignHandler?()
-                }
+                self.resignHandler?()
                 return
             }
 
@@ -64,16 +59,18 @@ class BorderOverlayView: NSView {
     }
 }
 
-class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
-    var onDismiss: (() -> Void)?
-
-    var isSidebarExpanded: Bool {
-        return sidebarViewController.isExpanded
+extension NerwHubViewController: NerwHubTabBarDelegate {
+    func didSelect(tab: NerwHubTab) {
+        selectTab(tab)
     }
+}
+
+class NerwHubViewController: NSViewController {
+    var onDismiss: (() -> Void)?
 
     private let contentContainer = NSView()
 
-    private var sidebarViewController = NerwHubSidebarViewController()
+    private var tabBarView = NerwHubTabBarView()
 
     private var currentTabViewController: NSViewController?
     private var currentTab: NerwHubTab = .memory
@@ -82,8 +79,6 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
     private var memoryTabController: MemoryTab?
 
     private let panelView = NerwPanelView(style: .main)
-    private var sidebarWidthConstraint: NSLayoutConstraint!
-    private var sidebarHeightConstraint: NSLayoutConstraint!
 
     override func loadView() {
         let metricsWidth: CGFloat = 940
@@ -113,19 +108,6 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         panelView.contentView.addSubview(contentContainer)
 
-        sidebarViewController.delegate = self
-        sidebarViewController.onToggle = { [weak self] in
-            self?.toggleSidebar()
-        }
-        addChild(sidebarViewController)
-        sidebarViewController.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(sidebarViewController.view)
-
-        sidebarWidthConstraint = sidebarViewController.view.widthAnchor.constraint(
-            equalToConstant: 44)
-        sidebarHeightConstraint = sidebarViewController.view.heightAnchor.constraint(
-            equalToConstant: 44)
-
         NSLayoutConstraint.activate([
             // Center panelView with exactly 900x600
             panelView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -144,14 +126,16 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
             contentContainer.leadingAnchor.constraint(equalTo: panelView.contentView.leadingAnchor),
             contentContainer.trailingAnchor.constraint(
                 equalTo: panelView.contentView.trailingAnchor),
+        ])
 
-            // Sidebar anchored to panelView's leading/top
-            sidebarViewController.view.leadingAnchor.constraint(
-                equalTo: panelView.leadingAnchor, constant: -22),
-            sidebarViewController.view.topAnchor.constraint(
-                equalTo: panelView.topAnchor, constant: 22),
-            sidebarWidthConstraint,
-            sidebarHeightConstraint,
+        tabBarView.translatesAutoresizingMaskIntoConstraints = false
+        tabBarView.delegate = self
+        view.addSubview(tabBarView)  // Added to the main view, not inside panelView
+
+        NSLayoutConstraint.activate([
+            tabBarView.centerYAnchor.constraint(equalTo: panelView.topAnchor),  // Straddles the top border
+            tabBarView.leadingAnchor.constraint(equalTo: panelView.leadingAnchor, constant: 32),
+            tabBarView.heightAnchor.constraint(equalToConstant: 36),
         ])
     }
 
@@ -197,73 +181,7 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
         ])
 
         currentTabViewController = newController
-        sidebarViewController.select(tab: tab)
-    }
-
-    func toggleSidebar() {
-        if sidebarViewController.isExpanded {
-            dismissSidebar()
-        } else {
-            showSidebar()
-        }
-    }
-
-    private func showSidebar() {
-        sidebarViewController.isExpanded = true
-        sidebarWidthConstraint.constant = 220
-        sidebarHeightConstraint.constant = 600
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            ctx.allowsImplicitAnimation = true
-            self.view.layoutSubtreeIfNeeded()
-        }
-
-        DispatchQueue.main.async { [weak self] in
-            if let window = self?.view.window, let view = self?.sidebarViewController.view {
-                window.makeFirstResponder(view)
-            }
-        }
-    }
-
-    func dismissSidebar(animated: Bool = true) {
-        let cleanup: () -> Void = { [weak self] in
-            if self?.view.window?.isVisible == true {
-                self?.view.window?.makeKeyAndOrderFront(nil)
-                if let currentTab = self?.currentTabViewController {
-                    self?.view.window?.makeFirstResponder(currentTab.view)
-                }
-            }
-        }
-
-        sidebarViewController.isExpanded = false
-        sidebarWidthConstraint.constant = 44
-        sidebarHeightConstraint.constant = 44
-
-        guard animated else {
-            self.view.layoutSubtreeIfNeeded()
-            cleanup()
-            return
-        }
-
-        NSAnimationContext.runAnimationGroup(
-            { ctx in
-                ctx.duration = 0.20
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                ctx.allowsImplicitAnimation = true
-                self.view.layoutSubtreeIfNeeded()
-            }, completionHandler: cleanup)
-    }
-
-    // MARK: - NerwHubSidebarDelegate
-
-    func didSelect(tab: NerwHubTab) {
-        selectTab(tab)
-    }
-
-    func didRequestDismissSidebar() {
-        dismissSidebar()
+        tabBarView.select(tab: tab)
     }
 
     // MARK: - Keyboard Handling
@@ -275,19 +193,16 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate {
             case "1":
                 if NerwHubTab.allCases.count > 0 {
                     selectTab(NerwHubTab.allCases[0])
-                    dismissSidebar()
                 }
                 return
             case "2":
                 if NerwHubTab.allCases.count > 1 {
                     selectTab(NerwHubTab.allCases[1])
-                    dismissSidebar()
                 }
                 return
             case "3":
                 if NerwHubTab.allCases.count > 2 {
                     selectTab(NerwHubTab.allCases[2])
-                    dismissSidebar()
                 }
                 return
             default:

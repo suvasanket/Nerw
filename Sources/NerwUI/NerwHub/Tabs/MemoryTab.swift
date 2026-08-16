@@ -3,11 +3,7 @@ import NerwAction
 import NerwBuiltin
 import NerwCore
 
-class MemoryTab: NSViewController, NSTextFieldDelegate {
-    private let searchField = ThemedTextField()
-    private let searchIconView = NSImageView()
-    private let separator = NSBox()
-
+class MemoryTab: NSViewController {
     private let scrollView = NSScrollView()
     private let stackView = NSStackView()
 
@@ -22,40 +18,9 @@ class MemoryTab: NSViewController, NSTextFieldDelegate {
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        // Focus search field
-        view.window?.makeFirstResponder(searchField)
     }
 
     private func setupUI() {
-        // Search icon
-        searchIconView.image = NSImage(
-            systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
-        if #available(macOS 12.0, *) {
-            searchIconView.symbolConfiguration = NSImage.SymbolConfiguration(
-                hierarchicalColor: .secondaryLabelColor)
-        } else {
-            searchIconView.contentTintColor = .secondaryLabelColor
-        }
-        searchIconView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(searchIconView)
-
-        // Search field
-        searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.placeholderString = "Search AI Memories..."
-        searchField.isBordered = false
-        searchField.drawsBackground = false
-        searchField.focusRingType = .none
-        searchField.font = .systemFont(ofSize: 24, weight: .light)
-        searchField.delegate = self
-        view.addSubview(searchField)
-
-        // Separator
-        separator.boxType = .custom
-        separator.borderType = .noBorder
-        separator.fillColor = NSColor.white.withAlphaComponent(0.1)
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(separator)
-
         // Scroll view for the list
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.drawsBackground = false
@@ -75,31 +40,8 @@ class MemoryTab: NSViewController, NSTextFieldDelegate {
         documentView.addSubview(stackView)
         scrollView.documentView = documentView
 
-        // Layout
-        let topMargin: CGFloat = 20
-        let horizMargin: CGFloat = 24
-
         NSLayoutConstraint.activate([
-            searchIconView.leadingAnchor.constraint(
-                equalTo: view.leadingAnchor, constant: horizMargin),
-            searchIconView.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
-            searchIconView.widthAnchor.constraint(equalToConstant: 22),
-            searchIconView.heightAnchor.constraint(equalToConstant: 22),
-
-            searchField.topAnchor.constraint(equalTo: view.topAnchor, constant: topMargin),
-            searchField.leadingAnchor.constraint(
-                equalTo: searchIconView.trailingAnchor, constant: 12),
-            searchField.trailingAnchor.constraint(
-                equalTo: view.trailingAnchor, constant: -horizMargin),
-            searchField.heightAnchor.constraint(equalToConstant: 32),
-
-            separator.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 16),
-            separator.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizMargin),
-            separator.trailingAnchor.constraint(
-                equalTo: view.trailingAnchor, constant: -horizMargin),
-            separator.heightAnchor.constraint(equalToConstant: 1),
-
-            scrollView.topAnchor.constraint(equalTo: separator.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -140,12 +82,6 @@ class MemoryTab: NSViewController, NSTextFieldDelegate {
                 equalTo: stackView.widthAnchor,
                 constant: -(stackView.edgeInsets.left + stackView.edgeInsets.right)
             ).isActive = true
-        }
-    }
-
-    func controlTextDidChange(_ obj: Notification) {
-        if let textField = obj.object as? NSTextField {
-            filterAndDisplay(query: textField.stringValue)
         }
     }
 }
