@@ -22,8 +22,6 @@ public struct MemoryEntry: Codable, Identifiable {
 public class AIMemoryManager {
     public static let shared = AIMemoryManager()
 
-    public var showWindowCallback: (() -> Void)?
-
     private let memoryFile: URL
     public private(set) var entries: [MemoryEntry] = []
 
@@ -137,19 +135,6 @@ public class AIMemoryManager {
     }
 
     public static func builtinActions() -> [NerwAction] {
-        return [
-            NerwAction(
-                id: "builtin.memory",
-                title: "Nerw Hub Memory",
-                subtitle: "View and manage AI memories",
-                icon: .system("brain.head.profile"),
-                triggers: ["memory", "hub", "ai memory"],
-                type: .instant(perform: { _ in
-                    DispatchQueue.main.async {
-                        AIMemoryManager.shared.showWindowCallback?()
-                    }
-                })
-            )
-        ]
+        return []
     }
 }

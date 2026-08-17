@@ -44,9 +44,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.snippetController.show()
         }
 
-        AIMemoryManager.shared.showWindowCallback = { [weak self] in
+        Nerw.shared.showHubCallback = { [weak self] tabString in
             self?.popupController.hide(restoreFocus: false)
-            self?.nerwHubController.show(tab: .memory)
+            let tab: NerwHubTab
+            switch tabString {
+            case "memory": tab = .memory
+            case "bookmarks": tab = .bookmarks
+            case "conversations": tab = .conversations
+            default: tab = .memory
+            }
+            self?.nerwHubController.show(tab: tab)
         }
 
         if ConfigManager.shared.config.snippetExpansionEnabled {

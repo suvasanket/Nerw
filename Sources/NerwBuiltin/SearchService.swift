@@ -111,7 +111,6 @@ public class SearchService {
             if ConfigManager.shared.config.clipboardEnabled {
                 candidates.append(contentsOf: ClipboardManager.builtinActions())
             }
-            candidates.append(contentsOf: AIMemoryManager.builtinActions())
             if ConfigManager.shared.config.snippetExpansionEnabled {
                 candidates.append(contentsOf: SnippetManager.builtinActions())
             }
