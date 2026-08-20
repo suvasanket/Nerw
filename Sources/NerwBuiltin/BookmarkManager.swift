@@ -17,7 +17,7 @@ public class BookmarkManager {
 
     private let bookmarksFileURL: URL
     private let iconsDirectoryURL: URL
-    private var bookmarks: [Bookmark] = []
+    public private(set) var bookmarks: [Bookmark] = []
 
     private init() {
         let dataDir = NerwPaths.dataDirectory

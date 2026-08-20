@@ -65,7 +65,7 @@ extension NerwHubViewController: NerwHubTabBarDelegate {
     }
 }
 
-class NerwHubViewController: NSViewController {
+class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     var onDismiss: (() -> Void)?
 
     private let contentContainer = NSView()
@@ -77,8 +77,11 @@ class NerwHubViewController: NSViewController {
 
     // Tab controllers cache
     private var memoryTabController: MemoryTab?
+    private var bookmarksTabController: BookmarksTab?
 
     private let panelView = NerwPanelView(style: .main)
+
+    private var commandPaletteController: HubCommandPaletteViewController?
 
     override func loadView() {
         let metricsWidth: CGFloat = 940
@@ -88,6 +91,34 @@ class NerwHubViewController: NSViewController {
         view.layer?.backgroundColor = NSColor.clear.cgColor
 
         setupViews()
+    }
+
+    private var eventMonitor: Any?
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self, self.view.window == event.window else { return event }
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if flags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "k" {
+                self.toggleCommandPalette()
+                return nil
+            }
+            return event
+        }
+    }
+
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+
+        if let palette = commandPaletteController {
+            palette.view.alphaValue = 0
+            palette.view.isHidden = true
+        }
     }
 
     private func setupViews() {
@@ -137,6 +168,81 @@ class NerwHubViewController: NSViewController {
             tabBarView.leadingAnchor.constraint(equalTo: panelView.leadingAnchor, constant: 32),
             tabBarView.heightAnchor.constraint(equalToConstant: 36),
         ])
+
+        // Setup palette controller
+        let palette = HubCommandPaletteViewController()
+        palette.delegate = self
+        self.commandPaletteController = palette
+        addChild(palette)
+        palette.view.translatesAutoresizingMaskIntoConstraints = false
+        palette.view.alphaValue = 0  // hidden initially
+        palette.view.isHidden = true  // Prevent catching clicks while hidden
+        view.addSubview(palette.view)
+
+        NSLayoutConstraint.activate([
+            palette.view.centerXAnchor.constraint(equalTo: panelView.centerXAnchor),
+            palette.view.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
+            palette.view.widthAnchor.constraint(equalToConstant: 400),
+            palette.view.heightAnchor.constraint(equalToConstant: 350),
+        ])
+    }
+
+    @objc private func toggleCommandPalette() {
+        guard let palette = commandPaletteController else { return }
+
+        let isOpening = palette.view.alphaValue == 0
+
+        if isOpening {
+            let actions = [
+                "Open Memory", "Open Bookmarks", "Open Conversations", "Delete", "Edit", "Refresh",
+            ]
+            palette.setActions(actions)
+
+            palette.view.isHidden = false
+            palette.view.alphaValue = 1.0
+
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.15
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                palette.view.alphaValue = 1.0
+            }) {
+                palette.view.window?.makeFirstResponder(palette.searchField)
+            }
+        } else {
+            closeCommandPalette()
+        }
+    }
+
+    private func closeCommandPalette() {
+        guard let palette = commandPaletteController else { return }
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            palette.view.alphaValue = 0
+        }) {
+            palette.view.isHidden = true
+        }
+    }
+
+    public func commandPaletteDidSelect(action: String) {
+        print("Selected action: \(action)")
+        closeCommandPalette()
+
+        switch action {
+        case "Open Memory":
+            selectTab(.memory)
+        case "Open Bookmarks":
+            selectTab(.bookmarks)
+        case "Open Conversations":
+            selectTab(.conversations)
+        default:
+            break
+        }
+    }
+
+    public func commandPaletteDidRequestClose() {
+        closeCommandPalette()
     }
 
     func selectTab(_ tab: NerwHubTab) {
@@ -149,7 +255,12 @@ class NerwHubViewController: NSViewController {
                 memoryTabController = MemoryTab()
             }
             newController = memoryTabController!
-        case .bookmarks, .conversations:
+        case .bookmarks:
+            if bookmarksTabController == nil {
+                bookmarksTabController = BookmarksTab()
+            }
+            newController = bookmarksTabController!
+        case .conversations:
             let placeholder = NSViewController()
             placeholder.view = NSView()
             let label = NSTextField(labelWithString: "\(tab.rawValue) - Coming Soon")

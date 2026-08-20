@@ -3,91 +3,19 @@ import NerwAction
 import NerwBuiltin
 import NerwCore
 
-class MemoryTab: NSViewController {
-    private let scrollView = NSScrollView()
-    private let stackView = NSStackView()
-
+class MemoryTab: BaseHubListTab<MemoryEntry> {
     private var allEntries: [MemoryEntry] = []
 
-    override func loadView() {
-        view = NSView()
-        view.wantsLayer = true
-        setupUI()
-        loadData()
-    }
-
-    override func viewWillAppear() {
-        super.viewWillAppear()
-    }
-
-    private func setupUI() {
-        // Scroll view for the list
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        view.addSubview(scrollView)
-
-        // Stack view for expandable items
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.orientation = .vertical
-        stackView.alignment = .leading
-        stackView.spacing = 8
-        stackView.edgeInsets = NSEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
-
-        let documentView = FlippedView()
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(stackView)
-        scrollView.documentView = documentView
-
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-            documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-
-            stackView.topAnchor.constraint(equalTo: documentView.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
-        ])
-    }
-
-    private func loadData() {
+    override func loadData() {
         allEntries = AIMemoryManager.shared.entries.sorted(by: { $0.timestamp > $1.timestamp })
-        filterAndDisplay(query: "")
+        self.items = allEntries
     }
 
-    private func filterAndDisplay(query: String) {
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        let lowerQuery = query.lowercased()
-        let filtered =
-            query.isEmpty
-            ? allEntries
-            : allEntries.filter {
-                $0.title.lowercased().contains(lowerQuery)
-                    || $0.content.lowercased().contains(lowerQuery)
-                    || $0.category.lowercased().contains(lowerQuery)
-            }
-
-        for entry in filtered {
-            let row = MemoryExpandableRowView(entry: entry)
-            stackView.addArrangedSubview(row)
-            row.widthAnchor.constraint(
-                equalTo: stackView.widthAnchor,
-                constant: -(stackView.edgeInsets.left + stackView.edgeInsets.right)
-            ).isActive = true
-        }
+    override func createRowView(for item: MemoryEntry) -> NSView {
+        return MemoryExpandableRowView(entry: item)
     }
-}
 
-class FlippedView: NSView {
-    override var isFlipped: Bool { true }
+    // Removed setupUI and filterAndDisplay as they are handled by BaseHubListTab
 }
 
 class MemoryExpandableRowView: NSView {
@@ -110,7 +38,7 @@ class MemoryExpandableRowView: NSView {
 
     private func setupViews() {
         wantsLayer = true
-        layer?.cornerRadius = 8
+        layer?.cornerRadius = 12
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
         // Header
