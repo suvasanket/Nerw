@@ -17,6 +17,7 @@ public struct MemoryEntry: Codable, Identifiable {
     public let importance: Int
     public let timestamp: Date
     public var lastRecalled: Date?
+    public var imagePath: String?
 }
 
 public class AIMemoryManager {
@@ -29,13 +30,29 @@ public class AIMemoryManager {
 
     private init() {
         self.memoryFile = NerwPaths.aiMemoryFile
+        NerwPaths.ensureDirectoryExists(at: NerwPaths.configDirectory)
+        NerwPaths.ensureDirectoryExists(at: NerwPaths.aiMemoriesImagesDirectory)
         load()
     }
 
     public func save(
-        type: MemoryType, title: String, category: String, content: String, importance: Int
+        type: MemoryType, title: String, category: String, content: String, importance: Int,
+        imageData: Data? = nil
     ) {
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var savedImagePath: String? = nil
+        let newId = UUID()
+        if let imageData = imageData {
+            let imageURL = NerwPaths.aiMemoriesImagesDirectory.appendingPathComponent(
+                "\(newId.uuidString).jpg")
+            do {
+                try imageData.write(to: imageURL)
+                savedImagePath = imageURL.path
+            } catch {
+                Logger.shared.error("AIMemoryManager: Failed to save memory image: \(error)")
+            }
+        }
 
         // Exact match check
         if let index = entries.firstIndex(where: {
@@ -51,7 +68,8 @@ public class AIMemoryManager {
                 content: existing.content,
                 importance: max(newImportance, min(max(importance, 1), 10)),
                 timestamp: Date(),
-                lastRecalled: existing.lastRecalled
+                lastRecalled: existing.lastRecalled,
+                imagePath: savedImagePath ?? existing.imagePath
             )
             Logger.shared.info(
                 "AIMemoryManager: Updated existing memory (exact match) '\(existing.content)' to importance \(entries[index].importance)"
@@ -63,14 +81,15 @@ public class AIMemoryManager {
         // TODO: NLP Deduplication removed for now. Plan to implement a better approach in the future.
 
         let entry = MemoryEntry(
-            id: UUID(),
+            id: newId,
             type: type,
             title: title,
             category: category,
             content: trimmedContent,
             importance: min(max(importance, 1), 10),  // Clamp 1-10
             timestamp: Date(),
-            lastRecalled: nil
+            lastRecalled: nil,
+            imagePath: savedImagePath
         )
 
         entries.append(entry)
@@ -91,6 +110,25 @@ public class AIMemoryManager {
     public func clear() {
         entries.removeAll()
         saveToDisk()
+    }
+
+    public func updateMemory(id: UUID, newContent: String) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            let existing = entries[index]
+            entries[index] = MemoryEntry(
+                id: existing.id,
+                type: existing.type,
+                title: existing.title,
+                category: existing.category,
+                content: newContent.trimmingCharacters(in: .whitespacesAndNewlines),
+                importance: existing.importance,
+                timestamp: Date(),  // Update timestamp? Let's leave timestamp alone or update it? Yes, we just modified it.
+                lastRecalled: existing.lastRecalled,
+                imagePath: existing.imagePath
+            )
+            Logger.shared.info("AIMemoryManager: Updated memory content for id \(id)")
+            saveToDisk()
+        }
     }
 
     private func enforceLimit() {
@@ -128,6 +166,10 @@ public class AIMemoryManager {
         do {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: memoryFile, options: .atomic)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: Notification.Name("NerwHubDataDidUpdate"), object: nil)
+            }
         } catch {
             Logger.shared.error(
                 "AIMemoryManager: Failed to save memory: \(error.localizedDescription)")

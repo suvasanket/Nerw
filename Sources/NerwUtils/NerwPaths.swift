@@ -48,6 +48,11 @@ public struct NerwPaths {
         dataDirectory.appendingPathComponent("ClipboardImages")
     }
 
+    /// Directory for AI memory images (`~/Library/Application Support/Nerw/Data/MemoryImages`)
+    public static var aiMemoriesImagesDirectory: URL {
+        dataDirectory.appendingPathComponent("MemoryImages")
+    }
+
     // MARK: - Daemon Paths (~/.nerw/run, ~/.nerw/extensions/<id>/data)
 
     /// Directory for daemon Unix domain socket files (`~/.nerw/run`).

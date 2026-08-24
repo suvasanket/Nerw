@@ -60,9 +60,14 @@ public class AIActionManager {
         let memoryTypeStr = payload["memoryType"] as? String ?? "passive"
         let memoryType: MemoryType = (memoryTypeStr.lowercased() == "active") ? .active : .passive
 
+        var imageData: Data? = nil
+        if memoryType == .active {
+            imageData = ScreenCaptureManager.shared.latestCapture
+        }
+
         AIMemoryManager.shared.save(
             type: memoryType, title: title, category: category, content: content,
-            importance: importance)
+            importance: importance, imageData: imageData)
         Logger.shared.info(
             "AIActionManager: Saved memory: \(content) (type: \(memoryType), importance: \(importance))"
         )

@@ -82,6 +82,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     private let panelView = NerwPanelView(style: .main)
 
     private var commandPaletteController: HubCommandPaletteViewController?
+    private var floatingInputController: HubFloatingInputViewController?
 
     override func loadView() {
         let metricsWidth: CGFloat = 940
@@ -118,6 +119,11 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         if let palette = commandPaletteController {
             palette.view.alphaValue = 0
             palette.view.isHidden = true
+        }
+
+        if let floating = floatingInputController {
+            floating.view.alphaValue = 0
+            floating.view.isHidden = true
         }
     }
 
@@ -185,6 +191,20 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             palette.view.widthAnchor.constraint(equalToConstant: 400),
             palette.view.heightAnchor.constraint(equalToConstant: 350),
         ])
+
+        // Setup floating input
+        let floatingInput = HubFloatingInputViewController()
+        self.floatingInputController = floatingInput
+        addChild(floatingInput)
+        floatingInput.view.translatesAutoresizingMaskIntoConstraints = false
+        floatingInput.view.alphaValue = 0
+        floatingInput.view.isHidden = true
+        view.addSubview(floatingInput.view)
+
+        NSLayoutConstraint.activate([
+            floatingInput.view.centerXAnchor.constraint(equalTo: panelView.centerXAnchor),
+            floatingInput.view.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
+        ])
     }
 
     @objc private func toggleCommandPalette() {
@@ -210,6 +230,45 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             }
         } else {
             closeCommandPalette()
+        }
+    }
+
+    public func showFloatingInput(
+        title: String, subtitle: String, initialText: String, onSave: @escaping (String) -> Void
+    ) {
+        guard let floatingInput = floatingInputController else { return }
+
+        floatingInput.configure(title: title, subtitle: subtitle, text: initialText)
+
+        floatingInput.onSave = { [weak self, weak floatingInput] text in
+            onSave(text)
+            self?.closeFloatingInput()
+        }
+
+        floatingInput.onCancel = { [weak self] in
+            self?.closeFloatingInput()
+        }
+
+        floatingInput.view.isHidden = false
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            floatingInput.view.alphaValue = 1.0
+        }) {
+            floatingInput.view.window?.makeFirstResponder(floatingInput.textView)
+        }
+    }
+
+    private func closeFloatingInput() {
+        guard let floatingInput = floatingInputController else { return }
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            floatingInput.view.alphaValue = 0
+        }) {
+            floatingInput.view.isHidden = true
         }
     }
 

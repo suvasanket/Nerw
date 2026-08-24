@@ -47,6 +47,10 @@ public class BookmarkManager {
         do {
             let data = try JSONEncoder().encode(bookmarks)
             try data.write(to: bookmarksFileURL, options: .atomic)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: Notification.Name("NerwHubDataDidUpdate"), object: nil)
+            }
         } catch {
             print("[BookmarkManager] Failed to save bookmarks: \(error)")
         }

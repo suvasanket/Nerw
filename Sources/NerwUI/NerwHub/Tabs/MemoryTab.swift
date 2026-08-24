@@ -20,7 +20,7 @@ class MemoryTab: BaseHubListTab<MemoryEntry> {
 
 class MemoryExpandableRowView: NSView {
     private let entry: MemoryEntry
-    private var isExpanded = false
+    private var isExpanded = true
 
     private let headerView = NSView()
     private let detailStack = NSStackView()
@@ -41,9 +41,29 @@ class MemoryExpandableRowView: NSView {
         layer?.cornerRadius = 12
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
-        // Header
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .short
+        dateFormatter.timeStyle = .short
+        let dateString = dateFormatter.string(from: entry.timestamp)
+
+        let mainHStack = NSStackView()
+        mainHStack.translatesAutoresizingMaskIntoConstraints = false
+        mainHStack.orientation = .horizontal
+        mainHStack.alignment = .centerY
+        mainHStack.spacing = 16
+        addSubview(mainHStack)
+
+        let leftVStack = NSStackView()
+        leftVStack.translatesAutoresizingMaskIntoConstraints = false
+        leftVStack.orientation = .vertical
+        leftVStack.alignment = .leading
+        leftVStack.spacing = 0
+        leftVStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        mainHStack.addArrangedSubview(leftVStack)
+
+        // Header View
         headerView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(headerView)
+        leftVStack.addArrangedSubview(headerView)
 
         let titleLabel = NSTextField(labelWithString: entry.title)
         titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
@@ -51,28 +71,18 @@ class MemoryExpandableRowView: NSView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         headerView.addSubview(titleLabel)
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .short
-        dateFormatter.timeStyle = .short
-
-        let dateLabel = NSTextField(labelWithString: dateFormatter.string(from: entry.timestamp))
-        dateLabel.font = .systemFont(ofSize: 12)
-        dateLabel.textColor = .tertiaryLabelColor
-        dateLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(dateLabel)
-
         // Detail Stack
         detailStack.translatesAutoresizingMaskIntoConstraints = false
         detailStack.orientation = .vertical
         detailStack.alignment = .leading
         detailStack.spacing = 8
-        detailStack.alphaValue = 0
-        detailStack.isHidden = true
-        addSubview(detailStack)
+        detailStack.alphaValue = 1.0
+        detailStack.isHidden = false
+        leftVStack.addArrangedSubview(detailStack)
 
         let metaLabel = NSTextField(
             labelWithString:
-                "[\(entry.type.rawValue.capitalized)] [\(entry.category)] Importance: \(entry.importance)/10"
+                "[\(entry.type.rawValue.capitalized)] [\(entry.category)] Importance: \(entry.importance)/10 - \(dateString)"
         )
         metaLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         metaLabel.textColor = .secondaryLabelColor
@@ -84,34 +94,65 @@ class MemoryExpandableRowView: NSView {
         contentLabel.cell?.isScrollable = false
         contentLabel.cell?.wraps = true
         contentLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailStack.addArrangedSubview(contentLabel)
 
+        // Ensure leftVStack and detailStack stretch
+        leftVStack.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
+        contentLabel.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
+
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        mainHStack.addArrangedSubview(spacer)
+
+        if let imagePath = entry.imagePath, let image = NSImage(contentsOfFile: imagePath) {
+            let imageView = NSImageView(image: image)
+            imageView.translatesAutoresizingMaskIntoConstraints = false
+            imageView.imageScaling = .scaleProportionallyUpOrDown
+
+            imageView.widthAnchor.constraint(equalToConstant: 96).isActive = true
+            imageView.heightAnchor.constraint(equalToConstant: 60).isActive = true
+
+            let imageBox = NSView()
+            imageBox.translatesAutoresizingMaskIntoConstraints = false
+            imageBox.wantsLayer = true
+            imageBox.layer?.cornerRadius = 6
+            imageBox.layer?.masksToBounds = true
+            imageBox.layer?.borderWidth = 1
+            imageBox.layer?.borderColor = NSColor.white.withAlphaComponent(0.1).cgColor
+
+            imageBox.addSubview(imageView)
+            NSLayoutConstraint.activate([
+                imageView.topAnchor.constraint(equalTo: imageBox.topAnchor),
+                imageView.bottomAnchor.constraint(equalTo: imageBox.bottomAnchor),
+                imageView.leadingAnchor.constraint(equalTo: imageBox.leadingAnchor),
+                imageView.trailingAnchor.constraint(equalTo: imageBox.trailingAnchor),
+            ])
+
+            mainHStack.addArrangedSubview(imageBox)
+        }
+
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 44),
+            mainHStack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            mainHStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            mainHStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            mainHStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+
+            headerView.heightAnchor.constraint(equalToConstant: 32),
+            headerView.widthAnchor.constraint(equalTo: leftVStack.widthAnchor),
 
             titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(
-                lessThanOrEqualTo: dateLabel.leadingAnchor, constant: -8),
-
-            dateLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            dateLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
-
-            detailStack.topAnchor.constraint(equalTo: headerView.bottomAnchor),
-            detailStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            detailStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            detailStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
         ])
 
-        // Setup initial collapsed state
+        // Setup initial expanded state
         heightConstraint = heightAnchor.constraint(equalToConstant: 44)
-        heightConstraint.isActive = true
+        heightConstraint.isActive = false  // Make it expanded by default
 
-        // Allow content label to wrap properly
-        contentLabel.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
+        // Initial expanded state property
+        isExpanded = true
 
         // Setup tracking for hover and click
         let trackingArea = NSTrackingArea(
@@ -158,6 +199,33 @@ class MemoryExpandableRowView: NSView {
                     self.detailStack.isHidden = true
                     self.heightConstraint.isActive = true
                 })
+        }
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        let editItem = NSMenuItem(title: "Edit", action: #selector(editMemory), keyEquivalent: "")
+        editItem.target = self
+        menu.addItem(editItem)
+        return menu
+    }
+
+    @objc private func editMemory() {
+        var responder: NSResponder? = self
+        var hubVC: NerwHubViewController?
+        while responder != nil {
+            if let vc = responder as? NerwHubViewController {
+                hubVC = vc
+                break
+            }
+            responder = responder?.nextResponder
+        }
+
+        hubVC?.showFloatingInput(
+            title: "Edit Memory", subtitle: entry.title, initialText: entry.content
+        ) { [weak self] newText in
+            guard let self = self else { return }
+            AIMemoryManager.shared.updateMemory(id: self.entry.id, newContent: newText)
         }
     }
 }

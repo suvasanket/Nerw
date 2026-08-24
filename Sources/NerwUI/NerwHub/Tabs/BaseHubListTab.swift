@@ -57,6 +57,12 @@ open class BaseHubListTab<Item>: NSViewController {
     open override func viewDidLoad() {
         super.viewDidLoad()
         loadData()
+
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("NerwHubDataDidUpdate"), object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.loadData()
+        }
     }
 
     open func loadData() {
