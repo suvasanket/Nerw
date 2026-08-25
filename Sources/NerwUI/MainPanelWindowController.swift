@@ -17,6 +17,22 @@ public class MainPanelWindowController: NSObject {
     }
 
     public var suspendResign: Bool = false
+    private var suspendResignWorkItem: DispatchWorkItem?
+
+    public func beginSuspendResign(duration: TimeInterval = 1.5) {
+        suspendResign = true
+        suspendResignWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.suspendResign = false
+        }
+        suspendResignWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+    }
+
+    public func cancelSuspendResign() {
+        suspendResignWorkItem?.cancel()
+        suspendResign = false
+    }
 
     private func setupPanel() {
         // Create content view controller
@@ -40,7 +56,11 @@ public class MainPanelWindowController: NSObject {
 
         // Click outside to dismiss
         panel.resignHandler = { [weak self] in
-            guard let self = self, !self.suspendResign else { return }
+            guard let self = self else { return }
+            if self.suspendResign {
+                self.contentViewController.restoreInputFocusPreservingCaret()
+                return
+            }
             self.hide()
         }
 
@@ -95,6 +115,7 @@ public class MainPanelWindowController: NSObject {
 
         guard isVisible else { return }
 
+        cancelSuspendResign()
         contentViewController.reset(restoreFocus: false)
         panel.orderOut(nil)
 
