@@ -63,7 +63,10 @@ The source code is organized into modular targets within `Sources/`:
     - `QuickAction.swift`: Real-time process management (Quit/Force Quit).
     - `ShortcutsManager.swift` & `ShortcutsEngine.swift`: Integration with macOS Shortcuts system. Features on-demand `stat()` file modification checking for zero-overhead background reindexing and `.hybrid` action generation (`Enter` for instant execution, `Tab` for piped stdin argument input).
     - `IconManager.swift`: Built-in component for icon lifecycle and resource management.
-    - `MathConversionService.swift`: Handles `.mathConversion` category queries. Evaluates simple math expressions using `JavaScriptCore`, converts Foundation units via `MeasurementFormatter`, and fetches real-time currency conversions from Frankfurter API.
+    - `MathConversionService.swift`: Main coordinator for `.mathConversion` queries. Orchestrates unit conversions (`UnitConversionEngine`), real-time cached currency conversions (`CurrencyConversionEngine`), and mathematical expression evaluation (`MathEngine`).
+    - `UnitConversionEngine.swift`: High-precision unit conversion engine supporting 13 physical and digital dimensions (Length, Mass, Temperature, Volume, Area, Data Storage, Speed, Duration, Energy, Power, Pressure, Angle, Fuel Efficiency) with compound units and aliases.
+    - `CurrencyConversionEngine.swift`: Currency converter integrating Frankfurter API (ECB), local persistence via `CacheManager` with 12h freshness TTL, and symbol/name mapping.
+    - `MathEngine.swift`: Mathematical expression evaluator using sandboxed `JavaScriptCore`, advanced functions (`sqrt`, `sin`, `cos`, `log`, etc.), degree modes, percentages (`50% of 200`, `100 + 20%`), word operators, factorials (`5!`), and base conversions (`hex`, `bin`, `oct`, `dec`).
     - `Nerw.swift`: Global singleton for cross-module command execution. Exposes built-in actions (e.g. `quit`) and internal APIs such as:
         - `Nerw.notify(_ content: String, level: NerwNotificationLevel = .info, progressive: Bool = false, id: UUID? = nil)`
         - `Nerw.dismissNotify(id: UUID)`
@@ -93,12 +96,14 @@ The source code is organized into modular targets within `Sources/`:
     - `DaemonNotifications.swift`: **[NEW]** `Notification.Name.nerwDaemonApprovalRequired` constant.
     - `NerwUIInterface.swift`: Defines the interface and contract between core logic and the UI layer.
 
+### `NerwSearchBackend` (Search & Classification Engine)
 - **Role**: Pure search algorithms, ranking, and query classification.
 - **Key Components**:
     - `Classes/Frecency/Frecency.swift`: \"Frequency + Recency\" scoring. Supports both Global and Query-Aware ranking.
     - `Fuse.swift`: Fuzzy search library integration.
     - `QueryCategory.swift`: Enum defining action categories (`webSearch`, `url`, `mathConversion`) for smart ranking.
-    - `QueryCategorizer.swift`: NLP and regex-based query classifier. 
+    - `QueryCategorizer.swift`: NLP and regex-based query classifier.
+    - `MathConversionDetector.swift`: Fast intention detector for math expressions, unit conversions, currency conversions, and number bases.
     - **Search Algorithms**:
         - `Levenstain/`: String similarity algorithms.
         - `FuzzyFind/`: Advanced fuzzy matching logic including scoring and result segmenting.

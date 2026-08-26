@@ -26,6 +26,7 @@ func runTests() {
     runBookmarkTests()
     runDaemonTests()
     runAITests()
+    runMathConversionTests()
 
     print("[Testing] All SearchService tests PASSED.")
 

@@ -275,7 +275,9 @@ public class SearchService {
                     categoryResult: catResult.category)
 
                 Task {
-                    if catResult.category == .mathConversion {
+                    if catResult.category == .mathConversion
+                        || MathConversionDetector.shared.detect(query: query) != nil
+                    {
                         if let mathAction = await MathConversionService.shared.evaluate(
                             query: query)
                         {

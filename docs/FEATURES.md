@@ -65,8 +65,12 @@ Nerw comes equipped with a comprehensive suite of native built-in actions, cover
 ## macOS Shortcuts Integration
 - Search, run, and pass input into your native macOS Shortcuts instantly.
 
-## Math, Units & Currency Conversion
-- Evaluate math expressions, convert measurement units, and check real-time currency conversions right in the search bar.
+## ⭐️ Quick Math, Comprehensive Unit Conversion & Currency Exchange
+- **Quick Math**: Evaluate arithmetic expressions (`2 + 2`, `100 * (15 + 5)`), mathematical functions (`sqrt`, `cbrt`, `sin`, `cos`, `tan`, `log`, `abs`, `round`, `ceil`, `floor`), degree/radian trigonometry (`sin(90 deg)`), factorials (`5!`), percentages (`50% of 200`, `20% off 80`, `100 + 20%`), and word operators (`10 plus 20`, `half of 80`).
+- **Number Base Conversions**: Instant conversion between Hexadecimal, Binary, Octal, and Decimal (`0xFF in dec`, `255 in hex`, `0b1010 in dec`, `10 in bin`, `0o77 in dec`).
+- **13 Physical & Digital Unit Dimensions**: Full support for Length, Mass/Weight, Temperature, Volume/Liquid, Area, Data Storage/Digital Information, Speed, Time/Duration, Energy, Power, Pressure, Angle, and Fuel Efficiency. Supports both singular and plural names, standard symbols, abbreviations, compact expressions (`100km to miles`, `50kg in lbs`, `32f to c`), fractions (`1/2 cup to ml`), and compound units (`5 ft 10 in to cm`, `1 hr 30 min to sec`).
+- **Real-time & Cached Currency Exchange**: Convert between currencies using ISO codes (`100 USD to EUR`), currency symbols (`$100 to eur`, `€50 in usd`, `₹500 to usd`, `100$ in €`), or currency names (`100 dollars to euros`, `50 pounds in dollars`). Features instant local caching via `CacheManager` with 12h freshness and European Central Bank exchange rates.
+- **Intelligent Intent Recognition**: Automatically normalizes natural language queries (`what is 100 km in miles?`, `how many miles in 100 km`, `convert $50 to inr`, `calculate 12 * 45`) directly to conversion and calculation actions without falling through to generic web searches.
 
 
 # 🔍 Search Engines
