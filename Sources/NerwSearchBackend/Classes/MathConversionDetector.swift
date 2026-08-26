@@ -266,7 +266,7 @@ public final class MathConversionDetector {
             #"^(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{1,2}:\d{2})\s*([\+\-])\s*(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m)?$"#
         )
         dateCountdownPattern = rx(
-            #"^(?:days\s+(?:until|to|left\s+in)|how\s+many\s+days\s+(?:until|to|left\s+in)|weeks\s+until)\s+(.+)$"#
+            #"^(?:(?:how\s+many\s+)?(?:days|weeks|months)\s+(?:until|to|left\s+in|since|from|in)|how\s+many\s+days\s+are\s+in)\s+(.+)$"#
         )
         timeBetweenDatesPattern = rx(#"^(?:time|days|duration)\s+between\s+(.+?)\s+and\s+(.+)$"#)
         iso8601Pattern = rx(
@@ -472,13 +472,20 @@ public final class MathConversionDetector {
             return .timeBetweenDates(firstDate: d1, secondDate: d2)
         }
 
-        // Relative Natural Language: "monday in 3 weeks", "next friday", "first day of next month"
+        // Relative Natural Language: "monday in 3 weeks", "next friday", "first day of next month", "next sunday", "3 weeks from now", "in 5 days", "5 days ago"
         if lower.contains("monday in") || lower.contains("tuesday in")
             || lower.contains("wednesday in") || lower.contains("thursday in")
             || lower.contains("friday in") || lower.contains("saturday in")
             || lower.contains("sunday in") || lower.hasPrefix("next ") || lower.hasPrefix("last ")
             || lower.contains("day of next month") || lower.contains("end of month")
-            || lower.contains("day of this month")
+            || lower.contains("day of this month") || lower.contains("end of year")
+            || lower.contains("from now") || lower.contains("from today")
+            || (lower.hasPrefix("in ")
+                && (lower.contains("day") || lower.contains("week") || lower.contains("month")
+                    || lower.contains("year")))
+            || (lower.hasSuffix(" ago")
+                && (lower.contains("day") || lower.contains("week") || lower.contains("month")
+                    || lower.contains("year")))
         {
             return .dateCountdown(query: query)
         }

@@ -70,6 +70,16 @@ func testMathConversionDetector() {
     assert(detector.detect(query: "monday in 3 weeks") != nil, "monday in 3 weeks")
     assert(detector.detect(query: "next friday") != nil, "next friday")
     assert(detector.detect(query: "days until 31 Mar") != nil, "days until 31 Mar")
+    assert(detector.detect(query: "days until next sunday") != nil, "days until next sunday")
+    assert(detector.detect(query: "days until november") != nil, "days until november")
+    assert(detector.detect(query: "days to sunday") != nil, "days to sunday")
+    assert(detector.detect(query: "days to nov") != nil, "days to nov")
+    assert(detector.detect(query: "days in november") != nil, "days in november")
+    assert(
+        detector.detect(query: "how many days in february 2024") != nil,
+        "how many days in february 2024")
+    assert(detector.detect(query: "days since 1 Jan 2026") != nil, "days since 1 Jan 2026")
+    assert(detector.detect(query: "weeks until christmas") != nil, "weeks until christmas")
     assert(detector.detect(query: "days left in quarter") != nil, "days left in quarter")
     assert(
         detector.detect(query: "time between 1 Jan and 15 Mar") != nil,
@@ -274,6 +284,44 @@ func testDateTimeEngine() {
     let qCountdown = dateEngine.calculateCountdown(query: "days left in quarter")
     assert(qCountdown != nil, "days left in quarter should calculate")
 
+    // Date Countdowns: "days until next sunday", "days until november", "days until halloween"
+    let sundayCountdown = dateEngine.calculateCountdown(query: "days until next sunday")
+    guard let sundayCountdown = sundayCountdown else {
+        fatalError("FAIL: days until next sunday failed")
+    }
+    assert(
+        sundayCountdown.formattedValue.contains("days")
+            && !sundayCountdown.formattedValue.contains("-"),
+        "days until next sunday: \(sundayCountdown.formattedValue)")
+
+    let novCountdown = dateEngine.calculateCountdown(query: "days until november")
+    guard let novCountdown = novCountdown else { fatalError("FAIL: days until november failed") }
+    assert(
+        novCountdown.formattedValue.contains("days") && !novCountdown.formattedValue.contains("-"),
+        "days until november: \(novCountdown.formattedValue)")
+
+    let daysInNov = dateEngine.calculateCountdown(query: "days in november")
+    guard let daysInNov = daysInNov else { fatalError("FAIL: days in november failed") }
+    assert(daysInNov.formattedValue == "30 days", "days in november: \(daysInNov.formattedValue)")
+
+    let daysInFeb2024 = dateEngine.calculateCountdown(query: "how many days in february 2024")
+    guard let daysInFeb2024 = daysInFeb2024 else {
+        fatalError("FAIL: how many days in february 2024 failed")
+    }
+    assert(
+        daysInFeb2024.formattedValue == "29 days",
+        "days in feb 2024: \(daysInFeb2024.formattedValue)")
+
+    let daysSince = dateEngine.calculateCountdown(query: "days since 1 Jan 2026")
+    assert(
+        daysSince != nil && daysSince!.formattedValue.contains("days ago"),
+        "days since 1 Jan 2026: \(String(describing: daysSince?.formattedValue))")
+
+    let weeksUntil = dateEngine.calculateCountdown(query: "weeks until november")
+    assert(
+        weeksUntil != nil && weeksUntil!.formattedValue.contains("weeks"),
+        "weeks until november: \(String(describing: weeksUntil?.formattedValue))")
+
     // ISO 8601: "2024-03-15T14:30:00Z"
     let iso = dateEngine.parseISO8601Timestamp("2024-03-15T14:30:00Z")
     guard let iso = iso else { fatalError("FAIL: ISO 8601 parsing failed") }
@@ -432,6 +480,10 @@ func testQueryCategorizerMathAndConversionIntents() {
         "3:45pm + 5",
         "monday in 3 weeks",
         "days until 31 Mar",
+        "days until next sunday",
+        "days until november",
+        "days in november",
+        "days since 1 Jan 2026",
         "145 mins to timespan",
         "55h in workdays",
         "2 inches in px at 72 ppi",

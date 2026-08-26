@@ -18,6 +18,7 @@ public final class DateTimeEngine {
 
     private let calendar = Calendar.current
     private let iso8601Formatter = ISO8601DateFormatter()
+    private let iso8601WithFractional = ISO8601DateFormatter()
     private let dateFormats: [String] = [
         "yyyy-MM-dd",
         "yyyy/MM/dd",
@@ -34,7 +35,8 @@ public final class DateTimeEngine {
     ]
 
     private init() {
-        iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        iso8601Formatter.formatOptions = [.withInternetDateTime]
+        iso8601WithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     }
 
     // MARK: - 1. Date & Time Arithmetic
@@ -158,7 +160,7 @@ public final class DateTimeEngine {
             return calculateFirstDayOfCurrentMonth()
         }
 
-        // 4. "in <N> days", "in <N> weeks", "in <N> months"
+        // 4. "in <N> days", "in <N> weeks", "in <N> months", "in <N> years"
         if let match = try? NSRegularExpression(
             pattern: #"^in\s+(\d+)\s+(days?|weeks?|months?|years?)$"#
         )
@@ -176,7 +178,24 @@ public final class DateTimeEngine {
             }
         }
 
-        // 5. "<N> days ago", "<N> weeks ago"
+        // 5. "<N> days/weeks/months/years from now/today"
+        if let match = try? NSRegularExpression(
+            pattern: #"^(\d+)\s+(days?|weeks?|months?|years?)\s+from\s+(?:now|today)$"#
+        ).firstMatch(in: lower, range: NSRange(lower.startIndex..., in: lower)) {
+            let ns = lower as NSString
+            let numStr = ns.substring(with: match.range(at: 1))
+            let unitStr = ns.substring(with: match.range(at: 2))
+            if let num = Int(numStr) {
+                let unit: Calendar.Component =
+                    unitStr.hasPrefix("day")
+                    ? .day
+                    : (unitStr.hasPrefix("week")
+                        ? .weekOfYear : (unitStr.hasPrefix("month") ? .month : .year))
+                return calculateDateOffset(baseDateStr: "today", delta: num, unit: unit)
+            }
+        }
+
+        // 6. "<N> days ago", "<N> weeks ago"
         if let match = try? NSRegularExpression(
             pattern: #"^(\d+)\s+(days?|weeks?|months?|years?)\s+ago$"#
         )
@@ -199,12 +218,56 @@ public final class DateTimeEngine {
 
     // MARK: - 3. Date Countdowns & Distance
 
-    /// Countdown to date: e.g. "days until 31 Mar", "days until Christmas", "days left in quarter"
+    /// Countdown to date: e.g. "days until 31 Mar", "days until Christmas", "days left in quarter", "days until next sunday", "days until november"
     public func calculateCountdown(query: String) -> DateTimeResult? {
         let lower = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let now = calendar.startOfDay(for: Date())
+        let currentYear = calendar.component(.year, from: now)
 
-        // "days left in quarter" / "days until end of quarter"
+        // 1. "days in <month> [year]" or "days in <year>" e.g. "days in november", "how many days in august", "days in 2026"
+        if let daysInMatch = try? NSRegularExpression(
+            pattern: #"^(?:how\s+many\s+)?days\s+(?:are\s+)?in\s+([a-zA-Z0-9\s]+)$"#
+        ).firstMatch(in: lower, range: NSRange(lower.startIndex..., in: lower)) {
+            let ns = lower as NSString
+            let target = ns.substring(with: daysInMatch.range(at: 1)).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+
+            // Year only e.g. "2026", "2024", "a year", "this year"
+            if target == "a year" || target == "this year" || target == "the year"
+                || Int(target) != nil
+            {
+                let year = Int(target) ?? currentYear
+                let isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+                let numDays = isLeap ? 366 : 365
+                let leapStr = isLeap ? " (Leap Year)" : ""
+                return DateTimeResult(
+                    formattedValue: "\(numDays) days",
+                    peekText:
+                        "\(year) has \(numDays) days\(leapStr)\n52 weeks and \(isLeap ? 2 : 1) day\(isLeap ? "s" : "")",
+                    subtitle: "Days in Year"
+                )
+            }
+
+            // Month [and Year] e.g. "november", "february 2024", "august"
+            let parts = target.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            if let monthStr = parts.first, let mIndex = monthIndex(from: monthStr) {
+                let year = (parts.count > 1 ? Int(parts[1]) : nil) ?? currentYear
+                let comps = DateComponents(year: year, month: mIndex, day: 1)
+                if let monthDate = calendar.date(from: comps),
+                    let range = calendar.range(of: .day, in: .month, for: monthDate)
+                {
+                    let count = range.count
+                    let mName = monthName(from: mIndex)
+                    return DateTimeResult(
+                        formattedValue: "\(count) days",
+                        peekText: "\(mName) \(year) has \(count) days",
+                        subtitle: "Days in Month"
+                    )
+                }
+            }
+        }
+
+        // 2. "days left in <quarter/year/month/week>"
         if lower.contains("quarter") {
             let month = calendar.component(.month, from: now)
             let quarter = (month - 1) / 3 + 1
@@ -221,63 +284,155 @@ public final class DateTimeEngine {
             return DateTimeResult(
                 formattedValue: "\(daysLeft) days left",
                 peekText:
-                    "Days left in Q\(quarter): \(daysLeft) days\nQuarter ends on \(formatMediumDate(endOfQuarter))",
+                    "Days left in Q\(quarter): \(daysLeft) days\nQuarter ends on \(formatFullDate(endOfQuarter))",
                 subtitle: "Quarter Countdown"
             )
         }
 
-        // "days until Christmas"
-        if lower.contains("christmas") {
-            var comps = DateComponents()
-            comps.year = calendar.component(.year, from: now)
-            comps.month = 12
-            comps.day = 25
-            var christmas = calendar.date(from: comps)!
-            if christmas < now {
-                comps.year! += 1
-                christmas = calendar.date(from: comps)!
+        if lower.contains("days left in year") || lower.contains("days left in this year")
+            || lower.contains("days until end of year")
+            || lower.contains("days left in \(currentYear)")
+        {
+            let comps = DateComponents(year: currentYear, month: 12, day: 31)
+            if let endOfYear = calendar.date(from: comps) {
+                let daysLeft = calendar.dateComponents([.day], from: now, to: endOfYear).day ?? 0
+                return DateTimeResult(
+                    formattedValue: "\(daysLeft) days left",
+                    peekText:
+                        "Days left in \(currentYear): \(daysLeft) days\nYear ends on \(formatFullDate(endOfYear))",
+                    subtitle: "Year Countdown"
+                )
             }
-            let daysLeft = calendar.dateComponents([.day], from: now, to: christmas).day ?? 0
-            return DateTimeResult(
-                formattedValue: "\(daysLeft) days",
-                peekText: "\(daysLeft) days until Christmas (\(formatMediumDate(christmas)))",
-                subtitle: "Holiday Countdown"
-            )
         }
 
-        // "days until New Year"
-        if lower.contains("new year") {
-            var comps = DateComponents()
-            comps.year = calendar.component(.year, from: now) + 1
-            comps.month = 1
-            comps.day = 1
-            let newYear = calendar.date(from: comps)!
-            let daysLeft = calendar.dateComponents([.day], from: now, to: newYear).day ?? 0
-            return DateTimeResult(
-                formattedValue: "\(daysLeft) days",
-                peekText: "\(daysLeft) days until New Year (\(formatMediumDate(newYear)))",
-                subtitle: "Countdown"
-            )
+        if lower.contains("days left in month") || lower.contains("days left in this month")
+            || lower.contains("days until end of month")
+        {
+            if let nextMonthDate = calendar.date(byAdding: .month, value: 1, to: now) {
+                var comps = calendar.dateComponents([.year, .month], from: nextMonthDate)
+                comps.day = 1
+                if let firstOfNext = calendar.date(from: comps),
+                    let endOfMonth = calendar.date(byAdding: .day, value: -1, to: firstOfNext)
+                {
+                    let daysLeft =
+                        calendar.dateComponents([.day], from: now, to: endOfMonth).day ?? 0
+                    let currentMonthName = monthName(from: calendar.component(.month, from: now))
+                    return DateTimeResult(
+                        formattedValue: "\(daysLeft) days left",
+                        peekText:
+                            "Days left in \(currentMonthName): \(daysLeft) days\nMonth ends on \(formatFullDate(endOfMonth))",
+                        subtitle: "Month Countdown"
+                    )
+                }
+            }
         }
 
-        // "days until <target date>" e.g. "days until 31 Mar", "days until March 31"
-        let stripped = lower.replacingOccurrences(of: "days until ", with: "")
-            .replacingOccurrences(of: "days to ", with: "")
-            .replacingOccurrences(of: "how many days until ", with: "")
-            .replacingOccurrences(of: "how many days to ", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // 3. "days since <date>" / "weeks since <date>" / "how many days since <date>"
+        let isSince =
+            lower.contains("since") || lower.contains("days from ") || lower.contains("weeks from ")
+        if isSince {
+            var stripped = lower
+            let sincePrefixes = [
+                "how many days since ", "how many days from ", "how many weeks since ",
+                "how many weeks from ",
+                "days since ", "days from ", "weeks since ", "weeks from ",
+            ]
+            for p in sincePrefixes {
+                if stripped.hasPrefix(p) {
+                    stripped.removeFirst(p.count)
+                    break
+                }
+            }
+            stripped = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if var targetDate = parseFlexibleDate(stripped) {
+                if targetDate > now && !stripped.contains(String(currentYear)) {
+                    var comps = calendar.dateComponents([.month, .day], from: targetDate)
+                    comps.year = currentYear
+                    if let adjusted = calendar.date(from: comps) {
+                        targetDate = adjusted
+                    }
+                }
+                if targetDate > now {
+                    if let lastYear = calendar.date(byAdding: .year, value: -1, to: targetDate) {
+                        targetDate = lastYear
+                    }
+                }
+                let totalDays = calendar.dateComponents([.day], from: targetDate, to: now).day ?? 0
+                let totalWeeks = totalDays / 7
+                let remDays = totalDays % 7
+
+                let isWeeks = lower.contains("week")
+                let formatted: String
+                if isWeeks {
+                    let weeksVal = Double(totalDays) / 7.0
+                    formatted =
+                        weeksVal.truncatingRemainder(dividingBy: 1) == 0
+                        ? "\(totalWeeks) weeks ago" : String(format: "%.1f weeks ago", weeksVal)
+                } else {
+                    formatted = "\(totalDays) days ago"
+                }
+
+                var breakdown = "\(totalDays) days"
+                if totalWeeks > 0 {
+                    breakdown += " (\(totalWeeks) wk\(totalWeeks == 1 ? "" : "s") \(remDays) d)"
+                }
+
+                return DateTimeResult(
+                    formattedValue: formatted,
+                    peekText: "Elapsed since \(formatFullDate(targetDate)):\n\(breakdown)",
+                    subtitle: "Time Elapsed"
+                )
+            }
+        }
+
+        // 4. "days until <date>", "days to <date>", "weeks until <date>", "how many days until <date>"
+        var stripped = lower
+        let untilPrefixes = [
+            "how many days until ", "how many days to ", "how many weeks until ",
+            "how many weeks to ",
+            "how many months until ", "how many months to ", "days until ", "days to ",
+            "weeks until ", "weeks to ",
+            "months until ", "months to ",
+        ]
+        for p in untilPrefixes {
+            if stripped.hasPrefix(p) {
+                stripped.removeFirst(p.count)
+                break
+            }
+        }
+        stripped = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let targetDate = parseFlexibleDate(stripped) {
             var finalTarget = targetDate
-            // If date is in the past without explicit year, bump to next year
-            if finalTarget < now && !stripped.contains("202") {
+            if finalTarget < now && !stripped.contains(String(currentYear))
+                && !stripped.contains(String(currentYear + 1))
+            {
                 if let nextYear = calendar.date(byAdding: .year, value: 1, to: finalTarget) {
                     finalTarget = nextYear
                 }
             }
+
             let days = calendar.dateComponents([.day], from: now, to: finalTarget).day ?? 0
             let weeks = days / 7
             let remDays = days % 7
+
+            let isWeeks = lower.contains("week")
+            let isMonths = lower.contains("month") && !lower.contains("days")
+
+            let formatted: String
+            if isWeeks {
+                let weeksVal = Double(days) / 7.0
+                formatted =
+                    weeksVal.truncatingRemainder(dividingBy: 1) == 0
+                    ? "\(weeks) weeks" : String(format: "%.1f weeks", weeksVal)
+            } else if isMonths {
+                let months =
+                    calendar.dateComponents([.month], from: now, to: finalTarget).month ?? 0
+                formatted = "\(months) months"
+            } else {
+                formatted = "\(days) days"
+            }
 
             var breakdown = "\(days) days"
             if weeks > 0 {
@@ -285,8 +440,9 @@ public final class DateTimeEngine {
             }
 
             return DateTimeResult(
-                formattedValue: "\(days) days",
-                peekText: "Until \(formatMediumDate(finalTarget)): \(breakdown)",
+                formattedValue: formatted,
+                peekText:
+                    "\(days) days until \(formatFullDate(finalTarget))\nBreakdown: \(breakdown)",
                 subtitle: "Countdown"
             )
         }
@@ -330,24 +486,23 @@ public final class DateTimeEngine {
     /// Converts ISO 8601 Zulu timestamp (e.g. 2024-03-15T14:30:00Z) to local time
     public func parseISO8601Timestamp(_ string: String) -> DateTimeResult? {
         let clean = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        var parsedDate: Date? = iso8601Formatter.date(from: clean)
-        if parsedDate == nil {
-            let standardISO = ISO8601DateFormatter()
-            parsedDate = standardISO.date(from: clean)
-        }
+            .replacingOccurrences(of: "in local time", with: "")
+            .replacingOccurrences(of: "to local time", with: "")
+            .replacingOccurrences(of: "in local", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let date = parsedDate else { return nil }
+        guard
+            let date = iso8601Formatter.date(from: clean)
+                ?? iso8601WithFractional.date(from: clean)
+        else { return nil }
 
         let localFormatter = DateFormatter()
         localFormatter.dateStyle = .full
-        localFormatter.timeStyle = .long
+        localFormatter.timeStyle = .medium
         localFormatter.timeZone = TimeZone.current
         let localStr = localFormatter.string(from: date)
 
-        let epochSeconds = Int64(date.timeIntervalSince1970)
-
-        let peekText =
-            "ISO 8601: \(clean)\nLocal Time: \(localStr)\nUnix Timestamp: \(epochSeconds)"
+        let peekText = "UTC: \(clean)\nLocal: \(localStr)"
 
         return DateTimeResult(
             formattedValue: localStr,
@@ -356,33 +511,28 @@ public final class DateTimeEngine {
         )
     }
 
-    /// Converts Epoch timestamp (e.g. 1700000000) or outputs current epoch
+    /// Converts Unix epoch seconds/milliseconds to local and UTC date/time strings
     public func parseEpochTimestamp(_ string: String) -> DateTimeResult? {
         let clean = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        // "now in epoch" / "epoch now" / "current epoch"
-        if clean == "now in epoch" || clean == "epoch now" || clean == "current epoch"
-            || clean == "today in epoch"
-        {
-            let now = Date()
-            let seconds = Int64(now.timeIntervalSince1970)
-            let millis = Int64(now.timeIntervalSince1970 * 1000)
+        if clean == "now in epoch" || clean == "epoch now" || clean == "today in epoch" {
+            let nowSeconds = Int64(Date().timeIntervalSince1970)
             return DateTimeResult(
-                formattedValue: "\(seconds)",
-                peekText: "Current Unix Epoch:\nSeconds: \(seconds)\nMilliseconds: \(millis)",
-                subtitle: "Current Unix Timestamp"
+                formattedValue: "\(nowSeconds)",
+                peekText: "Current Unix Epoch Timestamp:\n\(nowSeconds)",
+                subtitle: "Unix Epoch Timestamp"
             )
         }
 
-        // Numeric epoch: seconds (10 digits) or milliseconds (13 digits)
-        let numStr = clean.replacingOccurrences(of: "epoch", with: "")
+        let numStr = clean.replacingOccurrences(of: "epoch ", with: "")
             .replacingOccurrences(of: "in date", with: "")
+            .replacingOccurrences(of: "to date", with: "")
+            .replacingOccurrences(of: "epoch", with: "")
             .replacingOccurrences(of: "in local time", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let epochVal = Double(numStr) else { return nil }
 
-        // Determine if milliseconds (e.g. 1700000000000) or seconds (1700000000)
         let seconds: TimeInterval = epochVal > 1e11 ? epochVal / 1000.0 : epochVal
         let date = Date(timeIntervalSince1970: seconds)
 
@@ -411,34 +561,181 @@ public final class DateTimeEngine {
 
     public func parseFlexibleDate(_ string: String) -> Date? {
         let clean = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
         let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let currentYear = calendar.component(.year, from: now)
+
         if clean == "today" || clean == "now" {
-            return calendar.startOfDay(for: now)
+            return startOfToday
         }
         if clean == "tomorrow" {
-            return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
+            return calendar.date(byAdding: .day, value: 1, to: startOfToday)
         }
         if clean == "yesterday" {
-            return calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))
+            return calendar.date(byAdding: .day, value: -1, to: startOfToday)
         }
 
-        let currentYear = calendar.component(.year, from: now)
+        // Relative Keywords
+        if clean == "next weekend" || clean == "this weekend" || clean == "weekend" {
+            let currentWeekday = calendar.component(.weekday, from: startOfToday)
+            var daysToAdd = 7 - currentWeekday  // 7 is Saturday
+            if daysToAdd <= 0 { daysToAdd += 7 }
+            return calendar.date(byAdding: .day, value: daysToAdd, to: startOfToday)
+        }
+
+        if clean == "next month" || clean == "start of next month"
+            || clean == "first day of next month"
+        {
+            if let nextMonthDate = calendar.date(byAdding: .month, value: 1, to: now) {
+                var comps = calendar.dateComponents([.year, .month], from: nextMonthDate)
+                comps.day = 1
+                return calendar.date(from: comps)
+            }
+        }
+
+        if clean == "end of month" || clean == "last day of this month"
+            || clean == "end of this month"
+        {
+            if let nextMonthDate = calendar.date(byAdding: .month, value: 1, to: now) {
+                var comps = calendar.dateComponents([.year, .month], from: nextMonthDate)
+                comps.day = 1
+                if let firstOfNext = calendar.date(from: comps) {
+                    return calendar.date(byAdding: .day, value: -1, to: firstOfNext)
+                }
+            }
+        }
+
+        if clean == "end of year" || clean == "last day of year" || clean == "end of this year" {
+            let comps = DateComponents(year: currentYear, month: 12, day: 31)
+            return calendar.date(from: comps)
+        }
+
+        if clean == "next year" || clean == "start of next year" {
+            let comps = DateComponents(year: currentYear + 1, month: 1, day: 1)
+            return calendar.date(from: comps)
+        }
+
+        // Holidays
+        if clean == "christmas" || clean == "christmas day" {
+            var comps = DateComponents(year: currentYear, month: 12, day: 25)
+            if let date = calendar.date(from: comps) {
+                if date < startOfToday {
+                    comps.year = currentYear + 1
+                    return calendar.date(from: comps)
+                }
+                return date
+            }
+        }
+
+        if clean == "halloween" {
+            var comps = DateComponents(year: currentYear, month: 10, day: 31)
+            if let date = calendar.date(from: comps) {
+                if date < startOfToday {
+                    comps.year = currentYear + 1
+                    return calendar.date(from: comps)
+                }
+                return date
+            }
+        }
+
+        if clean == "new year" || clean == "new years" || clean == "new year's day"
+            || clean == "new years day"
+        {
+            let comps = DateComponents(year: currentYear + 1, month: 1, day: 1)
+            return calendar.date(from: comps)
+        }
+
+        if clean == "valentine" || clean == "valentines" || clean == "valentine's day"
+            || clean == "valentines day"
+        {
+            var comps = DateComponents(year: currentYear, month: 2, day: 14)
+            if let date = calendar.date(from: comps) {
+                if date < startOfToday {
+                    comps.year = currentYear + 1
+                    return calendar.date(from: comps)
+                }
+                return date
+            }
+        }
+
+        if clean == "thanksgiving" || clean == "thanksgiving day" {
+            var comps = DateComponents(year: currentYear, month: 11, day: 1)
+            if let nov1 = calendar.date(from: comps) {
+                let nov1Wkday = calendar.component(.weekday, from: nov1)
+                let firstThuDay = 1 + ((5 - nov1Wkday + 7) % 7)
+                comps.day = firstThuDay + 21
+                if let thanksgivingDate = calendar.date(from: comps) {
+                    if thanksgivingDate < startOfToday {
+                        comps.year = currentYear + 1
+                        comps.day = 1
+                        if let nextNov1 = calendar.date(from: comps) {
+                            let nextNov1Wkday = calendar.component(.weekday, from: nextNov1)
+                            let nextFirstThuDay = 1 + ((5 - nextNov1Wkday + 7) % 7)
+                            comps.day = nextFirstThuDay + 21
+                            return calendar.date(from: comps)
+                        }
+                    }
+                    return thanksgivingDate
+                }
+            }
+        }
+
+        // Single Month Name: "november", "nov", "next november", "march", "december"
+        let monthCandidate =
+            clean
+            .replacingOccurrences(of: "next ", with: "")
+            .replacingOccurrences(of: "this ", with: "")
+            .replacingOccurrences(of: "the month of ", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let mIndex = monthIndex(from: monthCandidate) {
+            var comps = DateComponents(year: currentYear, month: mIndex, day: 1)
+            if let date = calendar.date(from: comps) {
+                if date <= startOfToday && !clean.contains(String(currentYear)) {
+                    comps.year = currentYear + 1
+                    return calendar.date(from: comps)
+                }
+                return date
+            }
+        }
+
+        // Single Weekday Name: "next sunday", "sunday", "sun", "this sunday", "coming friday"
+        let weekdayCandidate =
+            clean
+            .replacingOccurrences(of: "next ", with: "")
+            .replacingOccurrences(of: "this ", with: "")
+            .replacingOccurrences(of: "coming ", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let targetWkday = weekdayIndex(from: weekdayCandidate) {
+            let currentWkday = calendar.component(.weekday, from: startOfToday)
+            var daysToAdd = targetWkday - currentWkday
+            if daysToAdd <= 0 {
+                daysToAdd += 7
+            }
+            return calendar.date(byAdding: .day, value: daysToAdd, to: startOfToday)
+        }
+
+        // Standard date format parsing
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
         for format in dateFormats {
             formatter.dateFormat = format
             if let date = formatter.date(from: string) {
-                // If format lacked year, default to current year
                 if !format.contains("y") {
                     var comps = calendar.dateComponents([.month, .day], from: date)
                     comps.year = currentYear
-                    return calendar.date(from: comps)
+                    if let constructed = calendar.date(from: comps) {
+                        if constructed < startOfToday {
+                            comps.year = currentYear + 1
+                            return calendar.date(from: comps)
+                        }
+                        return constructed
+                    }
                 }
                 return date
             }
         }
+
         return nil
     }
 
@@ -460,7 +757,7 @@ public final class DateTimeEngine {
     }
 
     private func weekdayIndex(from name: String) -> Int? {
-        switch name.lowercased() {
+        switch name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
         case "sunday", "sun": return 1
         case "monday", "mon": return 2
         case "tuesday", "tue", "tues": return 3
@@ -470,6 +767,35 @@ public final class DateTimeEngine {
         case "saturday", "sat": return 7
         default: return nil
         }
+    }
+
+    private func monthIndex(from name: String) -> Int? {
+        switch name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "january", "jan": return 1
+        case "february", "feb": return 2
+        case "march", "mar": return 3
+        case "april", "apr": return 4
+        case "may": return 5
+        case "june", "jun": return 6
+        case "july", "jul": return 7
+        case "august", "aug": return 8
+        case "september", "sep", "sept": return 9
+        case "october", "oct": return 10
+        case "november", "nov": return 11
+        case "december", "dec": return 12
+        default: return nil
+        }
+    }
+
+    private func monthName(from index: Int) -> String {
+        let months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ]
+        if index >= 1 && index <= 12 {
+            return months[index - 1]
+        }
+        return ""
     }
 
     private func calculateWeekdayInWeeks(targetWeekday: Int, weeks: Int) -> DateTimeResult? {
@@ -573,6 +899,12 @@ public final class DateTimeEngine {
             peekText: "End of month:\n\(formatted)",
             subtitle: "Calendar Event"
         )
+    }
+
+    private func formatFullDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        return formatter.string(from: date)
     }
 
     private func formatMediumDate(_ date: Date) -> String {
