@@ -10,6 +10,7 @@ public func runMathConversionTests() {
     testUnitConversions()
     testCompoundUnitConversions()
     testCurrencyConversions()
+    testCurrencyEngineEvaluation()
     testQuickMathEvaluation()
     testNumberBaseConversions()
     testQueryCategorizerMathAndConversionIntents()
@@ -32,6 +33,12 @@ func testMathConversionDetector() {
     assert(detector.detect(query: "1/2 cup to ml") != nil, "1/2 cup to ml")
 
     // 2. Currency conversions
+    assert(detector.detect(query: "19usd to jpy") != nil, "19usd to jpy")
+    assert(detector.detect(query: "19usd jpy") != nil, "19usd jpy")
+    assert(detector.detect(query: "19 usd to jpy") != nil, "19 usd to jpy")
+    assert(detector.detect(query: "19 usd jpy") != nil, "19 usd jpy")
+    assert(detector.detect(query: "$19 to jpy") != nil, "$19 to jpy")
+    assert(detector.detect(query: "19$ in jpy") != nil, "19$ in jpy")
     assert(detector.detect(query: "$100 to eur") != nil, "$100 to eur")
     assert(detector.detect(query: "100$ in eur") != nil, "100$ in eur")
     assert(detector.detect(query: "100 usd to eur") != nil, "100 usd to eur")
@@ -229,6 +236,46 @@ func testCurrencyConversions() {
     print("  ✓ testCurrencyConversions passed.")
 }
 
+func testCurrencyEngineEvaluation() {
+    let semaphore = DispatchSemaphore(value: 0)
+    Task {
+        // 1. Direct Engine evaluation of "19 USD to JPY"
+        let res1 = await CurrencyConversionEngine.shared.convert(amount: 19, from: "USD", to: "JPY")
+        guard let res1 = res1 else {
+            fatalError("FAIL: Currency conversion 19 USD to JPY returned nil")
+        }
+        assert(!res1.isError, "Currency conversion should not be error: \(res1.peekText)")
+        assert(
+            res1.formattedValue.contains("JPY"),
+            "Formatted value should contain JPY: \(res1.formattedValue)")
+
+        // 2. End-to-End Service evaluation for "19usd to jpy"
+        let action1 = await MathConversionService.shared.evaluate(query: "19usd to jpy")
+        guard let action1 = action1 else { fatalError("FAIL: 19usd to jpy returned nil action") }
+        assert(action1.title.contains("JPY"), "Action title must contain JPY: \(action1.title)")
+
+        // 3. Compact with space "19usd jpy"
+        let action2 = await MathConversionService.shared.evaluate(query: "19usd jpy")
+        guard let action2 = action2 else { fatalError("FAIL: 19usd jpy returned nil action") }
+        assert(action2.title.contains("JPY"), "Action title must contain JPY: \(action2.title)")
+
+        // 4. "$19 to jpy"
+        let action3 = await MathConversionService.shared.evaluate(query: "$19 to jpy")
+        guard let action3 = action3 else { fatalError("FAIL: $19 to jpy returned nil action") }
+        assert(action3.title.contains("JPY"), "Action title must contain JPY: \(action3.title)")
+
+        // 5. "100 usd to idr" (integer rate)
+        let resIDR = await CurrencyConversionEngine.shared.convert(
+            amount: 100, from: "USD", to: "IDR")
+        guard let resIDR = resIDR else { fatalError("FAIL: USD to IDR returned nil") }
+        assert(resIDR.formattedValue.contains("IDR"), "USD to IDR: \(resIDR.formattedValue)")
+
+        semaphore.signal()
+    }
+    semaphore.wait()
+    print("  ✓ testCurrencyEngineEvaluation passed.")
+}
+
 func testQuickMathEvaluation() {
     let math = MathEngine.shared
 
@@ -342,6 +389,12 @@ func testQueryCategorizerMathAndConversionIntents() {
         "convert 100 km to miles",
         "what is 100 kg in lbs?",
         "how many miles in 100 km",
+        "19usd to jpy",
+        "19usd jpy",
+        "19 usd to jpy",
+        "19 usd jpy",
+        "$19 to jpy",
+        "19$ in jpy",
         "$100 to eur",
         "100$ in eur",
         "100 usd to eur",

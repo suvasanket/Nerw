@@ -196,15 +196,15 @@ public final class MathConversionDetector {
         // Currency conversions
         // 1. "$100 to eur", "€50 in usd", "₹1500 to $"
         currencySymbolPattern1 = rx(
-            #"^([$€£¥₹₩฿₽zł₺₪]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF)\s*([+-]?[0-9]*\.?[0-9]+)\s*(?:to|in|into|as|->|-->|=>|=)\s*([a-zA-Z$€£¥₹₩฿₽zł₺₪]+(?:\s+[a-zA-Z]+)*)$"#
+            #"^([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF)\s*([+-]?[0-9]*\.?[0-9]+)(?:\s*(?:to|in|into|as|->|-->|=>|=)\s*|\s+)([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF|[a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)$"#
         )
         // 2. "100$ in eur", "50€ to $"
         currencySymbolPattern2 = rx(
-            #"^([+-]?[0-9]*\.?[0-9]+)\s*([$€£¥₹₩฿₽zł₺₪]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF)\s*(?:to|in|into|as|->|-->|=>|=)\s*([a-zA-Z$€£¥₹₩฿₽zł₺₪]+(?:\s+[a-zA-Z]+)*)$"#
+            #"^([+-]?[0-9]*\.?[0-9]+)\s*([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF)(?:\s*(?:to|in|into|as|->|-->|=>|=)\s*|\s+)([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF|[a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)$"#
         )
-        // 3. "100 usd to eur", "50 euros in dollars"
+        // 3. "100 usd to eur", "19usd to jpy", "19usd jpy", "50 euros in dollars"
         currencyCodePattern = rx(
-            #"^([+-]?[0-9]*\.?[0-9]+)\s+([a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)\s+(?:to|in|into|as|->|-->|=>|=)\s+([a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)$"#
+            #"^([+-]?[0-9]*\.?[0-9]+)\s*([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF|[a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)(?:\s*(?:to|in|into|as|->|-->|=>|=)\s*|\s+)([$€£¥₹₩฿₽zł₺₪₫KčFt]|C\$|A\$|NZ\$|HK\$|S\$|R\$|CHF|[a-zA-Z]{3}|[a-zA-Z]+(?:\s+[a-zA-Z]+)?)$"#
         )
 
         // Unit conversions
@@ -479,9 +479,13 @@ public final class MathConversionDetector {
             let toUnit = ns.substring(with: m.range(at: 3)).trimmingCharacters(
                 in: .whitespacesAndNewlines)
 
-            // Make sure this is not a currency code conversion like "100 usd to eur"
-            if resolveCurrencyCode(fromUnit) != nil && resolveCurrencyCode(toUnit) != nil {
-                return nil
+            // If both from and to resolve as currency codes, treat as currency conversion
+            if let fromCode = resolveCurrencyCode(fromUnit),
+                let toCode = resolveCurrencyCode(toUnit),
+                let amount = Double(amountStr)
+            {
+                return .currencyConversion(
+                    amount: amount, fromCurrency: fromCode, toCurrency: toCode)
             }
 
             if let amount = Double(amountStr), isLikelyUnit(fromUnit) && isLikelyUnit(toUnit) {
