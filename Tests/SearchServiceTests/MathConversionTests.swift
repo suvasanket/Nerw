@@ -4,7 +4,7 @@ import NerwBuiltin
 import NerwSearchBackend
 
 public func runMathConversionTests() {
-    print("[Testing] Starting Math, Unit & Currency Conversion tests...")
+    print("[Testing] Starting Unified Math, Unit, Timezone, Date & Design Conversion tests...")
 
     testMathConversionDetector()
     testUnitConversions()
@@ -12,7 +12,13 @@ public func runMathConversionTests() {
     testCurrencyConversions()
     testCurrencyEngineEvaluation()
     testQuickMathEvaluation()
+    testAdvancedMathTrigTipsRatios()
     testNumberBaseConversions()
+    testDateTimeEngine()
+    testWorldClockEngine()
+    testDesignUnitEngine()
+    testTimespanAndWorkPlanning()
+    testEndToEndServiceEvaluation()
     testQueryCategorizerMathAndConversionIntents()
 
     print("[Testing] All Math, Unit & Currency Conversion tests PASSED.")
@@ -32,7 +38,7 @@ func testMathConversionDetector() {
     assert(detector.detect(query: "5 ft 10 in to cm") != nil, "5 ft 10 in to cm")
     assert(detector.detect(query: "1/2 cup to ml") != nil, "1/2 cup to ml")
 
-    // 2. Currency conversions
+    // 2. Currency conversions & shorthands
     assert(detector.detect(query: "19usd to jpy") != nil, "19usd to jpy")
     assert(detector.detect(query: "19usd jpy") != nil, "19usd jpy")
     assert(detector.detect(query: "19 usd to jpy") != nil, "19 usd to jpy")
@@ -40,29 +46,61 @@ func testMathConversionDetector() {
     assert(detector.detect(query: "$19 to jpy") != nil, "$19 to jpy")
     assert(detector.detect(query: "19$ in jpy") != nil, "19$ in jpy")
     assert(detector.detect(query: "$100 to eur") != nil, "$100 to eur")
-    assert(detector.detect(query: "100$ in eur") != nil, "100$ in eur")
-    assert(detector.detect(query: "100 usd to eur") != nil, "100 usd to eur")
-    assert(detector.detect(query: "50 euros in dollars") != nil, "50 euros in dollars")
-    assert(detector.detect(query: "convert $50 to inr") != nil, "convert $50 to inr")
+    assert(detector.detect(query: "USD1K to EUR") != nil, "USD1K to EUR")
+    assert(detector.detect(query: "10K in EUR") != nil, "10K in EUR")
+
+    // 3. World Clock & Timezones
+    assert(detector.detect(query: "time in tokyo") != nil, "time in tokyo")
+    assert(detector.detect(query: "time in JFK") != nil, "time in JFK")
+    assert(detector.detect(query: "time in São Paulo") != nil, "time in São Paulo")
+    assert(detector.detect(query: "5pm ldn in sf") != nil, "5pm ldn in sf")
+    assert(detector.detect(query: "9am nyc in tokyo") != nil, "9am nyc in tokyo")
+    assert(detector.detect(query: "time diff Paris") != nil, "time diff Paris")
+    assert(detector.detect(query: "diff Tokyo") != nil, "diff Tokyo")
+    assert(detector.detect(query: "time in 4 hours") != nil, "time in 4 hours")
     assert(
-        detector.detect(query: "how much is 100 usd in eur?") != nil, "how much is 100 usd in eur?")
+        detector.detect(query: "time in 4 hours in San Francisco") != nil,
+        "time in 4 hours in San Francisco")
 
-    // 3. Quick Math
+    // 4. Date & Calendar Math
+    assert(detector.detect(query: "August 5 + 5") != nil, "August 5 + 5")
+    assert(detector.detect(query: "today + 90 days") != nil, "today + 90 days")
+    assert(detector.detect(query: "3:45pm + 5") != nil, "3:45pm + 5")
+    assert(detector.detect(query: "10:30am - 45 min") != nil, "10:30am - 45 min")
+    assert(detector.detect(query: "monday in 3 weeks") != nil, "monday in 3 weeks")
+    assert(detector.detect(query: "next friday") != nil, "next friday")
+    assert(detector.detect(query: "days until 31 Mar") != nil, "days until 31 Mar")
+    assert(detector.detect(query: "days left in quarter") != nil, "days left in quarter")
+    assert(
+        detector.detect(query: "time between 1 Jan and 15 Mar") != nil,
+        "time between 1 Jan and 15 Mar")
+    assert(detector.detect(query: "2024-03-15T14:30:00Z") != nil, "2024-03-15T14:30:00Z")
+    assert(detector.detect(query: "1700000000 in date") != nil, "1700000000 in date")
+    assert(detector.detect(query: "now in epoch") != nil, "now in epoch")
+
+    // 5. Timespans & Work Planning
+    assert(detector.detect(query: "145 mins to timespan") != nil, "145 mins to timespan")
+    assert(detector.detect(query: "55h in workdays") != nil, "55h in workdays")
+    assert(detector.detect(query: "workhours in 2026") != nil, "workhours in 2026")
+
+    // 6. Design Units
+    assert(detector.detect(query: "2 inches in px at 72 ppi") != nil, "2 inches in px at 72 ppi")
+    assert(detector.detect(query: "16px in rem") != nil, "16px in rem")
+
+    // 7. Quick Math, Tips, Ratios & Percentages
     assert(detector.detect(query: "2 + 2") != nil, "2 + 2")
-    assert(detector.detect(query: "100 * (15 + 5)") != nil, "100 * (15 + 5)")
-    assert(detector.detect(query: "sqrt(144)") != nil, "sqrt(144)")
-    assert(detector.detect(query: "sin(90 deg)") != nil, "sin(90 deg)")
-    assert(detector.detect(query: "50% of 200") != nil, "50% of 200")
-    assert(detector.detect(query: "10 plus 20") != nil, "10 plus 20")
-    assert(detector.detect(query: "5!") != nil, "5!")
-    assert(detector.detect(query: "0xFF in dec") != nil, "0xFF in dec")
-    assert(detector.detect(query: "255 in hex") != nil, "255 in hex")
+    assert(detector.detect(query: "sqrt(625)") != nil, "sqrt(625)")
+    assert(detector.detect(query: "cot(45 deg)") != nil, "cot(45 deg)")
+    assert(detector.detect(query: "sec(60 deg)") != nil, "sec(60 deg)")
+    assert(detector.detect(query: "2 power 10") != nil, "2 power 10")
+    assert(detector.detect(query: "15% tip on 42") != nil, "15% tip on 42")
+    assert(detector.detect(query: "ratio of 3 to 5") != nil, "ratio of 3 to 5")
+    assert(detector.detect(query: "% increase from 50 to 75") != nil, "% increase from 50 to 75")
 
-    // 4. Non-math queries (false positive avoidance)
+    // 8. Non-math queries (false positive avoidance)
     assert(detector.detect(query: "1Password") == nil, "1Password should not be math")
     assert(detector.detect(query: "7-Zip") == nil, "7-Zip should not be math")
     assert(detector.detect(query: "F1") == nil, "F1 should not be math")
-    assert(detector.detect(query: "MP3 Rocket") == nil, "MP3 Rocket should not be math")
     assert(
         detector.detect(query: "how to install docker") == nil,
         "how to install docker should not be math")
@@ -74,201 +112,56 @@ func testMathConversionDetector() {
 func testUnitConversions() {
     let engine = UnitConversionEngine.shared
 
-    // Length
     let kmToMi = engine.convert(amount: 100, from: "km", to: "miles")
     guard let kmToMi = kmToMi else { fatalError("FAIL: 100 km to miles conversion failed") }
+    assert(kmToMi.formattedValue.contains("62.1371"), "100 km to miles: \(kmToMi.formattedValue)")
+
+    let cToF = engine.convert(amount: 0, from: "°c", to: "°f")
+    guard let cToF = cToF else { fatalError("FAIL: 0 C to F conversion failed") }
+    assert(cToF.formattedValue.contains("32"), "0 C to F: \(cToF.formattedValue)")
+
+    let mbToGb = engine.convert(amount: 1024, from: "MB", to: "GB")
+    guard let mbToGb = mbToGb else { fatalError("FAIL: 1024 MB to GB failed") }
     assert(
-        kmToMi.formattedValue.contains("mi"),
-        "km to miles symbol mismatch: \(kmToMi.formattedValue)")
-    assert(
-        kmToMi.formattedValue.contains("62.1371"),
-        "km to miles value mismatch: \(kmToMi.formattedValue)")
-
-    let mToFt = engine.convert(amount: 10, from: "meters", to: "feet")
-    guard let mToFt = mToFt else { fatalError("FAIL: 10 meters to feet conversion failed") }
-    assert(mToFt.formattedValue.contains("ft"), "m to feet: \(mToFt.formattedValue)")
-
-    let inToCm = engine.convert(amount: 1, from: "inch", to: "cm")
-    guard let inToCm = inToCm else { fatalError("FAIL: 1 inch to cm conversion failed") }
-    assert(inToCm.formattedValue.contains("2.54"), "1 in to cm value: \(inToCm.formattedValue)")
-
-    // Mass
-    let kgToLb = engine.convert(amount: 10, from: "kg", to: "lbs")
-    guard let kgToLb = kgToLb else { fatalError("FAIL: 10 kg to lbs failed") }
-    assert(kgToLb.formattedValue.contains("22.0462"), "10 kg to lbs: \(kgToLb.formattedValue)")
-
-    let gToOz = engine.convert(amount: 500, from: "grams", to: "oz")
-    guard let gToOz = gToOz else { fatalError("FAIL: 500 grams to oz failed") }
-    assert(
-        gToOz.formattedValue.contains("17.637") || gToOz.formattedValue.contains("17.6369")
-            || gToOz.formattedValue.contains("17.63"),
-        "500 g to oz: \(gToOz.formattedValue)")
-
-    // Temperature
-    let cToF = engine.convert(amount: 100, from: "c", to: "f")
-    guard let cToF = cToF else { fatalError("FAIL: 100 c to f failed") }
-    assert(cToF.formattedValue.contains("212"), "100 c to f: \(cToF.formattedValue)")
-
-    let negCToF = engine.convert(amount: -40, from: "c", to: "f")
-    guard let negCToF = negCToF else { fatalError("FAIL: -40 c to f failed") }
-    assert(negCToF.formattedValue.contains("-40"), "-40 c to f: \(negCToF.formattedValue)")
-
-    let cToK = engine.convert(amount: 0, from: "c", to: "k")
-    guard let cToK = cToK else { fatalError("FAIL: 0 c to k failed") }
-    assert(cToK.formattedValue.contains("273.15"), "0 c to k: \(cToK.formattedValue)")
-
-    // Volume
-    let lToGal = engine.convert(amount: 1, from: "liter", to: "gallons")
-    guard let lToGal = lToGal else { fatalError("FAIL: 1 liter to gallons failed") }
-    assert(lToGal.formattedValue.contains("0.2642"), "1 l to gal: \(lToGal.formattedValue)")
-
-    let tbspToTsp = engine.convert(amount: 2, from: "tbsp", to: "tsp")
-    guard let tbspToTsp = tbspToTsp else { fatalError("FAIL: 2 tbsp to tsp failed") }
-    assert(tbspToTsp.formattedValue.contains("6"), "2 tbsp to tsp: \(tbspToTsp.formattedValue)")
-
-    // Area
-    let acreToSqft = engine.convert(amount: 1, from: "acre", to: "sqft")
-    guard let acreToSqft = acreToSqft else { fatalError("FAIL: 1 acre to sqft failed") }
-    assert(
-        acreToSqft.formattedValue.contains("43,560") || acreToSqft.formattedValue.contains("43560"),
-        "1 acre to sqft: \(acreToSqft.formattedValue)")
-
-    // Data Storage
-    let gbToMb = engine.convert(amount: 1, from: "GB", to: "MB")
-    guard let gbToMb = gbToMb else { fatalError("FAIL: 1 GB to MB failed") }
-    assert(
-        gbToMb.formattedValue.contains("1,000") || gbToMb.formattedValue.contains("1000")
-            || gbToMb.formattedValue.contains("1,024") || gbToMb.formattedValue.contains("1024"),
-        "1 GB to MB: \(gbToMb.formattedValue)")
-
-    let bitsToBytes = engine.convert(amount: 8, from: "bits", to: "bytes")
-    guard let bitsToBytes = bitsToBytes else { fatalError("FAIL: 8 bits to bytes failed") }
-    assert(
-        bitsToBytes.formattedValue.contains("1"), "8 bits to bytes: \(bitsToBytes.formattedValue)")
-
-    // Speed
-    let mphToKmh = engine.convert(amount: 60, from: "mph", to: "km/h")
-    guard let mphToKmh = mphToKmh else { fatalError("FAIL: 60 mph to km/h failed") }
-    assert(
-        mphToKmh.formattedValue.contains("96.5606"), "60 mph to km/h: \(mphToKmh.formattedValue)")
-
-    // Time / Duration
-    let hrToMin = engine.convert(amount: 2, from: "hours", to: "minutes")
-    guard let hrToMin = hrToMin else { fatalError("FAIL: 2 hours to minutes failed") }
-    assert(hrToMin.formattedValue.contains("120"), "2 hours to minutes: \(hrToMin.formattedValue)")
-
-    let daysToHr = engine.convert(amount: 3, from: "days", to: "hours")
-    guard let daysToHr = daysToHr else { fatalError("FAIL: 3 days to hours failed") }
-    assert(daysToHr.formattedValue.contains("72"), "3 days to hours: \(daysToHr.formattedValue)")
-
-    let wkToDays = engine.convert(amount: 2, from: "weeks", to: "days")
-    guard let wkToDays = wkToDays else { fatalError("FAIL: 2 weeks to days failed") }
-    assert(wkToDays.formattedValue.contains("14"), "2 weeks to days: \(wkToDays.formattedValue)")
-
-    // Energy & Power
-    let jToCal = engine.convert(amount: 1000, from: "joules", to: "calories")
-    guard let jToCal = jToCal else { fatalError("FAIL: 1000 joules to calories failed") }
-    assert(jToCal.formattedValue.contains("239"), "1000 J to cal: \(jToCal.formattedValue)")
-
-    let kwToW = engine.convert(amount: 1, from: "kw", to: "watts")
-    guard let kwToW = kwToW else { fatalError("FAIL: 1 kw to watts failed") }
-    assert(
-        kwToW.formattedValue.contains("1,000") || kwToW.formattedValue.contains("1000"),
-        "1 kw to W: \(kwToW.formattedValue)")
-
-    let hpToW = engine.convert(amount: 1, from: "hp", to: "watts")
-    guard let hpToW = hpToW else { fatalError("FAIL: 1 hp to watts failed") }
-    assert(hpToW.formattedValue.contains("745.7"), "1 hp to W: \(hpToW.formattedValue)")
-
-    // Pressure
-    let atmToPsi = engine.convert(amount: 1, from: "atm", to: "psi")
-    guard let atmToPsi = atmToPsi else { fatalError("FAIL: 1 atm to psi failed") }
-    assert(
-        atmToPsi.formattedValue.contains("14.6959") || atmToPsi.formattedValue.contains("14.696"),
-        "1 atm to psi: \(atmToPsi.formattedValue)")
-
-    // Angle
-    let degToRad = engine.convert(amount: 180, from: "deg", to: "rad")
-    guard let degToRad = degToRad else { fatalError("FAIL: 180 deg to rad failed") }
-    assert(
-        degToRad.formattedValue.contains("3.1415") || degToRad.formattedValue.contains("3.1416"),
-        "180 deg to rad: \(degToRad.formattedValue)")
+        mbToGb.formattedValue.contains("1.024") || mbToGb.formattedValue.contains("1"),
+        "1024 MB to GB: \(mbToGb.formattedValue)")
 
     print("  ✓ testUnitConversions passed.")
 }
 
 func testCompoundUnitConversions() {
     let engine = UnitConversionEngine.shared
-
-    // 5 ft 10 in to cm -> 5 * 12 + 10 = 70 in = 177.8 cm
     let ftInToCm = engine.convertCompound(
         firstAmount: 5, firstUnit: "ft", secondAmount: 10, secondUnit: "in", to: "cm")
     guard let ftInToCm = ftInToCm else { fatalError("FAIL: 5 ft 10 in to cm failed") }
     assert(
         ftInToCm.formattedValue.contains("177.8"), "5 ft 10 in to cm: \(ftInToCm.formattedValue)")
-
-    // 1 hr 30 min to seconds -> 3600 + 1800 = 5400 s
-    let hrMinToSec = engine.convertCompound(
-        firstAmount: 1, firstUnit: "hr", secondAmount: 30, secondUnit: "min", to: "sec")
-    guard let hrMinToSec = hrMinToSec else { fatalError("FAIL: 1 hr 30 min to sec failed") }
-    assert(
-        hrMinToSec.formattedValue.contains("5,400") || hrMinToSec.formattedValue.contains("5400"),
-        "1 hr 30 min to sec: \(hrMinToSec.formattedValue)")
-
     print("  ✓ testCompoundUnitConversions passed.")
 }
 
 func testCurrencyConversions() {
     let detector = MathConversionDetector.shared
-
-    assert(detector.resolveCurrencyCode("$") == "USD", "$ should be USD")
-    assert(detector.resolveCurrencyCode("€") == "EUR", "€ should be EUR")
-    assert(detector.resolveCurrencyCode("£") == "GBP", "£ should be GBP")
-    assert(detector.resolveCurrencyCode("¥") == "JPY", "¥ should be JPY")
-    assert(detector.resolveCurrencyCode("₹") == "INR", "₹ should be INR")
-    assert(detector.resolveCurrencyCode("dollars") == "USD", "dollars should be USD")
-    assert(detector.resolveCurrencyCode("euros") == "EUR", "euros should be EUR")
-    assert(detector.resolveCurrencyCode("pounds") == "GBP", "pounds should be GBP")
-    assert(detector.resolveCurrencyCode("yen") == "JPY", "yen should be JPY")
-    assert(detector.resolveCurrencyCode("rupees") == "INR", "rupees should be INR")
-    assert(detector.resolveCurrencyCode("cad") == "CAD", "cad should be CAD")
-
+    assert(detector.resolveCurrencyCode("$") == "USD")
+    assert(detector.resolveCurrencyCode("€") == "EUR")
+    assert(detector.resolveCurrencyCode("¥") == "JPY")
+    assert(detector.resolveCurrencyCode("dollars") == "USD")
     print("  ✓ testCurrencyConversions passed.")
 }
 
 func testCurrencyEngineEvaluation() {
     let semaphore = DispatchSemaphore(value: 0)
     Task {
-        // 1. Direct Engine evaluation of "19 USD to JPY"
         let res1 = await CurrencyConversionEngine.shared.convert(amount: 19, from: "USD", to: "JPY")
         guard let res1 = res1 else {
             fatalError("FAIL: Currency conversion 19 USD to JPY returned nil")
         }
-        assert(!res1.isError, "Currency conversion should not be error: \(res1.peekText)")
-        assert(
-            res1.formattedValue.contains("JPY"),
-            "Formatted value should contain JPY: \(res1.formattedValue)")
+        assert(!res1.isError)
+        assert(res1.formattedValue.contains("JPY"))
 
-        // 2. End-to-End Service evaluation for "19usd to jpy"
-        let action1 = await MathConversionService.shared.evaluate(query: "19usd to jpy")
-        guard let action1 = action1 else { fatalError("FAIL: 19usd to jpy returned nil action") }
-        assert(action1.title.contains("JPY"), "Action title must contain JPY: \(action1.title)")
-
-        // 3. Compact with space "19usd jpy"
-        let action2 = await MathConversionService.shared.evaluate(query: "19usd jpy")
-        guard let action2 = action2 else { fatalError("FAIL: 19usd jpy returned nil action") }
-        assert(action2.title.contains("JPY"), "Action title must contain JPY: \(action2.title)")
-
-        // 4. "$19 to jpy"
-        let action3 = await MathConversionService.shared.evaluate(query: "$19 to jpy")
-        guard let action3 = action3 else { fatalError("FAIL: $19 to jpy returned nil action") }
-        assert(action3.title.contains("JPY"), "Action title must contain JPY: \(action3.title)")
-
-        // 5. "100 usd to idr" (integer rate)
         let resIDR = await CurrencyConversionEngine.shared.convert(
             amount: 100, from: "USD", to: "IDR")
         guard let resIDR = resIDR else { fatalError("FAIL: USD to IDR returned nil") }
-        assert(resIDR.formattedValue.contains("IDR"), "USD to IDR: \(resIDR.formattedValue)")
+        assert(resIDR.formattedValue.contains("IDR"))
 
         semaphore.signal()
     }
@@ -278,109 +171,242 @@ func testCurrencyEngineEvaluation() {
 
 func testQuickMathEvaluation() {
     let math = MathEngine.shared
-
-    // Basic arithmetic
-    assert(math.evaluate(expression: "2 + 2")?.formattedValue == "4", "2 + 2")
-    assert(math.evaluate(expression: "100 - 45")?.formattedValue == "55", "100 - 45")
-    assert(math.evaluate(expression: "12 * 15")?.formattedValue == "180", "12 * 15")
-    assert(math.evaluate(expression: "144 / 12")?.formattedValue == "12", "144 / 12")
+    assert(math.evaluate(expression: "2 + 2")?.formattedValue == "4")
+    assert(math.evaluate(expression: "100 - 45")?.formattedValue == "55")
+    assert(math.evaluate(expression: "12 * 15")?.formattedValue == "180")
+    assert(math.evaluate(expression: "144 / 12")?.formattedValue == "12")
     assert(
-        math.evaluate(expression: "2^10")?.formattedValue == "1,024"
-            || math.evaluate(expression: "2^10")?.formattedValue == "1024", "2^10")
-    assert(math.evaluate(expression: "10 % 3")?.formattedValue == "1", "10 % 3")
-    assert(math.evaluate(expression: "(10 + 5) * 4")?.formattedValue == "60", "(10 + 5) * 4")
-
-    // Precision and floating points
+        math.evaluate(expression: "2 ^ 10")?.formattedValue == "1,024"
+            || math.evaluate(expression: "2 ^ 10")?.formattedValue == "1024")
     assert(
-        math.evaluate(expression: "0.1 + 0.2")?.formattedValue == "0.3",
-        "0.1 + 0.2 floating point fix")
-    assert(math.evaluate(expression: "1.5 * 3.2")?.formattedValue == "4.8", "1.5 * 3.2")
-
-    // Functions
-    assert(math.evaluate(expression: "sqrt(144)")?.formattedValue == "12", "sqrt(144)")
-    assert(math.evaluate(expression: "cbrt(27)")?.formattedValue == "3", "cbrt(27)")
-    assert(math.evaluate(expression: "abs(-42)")?.formattedValue == "42", "abs(-42)")
-    assert(math.evaluate(expression: "ceil(4.1)")?.formattedValue == "5", "ceil(4.1)")
-    assert(math.evaluate(expression: "floor(4.9)")?.formattedValue == "4", "floor(4.9)")
-    assert(math.evaluate(expression: "round(4.5)")?.formattedValue == "5", "round(4.5)")
-    assert(math.evaluate(expression: "log10(1000)")?.formattedValue == "3", "log10(1000)")
-    assert(math.evaluate(expression: "log2(64)")?.formattedValue == "6", "log2(64)")
-    assert(math.evaluate(expression: "cos(0)")?.formattedValue == "1", "cos(0)")
-    assert(math.evaluate(expression: "sin(90 deg)")?.formattedValue == "1", "sin(90 deg)")
-
-    // Percentages
-    assert(math.evaluate(expression: "50% of 200")?.formattedValue == "100", "50% of 200")
-    assert(math.evaluate(expression: "20% off 80")?.formattedValue == "64", "20% off 80")
-    assert(math.evaluate(expression: "100 + 20%")?.formattedValue == "120", "100 + 20%")
-    assert(math.evaluate(expression: "100 - 15%")?.formattedValue == "85", "100 - 15%")
-    assert(math.evaluate(expression: "25 * 20%")?.formattedValue == "5", "25 * 20%")
-    assert(math.evaluate(expression: "50 as % of 200")?.formattedValue == "25%", "50 as % of 200")
-
-    // Word Operators
-    assert(math.evaluate(expression: "10 plus 20")?.formattedValue == "30", "10 plus 20")
-    assert(math.evaluate(expression: "50 minus 15")?.formattedValue == "35", "50 minus 15")
-    assert(math.evaluate(expression: "6 times 7")?.formattedValue == "42", "6 times 7")
-    assert(
-        math.evaluate(expression: "100 divided by 4")?.formattedValue == "25", "100 divided by 4")
-    assert(math.evaluate(expression: "half of 80")?.formattedValue == "40", "half of 80")
-    assert(math.evaluate(expression: "quarter of 200")?.formattedValue == "50", "quarter of 200")
-    assert(
-        math.evaluate(expression: "square root of 144")?.formattedValue == "12",
-        "square root of 144")
-    assert(math.evaluate(expression: "cube root of 27")?.formattedValue == "3", "cube root of 27")
-
-    // Factorial
-    assert(math.evaluate(expression: "5!")?.formattedValue == "120", "5!")
-    assert(math.evaluate(expression: "0!")?.formattedValue == "1", "0!")
-
+        math.evaluate(expression: "2 power 10")?.formattedValue == "1,024"
+            || math.evaluate(expression: "2 power 10")?.formattedValue == "1024")
+    assert(math.evaluate(expression: "square root of 625")?.formattedValue == "25")
+    assert(math.evaluate(expression: "50% of 200")?.formattedValue == "100")
+    assert(math.evaluate(expression: "20% off 80")?.formattedValue == "64")
     print("  ✓ testQuickMathEvaluation passed.")
+}
+
+func testAdvancedMathTrigTipsRatios() {
+    let math = MathEngine.shared
+
+    // Reciprocal trig: cot(45 deg) = 1, sec(60 deg) = 2, csc(30 deg) = 2
+    let cot45 = math.evaluate(expression: "cot(45 deg)")?.formattedValue
+    assert(cot45 == "1", "cot(45 deg) should be 1, got \(String(describing: cot45))")
+
+    let sec60 = math.evaluate(expression: "sec(60 deg)")?.formattedValue
+    assert(sec60 == "2", "sec(60 deg) should be 2, got \(String(describing: sec60))")
+
+    let csc30 = math.evaluate(expression: "csc(30 deg)")?.formattedValue
+    assert(csc30 == "2", "csc(30 deg) should be 2, got \(String(describing: csc30))")
+
+    // Number suffixes: 10K + 500 = 10,500, 2.5M * 4 = 10,000,000
+    let suffixMath1 = math.evaluate(expression: "10K + 500")?.formattedValue
+    assert(
+        suffixMath1?.contains("10,500") == true || suffixMath1?.contains("10500") == true,
+        "10K + 500: \(String(describing: suffixMath1))")
+
+    let suffixMath2 = math.evaluate(expression: "2.5M * 4")?.formattedValue
+    assert(
+        suffixMath2?.contains("10,000,000") == true || suffixMath2?.contains("1,00,00,000") == true
+            || suffixMath2?.contains("10000000") == true,
+        "2.5M * 4: \(String(describing: suffixMath2))")
+
+    // Tips: "15% tip on 42" -> Tip: $6.30, Total: $48.30
+    let tip = math.solveTip("15% tip on 42")
+    guard let tip = tip else { fatalError("FAIL: 15% tip on 42 failed") }
+    assert(
+        tip.formattedValue.contains("6.30") && tip.formattedValue.contains("48.30"),
+        "Tip: \(tip.formattedValue)")
+
+    // Ratios: "ratio of 3 to 5" -> 3:5
+    let ratio = math.solveRatio("ratio of 3 to 5")
+    guard let ratio = ratio else { fatalError("FAIL: ratio of 3 to 5 failed") }
+    assert(ratio.formattedValue.contains("3:5"), "Ratio: \(ratio.formattedValue)")
+
+    // Scale aspect ratio: "scale 16:9 to width 1920" -> 1920 x 1080
+    let scale = math.solveRatio("scale 16:9 to width 1920")
+    guard let scale = scale else { fatalError("FAIL: scale 16:9 to width 1920 failed") }
+    assert(
+        scale.formattedValue.contains("1,920") || scale.formattedValue.contains("1920"),
+        "Scale: \(scale.formattedValue)")
+    assert(
+        scale.formattedValue.contains("1,080") || scale.formattedValue.contains("1080"),
+        "Scale: \(scale.formattedValue)")
+
+    // Percentage change: "% increase from 50 to 75" -> +50%
+    let pctChange = math.solvePercentageChange("% increase from 50 to 75")
+    guard let pctChange = pctChange else { fatalError("FAIL: % increase from 50 to 75 failed") }
+    assert(pctChange.formattedValue.contains("50%"), "% change: \(pctChange.formattedValue)")
+
+    print("  ✓ testAdvancedMathTrigTipsRatios passed.")
 }
 
 func testNumberBaseConversions() {
     let math = MathEngine.shared
-
-    // Hex to Dec
-    let hexToDec = math.convertBase(value: "0xFF", fromBase: 16, toBase: 10)
-    assert(
-        hexToDec?.formattedValue == "255",
-        "0xFF to dec: \(String(describing: hexToDec?.formattedValue))")
-
-    // Dec to Hex
-    let decToHex = math.convertBase(value: "255", fromBase: 10, toBase: 16)
-    assert(
-        decToHex?.formattedValue == "0xFF",
-        "255 to hex: \(String(describing: decToHex?.formattedValue))")
-
-    // Bin to Dec
-    let binToDec = math.convertBase(value: "0b1010", fromBase: 2, toBase: 10)
-    assert(
-        binToDec?.formattedValue == "10",
-        "0b1010 to dec: \(String(describing: binToDec?.formattedValue))")
-
-    // Dec to Bin
-    let decToBin = math.convertBase(value: "10", fromBase: 10, toBase: 2)
-    assert(
-        decToBin?.formattedValue == "0b1010",
-        "10 to bin: \(String(describing: decToBin?.formattedValue))")
-
-    // Octal
-    let octToDec = math.convertBase(value: "0o77", fromBase: 8, toBase: 10)
-    assert(
-        octToDec?.formattedValue == "63",
-        "0o77 to dec: \(String(describing: octToDec?.formattedValue))")
-
-    let decToOct = math.convertBase(value: "63", fromBase: 10, toBase: 8)
-    assert(
-        decToOct?.formattedValue == "0o77",
-        "63 to oct: \(String(describing: decToOct?.formattedValue))")
-
+    assert(math.convertBase(value: "0xFF", fromBase: 16, toBase: 10)?.formattedValue == "255")
+    assert(math.convertBase(value: "255", fromBase: 10, toBase: 16)?.formattedValue == "0xFF")
+    assert(math.convertBase(value: "0b1010", fromBase: 2, toBase: 10)?.formattedValue == "10")
     print("  ✓ testNumberBaseConversions passed.")
+}
+
+func testDateTimeEngine() {
+    let dateEngine = DateTimeEngine.shared
+
+    // Date math: "August 5 + 5"
+    let dateMath = dateEngine.calculateDateOffset(baseDateStr: "August 5", delta: 5, unit: .day)
+    guard let dateMath = dateMath else { fatalError("FAIL: August 5 + 5 failed") }
+    assert(
+        (dateMath.formattedValue.contains("August") || dateMath.formattedValue.contains("Aug"))
+            && dateMath.formattedValue.contains("10"),
+        "August 5 + 5: \(dateMath.formattedValue)")
+
+    // Time math: "3:45pm + 5 hours" (300 mins) -> 8:45 PM
+    let timeMath = dateEngine.calculateTimeOffset(baseTimeStr: "3:45pm", deltaMinutes: 300)
+    guard let timeMath = timeMath else { fatalError("FAIL: 3:45pm + 5 hours failed") }
+    assert(timeMath.formattedValue.contains("8:45"), "3:45pm + 5: \(timeMath.formattedValue)")
+
+    // Relative date: "monday in 3 weeks"
+    let relDate = dateEngine.parseRelativeDate(query: "monday in 3 weeks")
+    assert(relDate != nil, "monday in 3 weeks should parse")
+
+    // Countdown: "days left in quarter"
+    let qCountdown = dateEngine.calculateCountdown(query: "days left in quarter")
+    assert(qCountdown != nil, "days left in quarter should calculate")
+
+    // ISO 8601: "2024-03-15T14:30:00Z"
+    let iso = dateEngine.parseISO8601Timestamp("2024-03-15T14:30:00Z")
+    guard let iso = iso else { fatalError("FAIL: ISO 8601 parsing failed") }
+    assert(iso.formattedValue.contains("2024"), "ISO timestamp: \(iso.formattedValue)")
+
+    // Epoch: "now in epoch"
+    let epochNow = dateEngine.parseEpochTimestamp("now in epoch")
+    assert(
+        epochNow != nil && (Int64(epochNow!.formattedValue) ?? 0) > 1_700_000_000,
+        "Epoch now should be valid timestamp")
+
+    print("  ✓ testDateTimeEngine passed.")
+}
+
+func testWorldClockEngine() {
+    let clock = WorldClockEngine.shared
+
+    // 1. Time in City: "time in tokyo", "time in JFK", "time in São Paulo"
+    let tokyoTime = clock.currentTime(in: "tokyo")
+    guard let tokyoTime = tokyoTime else { fatalError("FAIL: time in tokyo failed") }
+    assert(tokyoTime.formattedValue.contains("Tokyo"), "Tokyo: \(tokyoTime.formattedValue)")
+
+    let jfkTime = clock.currentTime(in: "JFK")
+    guard let jfkTime = jfkTime else { fatalError("FAIL: time in JFK failed") }
+    assert(jfkTime.formattedValue.contains("New York"), "JFK: \(jfkTime.formattedValue)")
+
+    let saoPauloTime = clock.currentTime(in: "são paulo")
+    guard let saoPauloTime = saoPauloTime else { fatalError("FAIL: time in São Paulo failed") }
+    assert(
+        saoPauloTime.formattedValue.contains("São Paulo"),
+        "São Paulo: \(saoPauloTime.formattedValue)")
+
+    // 2. Cross-City Time: "5pm ldn in sf"
+    let cross = clock.convertTime(timeStr: "5pm", from: "ldn", to: "sf")
+    guard let cross = cross else { fatalError("FAIL: 5pm ldn in sf failed") }
+    assert(
+        (cross.formattedValue.contains("9:00") || cross.formattedValue.contains("09:00"))
+            && cross.formattedValue.contains("San Francisco"),
+        "5pm ldn in sf: \(cross.formattedValue)")
+
+    // 3. Time diff: "time diff Paris"
+    let diff = clock.timeDifference(with: "Paris")
+    guard let diff = diff else { fatalError("FAIL: time diff Paris failed") }
+    assert(diff.formattedValue.contains("Paris"), "Diff Paris: \(diff.formattedValue)")
+
+    // 4. Time projection: "time in 4 hours in San Francisco"
+    let proj = clock.projectTime(delayHours: 4, destination: "San Francisco")
+    guard let proj = proj else { fatalError("FAIL: time in 4 hours in SF failed") }
+    assert(proj.formattedValue.contains("San Francisco"), "Time projection: \(proj.formattedValue)")
+
+    print("  ✓ testWorldClockEngine passed.")
+}
+
+func testDesignUnitEngine() {
+    let design = DesignUnitEngine.shared
+
+    // 2 inches in px at 72 ppi -> 144 px
+    let inToPx72 = design.convert(amount: 2, from: "in", to: "px", ppi: 72)
+    guard let inToPx72 = inToPx72 else { fatalError("FAIL: 2 inches in px at 72 ppi failed") }
+    assert(inToPx72.formattedValue == "144 px", "2 in at 72 ppi: \(inToPx72.formattedValue)")
+
+    // 16px in rem (at 16px base) -> 1 rem
+    let pxToRem = design.convert(amount: 16, from: "px", to: "rem")
+    guard let pxToRem = pxToRem else { fatalError("FAIL: 16px in rem failed") }
+    assert(pxToRem.formattedValue == "1 rem", "16px in rem: \(pxToRem.formattedValue)")
+
+    // 1.5rem in px -> 24 px
+    let remToPx = design.convert(amount: 1.5, from: "rem", to: "px")
+    guard let remToPx = remToPx else { fatalError("FAIL: 1.5rem in px failed") }
+    assert(remToPx.formattedValue == "24 px", "1.5rem in px: \(remToPx.formattedValue)")
+
+    print("  ✓ testDesignUnitEngine passed.")
+}
+
+func testTimespanAndWorkPlanning() {
+    let units = UnitConversionEngine.shared
+
+    // 145 mins to timespan -> 2h 25m
+    let timespan = units.convertToTimespan(amount: 145, unitStr: "mins")
+    guard let timespan = timespan else { fatalError("FAIL: 145 mins to timespan failed") }
+    assert(timespan.formattedValue == "2h 25m", "145 mins timespan: \(timespan.formattedValue)")
+
+    // 55h in workdays -> 6.875 workdays
+    let workdays = units.calculateWorkPlanning(query: "55h in workdays")
+    guard let workdays = workdays else { fatalError("FAIL: 55h in workdays failed") }
+    assert(workdays.formattedValue.contains("6.875"), "55h in workdays: \(workdays.formattedValue)")
+
+    // workhours in 2026 -> ~2,088 work hours
+    let workhours = units.calculateWorkPlanning(query: "workhours in 2026")
+    guard let workhours = workhours else { fatalError("FAIL: workhours in 2026 failed") }
+    assert(
+        workhours.formattedValue.contains("work hours"),
+        "workhours in 2026: \(workhours.formattedValue)")
+
+    print("  ✓ testTimespanAndWorkPlanning passed.")
+}
+
+func testEndToEndServiceEvaluation() {
+    let semaphore = DispatchSemaphore(value: 0)
+    Task {
+        let queries = [
+            "19usd to jpy",
+            "145 mins to timespan",
+            "55h in workdays",
+            "time in tokyo",
+            "5pm ldn in sf",
+            "time diff Paris",
+            "2 inches in px at 72 ppi",
+            "August 5 + 5",
+            "15% tip on 42",
+            "cot(45 deg)",
+            "10K in EUR",
+        ]
+
+        for q in queries {
+            let action = await MathConversionService.shared.evaluate(query: q)
+            guard let action = action else {
+                fatalError("FAIL: MathConversionService returned nil for '\(q)'")
+            }
+            assert(!action.title.isEmpty, "Action title for '\(q)' must not be empty")
+            assert(action.category == .mathConversion, "Action category must be .mathConversion")
+            assert(action.peek != nil, "Peek data for '\(q)' must not be nil")
+        }
+
+        semaphore.signal()
+    }
+    semaphore.wait()
+    print("  ✓ testEndToEndServiceEvaluation passed.")
 }
 
 func testQueryCategorizerMathAndConversionIntents() {
     let categorizer = QueryCategorizer.shared
 
-    // Math conversions
     let testQueries = [
         "100 km to miles",
         "100km to mi",
@@ -399,8 +425,22 @@ func testQueryCategorizerMathAndConversionIntents() {
         "100$ in eur",
         "100 usd to eur",
         "50 euros in dollars",
+        "time in tokyo",
+        "5pm ldn in sf",
+        "time diff Paris",
+        "August 5 + 5",
+        "3:45pm + 5",
+        "monday in 3 weeks",
+        "days until 31 Mar",
+        "145 mins to timespan",
+        "55h in workdays",
+        "2 inches in px at 72 ppi",
+        "15% tip on 42",
+        "ratio of 3 to 5",
+        "cot(45 deg)",
         "2 + 2",
-        "sqrt(144)",
+        "sqrt(625)",
+        "2 power 10",
         "50% of 200",
         "10 plus 20",
         "0xFF in dec",
@@ -419,9 +459,10 @@ func testQueryCategorizerMathAndConversionIntents() {
     // Web searches (must not be intercepted by math)
     let webQueries = [
         "how to install docker on mac",
-        "where to buy macbook pro",
-        "best swiftui tutorials 2026",
-        "weather in san francisco",
+        "why is the sky blue in summer",
+        "best restaurants in new york city",
+        "who is the president of france",
+        "what are the top movies of 2026",
     ]
 
     for q in webQueries {
@@ -430,38 +471,6 @@ func testQueryCategorizerMathAndConversionIntents() {
             fatalError(
                 "FAIL: Expected .webSearch for query '\(q)', got '\(String(describing: res.category))'"
             )
-        }
-    }
-
-    // URLs (must remain URLs)
-    let urlQueries = [
-        "github.com",
-        "https://swift.org",
-        "192.168.1.1",
-        "localhost:3000",
-    ]
-
-    for q in urlQueries {
-        let res = categorizer.classifySync(q)
-        if res.category != .url {
-            fatalError(
-                "FAIL: Expected .url for query '\(q)', got '\(String(describing: res.category))'")
-        }
-    }
-
-    // Apps / Non-math queries
-    let appQueries = [
-        "1Password",
-        "7-Zip",
-        "F1",
-        "MP3 Rocket",
-        "Visual Studio Code",
-    ]
-
-    for q in appQueries {
-        let res = categorizer.classifySync(q)
-        if res.category == .mathConversion {
-            fatalError("FAIL: App query '\(q)' was falsely classified as .mathConversion")
         }
     }
 

@@ -611,7 +611,6 @@ public final class UnitConversionEngine {
     // MARK: - Formatting Helpers
 
     public func formatNumber(_ val: Double) -> String {
-        // If whole integer, print without decimal point
         if val.isFinite && floor(val) == val && abs(val) < 1e12 {
             let formatter = NumberFormatter()
             formatter.numberStyle = .decimal
@@ -626,9 +625,8 @@ public final class UnitConversionEngine {
         return formatter.string(from: NSNumber(value: val)) ?? String(format: "%.4f", val)
     }
 
-    // MARK: - Conversion Methods
+    // MARK: - Standard & Compound Conversion Methods
 
-    /// Standard unit conversion: amount fromUnit -> toUnit
     public func convert(amount: Double, from fromStr: String, to toStr: String) -> ConversionResult?
     {
         guard let fromEntry = findUnit(for: fromStr),
@@ -637,7 +635,6 @@ public final class UnitConversionEngine {
             return nil
         }
 
-        // Ensure both units are in the same category
         guard fromEntry.category == toEntry.category else {
             return nil
         }
@@ -674,7 +671,6 @@ public final class UnitConversionEngine {
         )
     }
 
-    /// Compound unit conversion: e.g. 5 ft 10 in -> cm, 1 hr 30 min -> sec
     public func convertCompound(
         firstAmount: Double, firstUnit: String,
         secondAmount: Double, secondUnit: String,
@@ -711,5 +707,145 @@ public final class UnitConversionEngine {
             peekText: peekText,
             subtitle: "Unit Conversion"
         )
+    }
+
+    // MARK: - Human Timespan Breakdown ("145 mins to timespan", "90000 seconds in timespan")
+
+    public func convertToTimespan(amount: Double, unitStr: String) -> ConversionResult? {
+        guard let entry = findUnit(for: unitStr), entry.category == .duration else { return nil }
+
+        let totalSeconds = entry.dimension.converter.baseUnitValue(fromValue: amount)
+        guard totalSeconds >= 0 else { return nil }
+
+        let totalSecInt = Int(totalSeconds)
+        let days = totalSecInt / 86400
+        let hours = (totalSecInt % 86400) / 3600
+        let minutes = (totalSecInt % 3600) / 60
+        let seconds = totalSecInt % 60
+
+        var parts: [String] = []
+        var fullParts: [String] = []
+
+        if days > 0 {
+            parts.append("\(days)d")
+            fullParts.append("\(days) \(days == 1 ? "day" : "days")")
+        }
+        if hours > 0 {
+            parts.append("\(hours)h")
+            fullParts.append("\(hours) \(hours == 1 ? "hour" : "hours")")
+        }
+        if minutes > 0 {
+            parts.append("\(minutes)m")
+            fullParts.append("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
+        }
+        if seconds > 0 || parts.isEmpty {
+            parts.append("\(seconds)s")
+            fullParts.append("\(seconds) \(seconds == 1 ? "second" : "seconds")")
+        }
+
+        let shortTitle = parts.joined(separator: " ")
+        let fullDesc = fullParts.joined(separator: ", ")
+        let formattedAmount = formatNumber(amount)
+        let peekText = "\(formattedAmount) \(entry.symbol) =\n\(fullDesc) (\(shortTitle))"
+
+        return ConversionResult(
+            formattedValue: shortTitle,
+            peekText: peekText,
+            subtitle: "Timespan Breakdown"
+        )
+    }
+
+    // MARK: - Work Planning ("55h in workdays", "workhours in 2026")
+
+    public func calculateWorkPlanning(query: String) -> ConversionResult? {
+        let lower = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        // 1. "workhours in <year>" or "workdays in <year>"
+        let yearPattern = try! NSRegularExpression(
+            pattern: #"^(workhours|workdays|working\s+days|working\s+hours)\s+in\s+(\d{4})$"#,
+            options: .caseInsensitive)
+        let ns = lower as NSString
+        if let m = yearPattern.firstMatch(in: lower, range: NSRange(lower.startIndex..., in: lower))
+        {
+            let type = ns.substring(with: m.range(at: 1))
+            if let year = Int(ns.substring(with: m.range(at: 2))) {
+                let workdays = calculateWorkingDays(in: year)
+                let workhours = workdays * 8
+                if type.contains("hour") {
+                    return ConversionResult(
+                        formattedValue: "\(formatNumber(Double(workhours))) work hours",
+                        peekText:
+                            "Year \(year):\n\(workdays) work days (Monday–Friday)\n\(formatNumber(Double(workhours))) total work hours (at 8h/day)",
+                        subtitle: "Work Planning"
+                    )
+                } else {
+                    return ConversionResult(
+                        formattedValue: "\(workdays) work days",
+                        peekText:
+                            "Year \(year):\n\(workdays) work days (Monday–Friday)\n\(formatNumber(Double(workhours))) total work hours (at 8h/day)",
+                        subtitle: "Work Planning"
+                    )
+                }
+            }
+        }
+
+        // 2. "<N>h in workdays" or "<N> hours in workdays"
+        let hoursToWorkdaysPattern = try! NSRegularExpression(
+            pattern: #"^([0-9.]+)\s*(?:h|hrs|hours?)\s+(?:in|to)\s+(?:workdays?|working\s+days?)$"#,
+            options: .caseInsensitive)
+        if let m = hoursToWorkdaysPattern.firstMatch(
+            in: lower, range: NSRange(lower.startIndex..., in: lower))
+        {
+            if let hours = Double(ns.substring(with: m.range(at: 1))) {
+                let workdays = hours / 8.0
+                let formatted = formatNumber(workdays)
+                return ConversionResult(
+                    formattedValue: "\(formatted) workdays",
+                    peekText:
+                        "\(formatNumber(hours)) hours = \(formatted) workdays (at 8 hours/day)",
+                    subtitle: "Work Planning"
+                )
+            }
+        }
+
+        // 3. "<N> workdays in hours"
+        let workdaysToHoursPattern = try! NSRegularExpression(
+            pattern: #"^([0-9.]+)\s*(?:workdays?|working\s+days?)\s+(?:in|to)\s+(?:hours?|h|hrs)$"#,
+            options: .caseInsensitive)
+        if let m = workdaysToHoursPattern.firstMatch(
+            in: lower, range: NSRange(lower.startIndex..., in: lower))
+        {
+            if let workdays = Double(ns.substring(with: m.range(at: 1))) {
+                let hours = workdays * 8.0
+                let formatted = formatNumber(hours)
+                return ConversionResult(
+                    formattedValue: "\(formatted) hours",
+                    peekText:
+                        "\(formatNumber(workdays)) workdays = \(formatted) hours (at 8 hours/day)",
+                    subtitle: "Work Planning"
+                )
+            }
+        }
+
+        return nil
+    }
+
+    private func calculateWorkingDays(in year: Int) -> Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let comps = DateComponents(year: year, month: 1, day: 1)
+        guard var date = calendar.date(from: comps) else { return 261 }
+
+        var count = 0
+        while calendar.component(.year, from: date) == year {
+            let weekday = calendar.component(.weekday, from: date)
+            // In Gregorian Calendar: 1 = Sunday, 7 = Saturday
+            if weekday != 1 && weekday != 7 {
+                count += 1
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+        return count
     }
 }

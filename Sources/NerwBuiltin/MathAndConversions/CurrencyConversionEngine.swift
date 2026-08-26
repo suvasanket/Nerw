@@ -93,7 +93,7 @@ public final class CurrencyConversionEngine {
 
         // Same currency conversion: 100 USD to USD = 100 USD
         if fromCode == toCode {
-            let formattedAmount = formatCurrency(amount)
+            let formattedAmount = formatAmount(amount)
             return CurrencyResult(
                 formattedValue: "\(formattedAmount) \(toCode)",
                 peekText: "\(formattedAmount) \(fromCode) = \(formattedAmount) \(toCode)",
