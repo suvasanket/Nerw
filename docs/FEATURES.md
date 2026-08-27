@@ -51,8 +51,9 @@ Nerw comes equipped with a comprehensive suite of native built-in actions, cover
 ## ⭐️ Quick Wikipedia Search
 - Get instant Wikipedia article summaries right inside the search list with **Peek** cards; press `Enter` to open the full article in your browser.
 
-## Dictionary & Menubar Search
+## Dictionary, Spell Check & Menubar Search
 - **Dictionary Lookup (`define`)**: Look up word definitions instantly with rich **Peek** expandable previews; press `Enter` to open the Dictionary app.
+- **Spell Check & Auto-Paste (`spell`)**: Dynamic real-time spelling correction for words and phrases powered by macOS `NSSpellChecker`. Shows best corrections, spelling guesses, word completions, and full-sentence typo fixes. Pressing `Enter` pastes the correction directly into your frontmost active application; `Cmd + Enter` copies it to the clipboard.
 - **Menubar Search (`menubar`)**: Search and trigger any clickable menu command for your currently active frontmost application without reaching for the mouse.
 
 ## System Commands

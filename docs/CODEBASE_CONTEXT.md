@@ -59,6 +59,7 @@ The source code is organized into modular targets within `Sources/`:
     - `FindFile.swift`: Native Spotlight integration using `NSMetadataQuery` for instant file search. Requests permission for protected folders (Downloads, Documents, Desktop) on-demand upon first search.
     - `AppSearch.swift`: Fast application indexing and launching. Uses focused `NSMetadataQuery` scopes (`/Applications`, `/System/Applications`, `~/Applications`, CoreServices) to avoid scanning the entire user directory tree.
     - `MenubarSearch.swift`: Active application menubar item search. Provides an on-demand `.args` action ("Search Menubar") using Accessibility APIs to search and trigger click-able menu actions for the frontmost app.
+    - `SpellCheckManager.swift`: Dynamic spell-checker action ("Spell") powered by macOS `NSSpellChecker`. Accepts arguments in `.args` mode, provides real-time single and multi-word corrections, and auto-pastes the chosen correction into the front application on Enter.
     - `System.swift`: System commands (Dictionary, Wikipedia, file cleanup, volume ejection, etc.), plus WiFi and Bluetooth integration.
     - `QuickAction.swift`: Real-time process management (Quit/Force Quit).
     - `ShortcutsManager.swift` & `ShortcutsEngine.swift`: Integration with macOS Shortcuts system. Features on-demand `stat()` file modification checking for zero-overhead background reindexing and `.hybrid` action generation (`Enter` for instant execution, `Tab` for piped stdin argument input).
@@ -344,4 +345,21 @@ A minimal, card-based chat layout utilizing `AIService` directly inside the app,
 - **Empty State**: Renders a large translucent sparkles symbol in the center.
 - **Timeline Paging**: The vertical stack of bars on the left lets users click on past queries to swap the response card content dynamically.
 - **Subsystem Disabled State**: Renders a custom warning view with a glassy "Configure AI..." button. Clicking this dismisses the panel and posts the settings notification targeting the AI configuration tab.
+
+---
+
+## 13. Dynamic Spell Checker (`NerwBuiltin/SpellCheckManager.swift`)
+
+A native macOS spell-checking capability integrated as a dynamic `.args` action (`builtin.spell`).
+
+### Architecture & Key Points
+- **Engine**: AppKit's native `NSSpellChecker.shared`.
+- **Action Type**: `.args(placeholder: "Word or phrase to spell check...", searcher: ..., perform: ...)` triggered by `spell`.
+- **Single-Word Correction**: Uses `NSSpellChecker.correction(forWordRange:...)` for top corrections, `guesses(forWordRange:...)` for alternatives, and `completions(forPartialWordRange:...)` for completions. Preserves user casing (Title Case, UPPERCASE, lowercase).
+- **Multi-Word & Sentence Correction**: Scans all misspelled ranges in a sentence and synthesizes a full corrected sentence as the primary recommendation, followed by individual word corrections.
+- **Correct Word Handling**: Confirms correct spelling (`"✓ <word>"`) and provides autocomplete extensions.
+- **Execution & Auto-Paste**:
+  - `Enter`: Copies the chosen text to `NSPasteboard.general`, dismisses the panel, activates the frontmost target application (`System.shared.lastActiveApp`), and synthesizes `Cmd+V` via `CGEvent` after a 0.15s delay.
+  - `Cmd+Enter` (Modifier) / Context Menu (`Cmd+K`): Copies the correction to the clipboard without auto-pasting.
+
 

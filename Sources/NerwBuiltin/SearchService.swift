@@ -118,6 +118,7 @@ public class SearchService {
                 candidates.append(contentsOf: BookmarkManager.builtinActions())
             }
             candidates.append(contentsOf: MenubarSearch.builtinActions())
+            candidates.append(contentsOf: SpellCheckManager.builtinActions())
             candidates.append(contentsOf: SearchEngine.builtinActions())
             candidates.append(FindFile.shared.getTriggerAction())
 

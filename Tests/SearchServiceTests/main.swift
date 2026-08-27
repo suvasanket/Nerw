@@ -5,6 +5,7 @@ import NerwCore
 import NerwUtils
 
 func runTests() {
+    setbuf(stdout, nil)
     print("[Testing] Starting SearchService functional tests...")
 
     testAppQuickActionsCreation()
@@ -27,6 +28,7 @@ func runTests() {
     runDaemonTests()
     runAITests()
     runMathConversionTests()
+    runSpellCheckTests()
 
     print("[Testing] All SearchService tests PASSED.")
 
@@ -198,3 +200,4 @@ func testSystemActionsIncludePowerActions() {
 
 // Execute
 runTests()
+exit(0)

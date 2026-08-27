@@ -99,6 +99,7 @@ class ActionsSettingsViewController: NSViewController, NSTextFieldDelegate, Keyb
                 ClipboardManager.builtinActions() + SnippetManager.builtinActions()
                 + BookmarkManager.builtinActions().filter { $0.id == "builtin.bookmark.add" }
                 + MenubarSearch.builtinActions()
+                + SpellCheckManager.builtinActions()
                 + SearchEngine.builtinActions()
                 + featureSystemActions
             let featureActions = self.makeRows(from: featureRawActions)
