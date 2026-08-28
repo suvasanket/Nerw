@@ -26,10 +26,10 @@ public class SpellCheckManager {
             id: "builtin.spell",
             title: "Spell",
             subtitle: "Check spelling and paste correction into front app",
-            icon: .system("text.badge.checkmark"),
+            icon: .system("quote.bubble.fill"),
             triggers: ["spell"],
             type: .args(
-                placeholder: "Word or phrase to spell check...",
+                placeholder: "Word",
                 searcher: { [weak self] _, query, completion in
                     guard let self = self else {
                         completion([])
@@ -50,15 +50,15 @@ public class SpellCheckManager {
     public func suggestions(for query: String, completion: @escaping ([NerwAction]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else {
-                DispatchQueue.main.async { completion([]) }
+                completion([])
                 return
             }
 
             let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
+            // When entering argument mode or query is empty, show nothing
             if trimmed.isEmpty {
-                let emptyResults = self.buildEmptyQuerySuggestions()
-                DispatchQueue.main.async { completion(emptyResults) }
+                completion([])
                 return
             }
 
@@ -69,9 +69,7 @@ public class SpellCheckManager {
                 results = self.buildSingleWordSuggestions(for: trimmed)
             }
 
-            DispatchQueue.main.async {
-                completion(results)
-            }
+            completion(results)
         }
     }
 
@@ -90,7 +88,6 @@ public class SpellCheckManager {
             text: String,
             title: String,
             subtitle: String,
-            icon: NerwAction.IconType,
             idSuffix: String
         ) {
             let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -102,7 +99,7 @@ public class SpellCheckManager {
                     id: "builtin.spell.\(idSuffix).\(normalized.hashValue)",
                     title: title,
                     subtitle: subtitle,
-                    icon: icon,
+                    icon: .system("quote.bubble.fill"),
                     category: nil,
                     triggers: [],
                     modifiers: [
@@ -134,8 +131,7 @@ public class SpellCheckManager {
                 addAction(
                     text: casedCorrection,
                     title: casedCorrection,
-                    subtitle: "Best correction for \"\(word)\" • Enter to paste",
-                    icon: .system("checkmark.circle.fill"),
+                    subtitle: "Enter to paste",
                     idSuffix: "top"
                 )
             }
@@ -151,19 +147,10 @@ public class SpellCheckManager {
 
             for (idx, guess) in guesses.prefix(8).enumerated() {
                 let casedGuess = matchCasing(source: word, target: guess)
-                let subtitleText =
-                    idx == 0 && actions.isEmpty
-                    ? "Best correction for \"\(word)\" • Enter to paste"
-                    : "Spelling suggestion • Enter to paste"
-                let iconType: NerwAction.IconType =
-                    actions.isEmpty
-                    ? .system("checkmark.circle.fill") : .system("text.badge.checkmark")
-
                 addAction(
                     text: casedGuess,
                     title: casedGuess,
-                    subtitle: subtitleText,
-                    icon: iconType,
+                    subtitle: "Enter to paste",
                     idSuffix: "guess.\(idx)"
                 )
             }
@@ -183,28 +170,17 @@ public class SpellCheckManager {
                     addAction(
                         text: casedComp,
                         title: casedComp,
-                        subtitle: "Word completion • Enter to paste",
-                        icon: .system("text.badge.plus"),
+                        subtitle: "Enter to paste",
                         idSuffix: "comp.\(idx)"
                     )
                 }
             }
-
-            // 4. Original word option
-            addAction(
-                text: word,
-                title: "\(word) (Original)",
-                subtitle: "Keep original spelling • Enter to paste",
-                icon: .system("arrow.turn.down.left"),
-                idSuffix: "orig"
-            )
         } else {
             // Already correctly spelled
             addAction(
                 text: word,
-                title: "✓ \(word)",
-                subtitle: "Correctly spelled • Enter to paste",
-                icon: .system("checkmark.circle.fill"),
+                title: word,
+                subtitle: "Enter to paste",
                 idSuffix: "correct"
             )
 
@@ -222,8 +198,7 @@ public class SpellCheckManager {
                 addAction(
                     text: casedComp,
                     title: casedComp,
-                    subtitle: "Word completion • Enter to paste",
-                    icon: .system("text.badge.plus"),
+                    subtitle: "Enter to paste",
                     idSuffix: "comp.\(idx)"
                 )
             }
@@ -286,7 +261,6 @@ public class SpellCheckManager {
             text: String,
             title: String,
             subtitle: String,
-            icon: NerwAction.IconType,
             idSuffix: String
         ) {
             let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -298,7 +272,7 @@ public class SpellCheckManager {
                     id: "builtin.spell.\(idSuffix).\(normalized.hashValue)",
                     title: title,
                     subtitle: subtitle,
-                    icon: icon,
+                    icon: .system("quote.bubble.fill"),
                     category: nil,
                     triggers: [],
                     modifiers: [
@@ -330,8 +304,7 @@ public class SpellCheckManager {
             addAction(
                 text: fullCorrected,
                 title: fullCorrected,
-                subtitle: "Corrected phrase • Enter to paste",
-                icon: .system("checkmark.circle.fill"),
+                subtitle: "Enter to paste",
                 idSuffix: "full"
             )
 
@@ -340,64 +313,19 @@ public class SpellCheckManager {
                 addAction(
                     text: item.replacement,
                     title: item.replacement,
-                    subtitle: "Correction for \"\(item.originalWord)\" • Enter to paste",
-                    icon: .system("text.badge.checkmark"),
+                    subtitle: "Enter to paste",
                     idSuffix: "word.\(idx)"
                 )
             }
-
-            // 3. Original phrase
-            addAction(
-                text: phrase,
-                title: "\(phrase) (Original)",
-                subtitle: "Keep original text • Enter to paste",
-                icon: .system("arrow.turn.down.left"),
-                idSuffix: "orig"
-            )
         } else {
             // No spelling errors in the phrase
             addAction(
                 text: phrase,
-                title: "✓ \(phrase)",
-                subtitle: "No spelling errors detected • Enter to paste",
-                icon: .system("checkmark.circle.fill"),
+                title: phrase,
+                subtitle: "Enter to paste",
                 idSuffix: "correct"
             )
         }
-
-        return actions
-    }
-
-    // MARK: - Empty Query Handling
-
-    private func buildEmptyQuerySuggestions() -> [NerwAction] {
-        var actions: [NerwAction] = []
-
-        if let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(
-            in: .whitespacesAndNewlines),
-            !clip.isEmpty,
-            clip.count <= 100,
-            !clip.contains("\n")
-        {
-            let singleWordResults =
-                clip.contains(" ")
-                ? buildMultiWordSuggestions(for: clip) : buildSingleWordSuggestions(for: clip)
-            if let first = singleWordResults.first {
-                actions.append(first)
-            }
-        }
-
-        actions.append(
-            NerwAction(
-                id: "builtin.spell.hint",
-                title: "Type a word or phrase",
-                subtitle: "Live spelling suggestions and corrections will appear as you type",
-                icon: .system("character.cursor.ibeam"),
-                category: nil,
-                triggers: [],
-                type: .instant(perform: { _ in })
-            )
-        )
 
         return actions
     }
@@ -439,9 +367,7 @@ public class SpellCheckManager {
             case .instant(let perform):
                 perform(topSuggestion)
             default:
-                pasteIntoFrontApp(
-                    text: topSuggestion.title.replacingOccurrences(of: "✓ ", with: "")
-                        .replacingOccurrences(of: " (Original)", with: ""))
+                pasteIntoFrontApp(text: topSuggestion.title)
             }
         } else {
             pasteIntoFrontApp(text: trimmed)

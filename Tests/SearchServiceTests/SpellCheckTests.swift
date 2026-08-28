@@ -12,6 +12,7 @@ func runSpellCheckTests() {
     testSingleWordCorrection()
     testCorrectlySpelledWord()
     testMultiWordPhraseCorrection()
+    testEmptyQueryReturnsNothing()
     print("[Testing] All SpellCheck tests PASSED.")
 }
 
@@ -36,8 +37,16 @@ func testSpellActionMetadata() {
         fatalError("FAIL: Spell action must be of type .args")
     }
 
-    if placeholder.isEmpty {
-        fatalError("FAIL: Spell action placeholder must not be empty")
+    if placeholder != "Word" {
+        fatalError("FAIL: Expected single-word placeholder 'Word', got '\(placeholder)'")
+    }
+
+    if case .system(let iconName)? = spellAction.icon {
+        if iconName != "quote.bubble.fill" {
+            fatalError("FAIL: Expected icon 'quote.bubble.fill', got '\(iconName)'")
+        }
+    } else {
+        fatalError("FAIL: Expected system icon for spell action")
     }
 
     print("  ✓ testSpellActionMetadata passed.")
@@ -82,8 +91,16 @@ func testSingleWordCorrection() {
         fatalError("FAIL: Expected suggestions to contain 'definitely', got: \(topTitles)")
     }
 
-    // Verify modifiers exist for clipboard copy
+    // Verify icons are all quote.bubble.fill and modifiers exist for clipboard copy
     for item in suggestions {
+        if case .system(let iconName)? = item.icon {
+            if iconName != "quote.bubble.fill" {
+                fatalError("FAIL: Result icon must be 'quote.bubble.fill', got '\(iconName)'")
+            }
+        } else {
+            fatalError("FAIL: Result icon must be system icon 'quote.bubble.fill'")
+        }
+
         if item.modifiers[.command] == nil {
             fatalError("FAIL: Suggestion '\(item.title)' is missing Command modifier action")
         }
@@ -128,4 +145,21 @@ func testMultiWordPhraseCorrection() {
     }
 
     print("  ✓ testMultiWordPhraseCorrection passed.")
+}
+
+func testEmptyQueryReturnsNothing() {
+    print("  - testEmptyQueryReturnsNothing")
+
+    let manager = SpellCheckManager.shared
+    let semaphore = DispatchSemaphore(value: 0)
+
+    manager.suggestions(for: "") { results in
+        if !results.isEmpty {
+            fatalError("FAIL: Empty query must return empty results, got \(results.count) items")
+        }
+        semaphore.signal()
+    }
+
+    semaphore.wait()
+    print("  ✓ testEmptyQueryReturnsNothing passed.")
 }

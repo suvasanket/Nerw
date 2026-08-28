@@ -354,10 +354,11 @@ A native macOS spell-checking capability integrated as a dynamic `.args` action 
 
 ### Architecture & Key Points
 - **Engine**: AppKit's native `NSSpellChecker.shared`.
-- **Action Type**: `.args(placeholder: "Word or phrase to spell check...", searcher: ..., perform: ...)` triggered by `spell`.
+- **Action Icon**: `.system("quote.bubble.fill")` (used consistently for the action and all suggestions).
+- **Action Type**: `.args(placeholder: "Word", searcher: ..., perform: ...)` triggered by `spell`.
+- **Clean Input State**: Empty on entering argument mode; dynamically displays suggestions only as the user types.
 - **Single-Word Correction**: Uses `NSSpellChecker.correction(forWordRange:...)` for top corrections, `guesses(forWordRange:...)` for alternatives, and `completions(forPartialWordRange:...)` for completions. Preserves user casing (Title Case, UPPERCASE, lowercase).
-- **Multi-Word & Sentence Correction**: Scans all misspelled ranges in a sentence and synthesizes a full corrected sentence as the primary recommendation, followed by individual word corrections.
-- **Correct Word Handling**: Confirms correct spelling (`"✓ <word>"`) and provides autocomplete extensions.
+- **Multi-Word & Sentence Correction**: Scans all misspelled ranges in a sentence with `wrap: false` and synthesizes a full corrected sentence as the primary recommendation, followed by individual word corrections.
 - **Execution & Auto-Paste**:
   - `Enter`: Copies the chosen text to `NSPasteboard.general`, dismisses the panel, activates the frontmost target application (`System.shared.lastActiveApp`), and synthesizes `Cmd+V` via `CGEvent` after a 0.15s delay.
   - `Cmd+Enter` (Modifier) / Context Menu (`Cmd+K`): Copies the correction to the clipboard without auto-pasting.
