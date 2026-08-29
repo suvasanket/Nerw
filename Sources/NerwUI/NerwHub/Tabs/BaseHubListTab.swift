@@ -1,9 +1,41 @@
 import Cocoa
 import NerwCore
 
-open class BaseHubListTab<Item>: NSViewController {
+public protocol HubSelectableRowView: AnyObject {
+    var isRowSelected: Bool { get set }
+    func setSelected(_ selected: Bool, animated: Bool)
+}
+
+public protocol BaseHubTabProtocol: AnyObject {
+    var currentSelectedIndex: Int { get }
+    var totalItemCount: Int { get }
+    func selectNext()
+    func selectPrevious()
+    func selectItem(at index: Int)
+    func performPrimaryActionOnSelected()
+    func performEditActionOnSelected()
+    func performDeleteActionOnSelected()
+    func refreshData()
+}
+
+open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     public let scrollView = NSScrollView()
     public let stackView = NSStackView()
+
+    public var selectedIndex: Int = 0
+
+    public var currentSelectedIndex: Int {
+        return selectedIndex
+    }
+
+    public var totalItemCount: Int {
+        return items.count
+    }
+
+    public var selectedItem: Item? {
+        guard items.indices.contains(selectedIndex) else { return nil }
+        return items[selectedIndex]
+    }
 
     public var items: [Item] = [] {
         didSet {
@@ -76,14 +108,67 @@ open class BaseHubListTab<Item>: NSViewController {
     public func reloadData() {
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        for item in items {
+        if items.isEmpty {
+            selectedIndex = 0
+        } else {
+            selectedIndex = max(0, min(selectedIndex, items.count - 1))
+        }
+
+        for (idx, item) in items.enumerated() {
             let row = createRowView(for: item)
             stackView.addArrangedSubview(row)
             row.widthAnchor.constraint(
                 equalTo: stackView.widthAnchor,
                 constant: -(stackView.edgeInsets.left + stackView.edgeInsets.right)
             ).isActive = true
+
+            if let selectable = row as? HubSelectableRowView {
+                selectable.setSelected(idx == selectedIndex, animated: false)
+            }
         }
+    }
+
+    public func selectItem(at index: Int) {
+        guard !items.isEmpty else {
+            selectedIndex = 0
+            return
+        }
+        let clamped = max(0, min(index, items.count - 1))
+        selectedIndex = clamped
+        updateSelectionStates(animated: true)
+        scrollToSelectedRow()
+    }
+
+    public func selectNext() {
+        guard !items.isEmpty else { return }
+        selectItem(at: selectedIndex + 1)
+    }
+
+    public func selectPrevious() {
+        guard !items.isEmpty else { return }
+        selectItem(at: selectedIndex - 1)
+    }
+
+    public func updateSelectionStates(animated: Bool) {
+        for (idx, subview) in stackView.arrangedSubviews.enumerated() {
+            if let row = subview as? HubSelectableRowView {
+                row.setSelected(idx == selectedIndex, animated: animated)
+            }
+        }
+    }
+
+    public func scrollToSelectedRow() {
+        guard stackView.arrangedSubviews.indices.contains(selectedIndex) else { return }
+        let row = stackView.arrangedSubviews[selectedIndex]
+        row.scrollToVisible(row.bounds)
+    }
+
+    open func performPrimaryActionOnSelected() {}
+    open func performEditActionOnSelected() {}
+    open func performDeleteActionOnSelected() {}
+
+    public func refreshData() {
+        loadData()
     }
 }
 

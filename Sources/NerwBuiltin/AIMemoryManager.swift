@@ -112,6 +112,18 @@ public class AIMemoryManager {
         saveToDisk()
     }
 
+    public func deleteMemory(id: UUID) {
+        if let index = entries.firstIndex(where: { $0.id == id }) {
+            let entry = entries[index]
+            if let imagePath = entry.imagePath, FileManager.default.fileExists(atPath: imagePath) {
+                try? FileManager.default.removeItem(atPath: imagePath)
+            }
+            entries.remove(at: index)
+            Logger.shared.info("AIMemoryManager: Deleted memory id \(id)")
+            saveToDisk()
+        }
+    }
+
     public func updateMemory(id: UUID, newContent: String) {
         if let index = entries.firstIndex(where: { $0.id == id }) {
             let existing = entries[index]

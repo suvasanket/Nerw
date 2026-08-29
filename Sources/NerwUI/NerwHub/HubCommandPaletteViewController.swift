@@ -1,5 +1,4 @@
 import Cocoa
-import NerwUI
 
 public protocol HubCommandPaletteDelegate: AnyObject {
     func commandPaletteDidSelect(action: String)

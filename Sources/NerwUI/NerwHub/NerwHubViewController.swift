@@ -32,6 +32,10 @@ public class NerwHubPanel: NSPanel {
     public override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown {
             if event.keyCode == 53 {
+                if let vc = contentViewController as? NerwHubViewController, vc.isOverlayOpen {
+                    super.sendEvent(event)
+                    return
+                }
                 self.resignHandler?()
                 return
             }
@@ -68,6 +72,20 @@ extension NerwHubViewController: NerwHubTabBarDelegate {
 class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     var onDismiss: (() -> Void)?
 
+    var isOverlayOpen: Bool {
+        if let palette = commandPaletteController,
+            !palette.view.isHidden && palette.view.alphaValue > 0
+        {
+            return true
+        }
+        if let floating = floatingInputController,
+            !floating.view.isHidden && floating.view.alphaValue > 0
+        {
+            return true
+        }
+        return false
+    }
+
     private let contentContainer = NSView()
 
     private var tabBarView = NerwHubTabBarView()
@@ -100,11 +118,80 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         super.viewDidAppear()
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.view.window == event.window else { return event }
+
+            // If command palette is open, let palette handle its own inputs
+            if let palette = self.commandPaletteController,
+                !palette.view.isHidden && palette.view.alphaValue > 0
+            {
+                return event
+            }
+
+            // If floating input is open, let floating input handle its own inputs
+            if let floating = self.floatingInputController,
+                !floating.view.isHidden && floating.view.alphaValue > 0
+            {
+                return event
+            }
+
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+            // Cmd + K
             if flags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "k" {
                 self.toggleCommandPalette()
                 return nil
             }
+
+            // Cmd + 1, 2, 3
+            if flags.contains(.command), let char = event.charactersIgnoringModifiers,
+                let number = Int(char)
+            {
+                if number >= 1 && number <= NerwHubTab.allCases.count {
+                    let tab = NerwHubTab.allCases[number - 1]
+                    self.selectTab(tab)
+                    return nil
+                }
+            }
+
+            // Esc
+            if event.keyCode == 53 {
+                self.onDismiss?()
+                return nil
+            }
+
+            // Up Arrow or Ctrl-P / Ctrl-K
+            if event.keyCode == 126
+                || (flags.contains(.control)
+                    && (event.charactersIgnoringModifiers?.lowercased() == "p"
+                        || event.charactersIgnoringModifiers?.lowercased() == "k"))
+            {
+                (self.currentTabViewController as? BaseHubTabProtocol)?.selectPrevious()
+                return nil
+            }
+
+            // Down Arrow or Ctrl-N / Ctrl-J
+            if event.keyCode == 125
+                || (flags.contains(.control)
+                    && (event.charactersIgnoringModifiers?.lowercased() == "n"
+                        || event.charactersIgnoringModifiers?.lowercased() == "j"))
+            {
+                (self.currentTabViewController as? BaseHubTabProtocol)?.selectNext()
+                return nil
+            }
+
+            // Return / Enter
+            if event.keyCode == 36 {
+                (self.currentTabViewController as? BaseHubTabProtocol)?
+                    .performPrimaryActionOnSelected()
+                return nil
+            }
+
+            // Delete / Backspace (keyCode 51 or forward delete 117)
+            if event.keyCode == 51 || event.keyCode == 117 {
+                (self.currentTabViewController as? BaseHubTabProtocol)?
+                    .performDeleteActionOnSelected()
+                return nil
+            }
+
             return event
         }
     }
@@ -210,12 +297,31 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     @objc private func toggleCommandPalette() {
         guard let palette = commandPaletteController else { return }
 
-        let isOpening = palette.view.alphaValue == 0
+        let isOpening = palette.view.alphaValue == 0 || palette.view.isHidden
 
         if isOpening {
-            let actions = [
-                "Open Memory", "Open Bookmarks", "Open Conversations", "Delete", "Edit", "Refresh",
-            ]
+            var actions: [String] = []
+
+            if currentTab == .memory {
+                if let memTab = memoryTabController, memTab.selectedItem != nil {
+                    actions.append("Edit")
+                    actions.append("Delete")
+                }
+            } else if currentTab == .bookmarks {
+                if let bTab = bookmarksTabController, bTab.selectedItem != nil {
+                    actions.append("Open")
+                    actions.append("Delete")
+                }
+            }
+
+            for tab in NerwHubTab.allCases {
+                if tab != currentTab {
+                    actions.append("Open \(tab.rawValue)")
+                }
+            }
+
+            actions.append("Refresh")
+
             palette.setActions(actions)
 
             palette.view.isHidden = false
@@ -285,16 +391,23 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     }
 
     public func commandPaletteDidSelect(action: String) {
-        print("Selected action: \(action)")
         closeCommandPalette()
 
         switch action {
-        case "Open Memory":
+        case "Edit", "Edit Memory":
+            (currentTabViewController as? BaseHubTabProtocol)?.performEditActionOnSelected()
+        case "Delete", "Delete Memory", "Delete Bookmark":
+            (currentTabViewController as? BaseHubTabProtocol)?.performDeleteActionOnSelected()
+        case "Open", "Open Bookmark":
+            (currentTabViewController as? BaseHubTabProtocol)?.performPrimaryActionOnSelected()
+        case "Open Memory", "Switch to Memory":
             selectTab(.memory)
-        case "Open Bookmarks":
+        case "Open Bookmarks", "Switch to Bookmarks":
             selectTab(.bookmarks)
-        case "Open Conversations":
+        case "Open Conversations", "Switch to Conversations":
             selectTab(.conversations)
+        case "Refresh":
+            (currentTabViewController as? BaseHubTabProtocol)?.refreshData()
         default:
             break
         }

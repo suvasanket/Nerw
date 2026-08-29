@@ -11,15 +11,32 @@ class BookmarksTab: BaseHubListTab<Bookmark> {
         return BookmarkRowView(bookmark: item, delegate: self)
     }
 
+    func didClickRow(_ rowView: BookmarkRowView) {
+        if let index = stackView.arrangedSubviews.firstIndex(of: rowView) {
+            selectItem(at: index)
+        }
+    }
+
     func deleteBookmark(_ bookmark: Bookmark) {
         BookmarkManager.shared.deleteBookmark(id: bookmark.id)
         loadData()
     }
+
+    override func performPrimaryActionOnSelected() {
+        guard let bookmark = selectedItem, let url = URL(string: bookmark.url) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    override func performDeleteActionOnSelected() {
+        guard let bookmark = selectedItem else { return }
+        deleteBookmark(bookmark)
+    }
 }
 
-class BookmarkRowView: NSView {
-    private let bookmark: Bookmark
+class BookmarkRowView: NSView, HubSelectableRowView {
+    let bookmark: Bookmark
     private weak var delegate: BookmarksTab?
+    var isRowSelected: Bool = false
 
     init(bookmark: Bookmark, delegate: BookmarksTab?) {
         self.bookmark = bookmark
@@ -35,6 +52,8 @@ class BookmarkRowView: NSView {
     private func setupUI() {
         wantsLayer = true
         layer?.cornerRadius = 12
+        layer?.borderWidth = 1.0
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
         let height: CGFloat = 50
@@ -108,23 +127,54 @@ class BookmarkRowView: NSView {
         addTrackingArea(trackingArea)
     }
 
+    func setSelected(_ selected: Bool, animated: Bool) {
+        isRowSelected = selected
+        let targetBorderColor =
+            selected
+            ? NSColor(red: 0.38, green: 0.68, blue: 1.0, alpha: 0.9).cgColor
+            : NSColor.white.withAlphaComponent(0.08).cgColor
+        let targetBorderWidth: CGFloat = selected ? 1.5 : 1.0
+        let targetBgColor =
+            selected
+            ? NSColor.white.withAlphaComponent(0.09).cgColor
+            : NSColor.white.withAlphaComponent(0.05).cgColor
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                self.layer?.borderColor = targetBorderColor
+                self.layer?.borderWidth = targetBorderWidth
+                self.layer?.backgroundColor = targetBgColor
+            }
+        } else {
+            layer?.borderColor = targetBorderColor
+            layer?.borderWidth = targetBorderWidth
+            layer?.backgroundColor = targetBgColor
+        }
+    }
+
     override func mouseEntered(with event: NSEvent) {
         NSCursor.pointingHand.push()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+        if !isRowSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+            }
         }
     }
 
     override func mouseExited(with event: NSEvent) {
         NSCursor.pop()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
+        if !isRowSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
+            }
         }
     }
 
     @objc private func rowClicked() {
+        delegate?.didClickRow(self)
         if let url = URL(string: bookmark.url) {
             NSWorkspace.shared.open(url)
         }

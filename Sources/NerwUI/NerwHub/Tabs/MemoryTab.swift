@@ -12,22 +12,68 @@ class MemoryTab: BaseHubListTab<MemoryEntry> {
     }
 
     override func createRowView(for item: MemoryEntry) -> NSView {
-        return MemoryExpandableRowView(entry: item)
+        return MemoryExpandableRowView(entry: item, delegate: self)
     }
 
-    // Removed setupUI and filterAndDisplay as they are handled by BaseHubListTab
+    func didClickRow(_ rowView: MemoryExpandableRowView) {
+        if let index = stackView.arrangedSubviews.firstIndex(of: rowView) {
+            selectItem(at: index)
+        }
+    }
+
+    func editMemory(_ entry: MemoryEntry) {
+        var responder: NSResponder? = self.view
+        var hubVC: NerwHubViewController?
+        while responder != nil {
+            if let vc = responder as? NerwHubViewController {
+                hubVC = vc
+                break
+            }
+            responder = responder?.nextResponder
+        }
+
+        hubVC?.showFloatingInput(
+            title: "Edit Memory", subtitle: entry.title, initialText: entry.content
+        ) { newText in
+            AIMemoryManager.shared.updateMemory(id: entry.id, newContent: newText)
+        }
+    }
+
+    func deleteMemory(_ entry: MemoryEntry) {
+        AIMemoryManager.shared.deleteMemory(id: entry.id)
+    }
+
+    override func performPrimaryActionOnSelected() {
+        guard stackView.arrangedSubviews.indices.contains(selectedIndex),
+            let rowView = stackView.arrangedSubviews[selectedIndex] as? MemoryExpandableRowView
+        else { return }
+        rowView.toggleExpansion()
+    }
+
+    override func performEditActionOnSelected() {
+        guard let entry = selectedItem else { return }
+        editMemory(entry)
+    }
+
+    override func performDeleteActionOnSelected() {
+        guard let entry = selectedItem else { return }
+        deleteMemory(entry)
+    }
 }
 
-class MemoryExpandableRowView: NSView {
-    private let entry: MemoryEntry
+class MemoryExpandableRowView: NSView, HubSelectableRowView {
+    let entry: MemoryEntry
+    private weak var delegate: MemoryTab?
+    var isRowSelected: Bool = false
     private var isExpanded = true
 
     private let headerView = NSView()
     private let detailStack = NSStackView()
     private var heightConstraint: NSLayoutConstraint!
 
-    init(entry: MemoryEntry) {
+    init(entry: MemoryEntry, delegate: MemoryTab?) {
         self.entry = entry
+        self.delegate = delegate
         super.init(frame: .zero)
         setupViews()
     }
@@ -39,6 +85,8 @@ class MemoryExpandableRowView: NSView {
     private func setupViews() {
         wantsLayer = true
         layer?.cornerRadius = 12
+        layer?.borderWidth = 1.0
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
         let dateFormatter = DateFormatter()
@@ -161,23 +209,58 @@ class MemoryExpandableRowView: NSView {
         addTrackingArea(trackingArea)
     }
 
+    func setSelected(_ selected: Bool, animated: Bool) {
+        isRowSelected = selected
+        let targetBorderColor =
+            selected
+            ? NSColor(red: 0.38, green: 0.68, blue: 1.0, alpha: 0.9).cgColor
+            : NSColor.white.withAlphaComponent(0.08).cgColor
+        let targetBorderWidth: CGFloat = selected ? 1.5 : 1.0
+        let targetBgColor =
+            selected
+            ? NSColor.white.withAlphaComponent(0.09).cgColor
+            : NSColor.white.withAlphaComponent(0.05).cgColor
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                self.layer?.borderColor = targetBorderColor
+                self.layer?.borderWidth = targetBorderWidth
+                self.layer?.backgroundColor = targetBgColor
+            }
+        } else {
+            layer?.borderColor = targetBorderColor
+            layer?.borderWidth = targetBorderWidth
+            layer?.backgroundColor = targetBgColor
+        }
+    }
+
     override func mouseEntered(with event: NSEvent) {
         NSCursor.pointingHand.push()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+        if !isRowSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+            }
         }
     }
 
     override func mouseExited(with event: NSEvent) {
         NSCursor.pop()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
+        if !isRowSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
+            }
         }
     }
 
     override func mouseDown(with event: NSEvent) {
+        delegate?.didClickRow(self)
+        toggleExpansion()
+    }
+
+    func toggleExpansion() {
         isExpanded.toggle()
 
         if isExpanded {
@@ -203,29 +286,25 @@ class MemoryExpandableRowView: NSView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
+        delegate?.didClickRow(self)
         let menu = NSMenu()
         let editItem = NSMenuItem(title: "Edit", action: #selector(editMemory), keyEquivalent: "")
         editItem.target = self
         menu.addItem(editItem)
+
+        let deleteItem = NSMenuItem(
+            title: "Delete", action: #selector(deleteMemory), keyEquivalent: "")
+        deleteItem.target = self
+        menu.addItem(deleteItem)
+
         return menu
     }
 
     @objc private func editMemory() {
-        var responder: NSResponder? = self
-        var hubVC: NerwHubViewController?
-        while responder != nil {
-            if let vc = responder as? NerwHubViewController {
-                hubVC = vc
-                break
-            }
-            responder = responder?.nextResponder
-        }
+        delegate?.editMemory(entry)
+    }
 
-        hubVC?.showFloatingInput(
-            title: "Edit Memory", subtitle: entry.title, initialText: entry.content
-        ) { [weak self] newText in
-            guard let self = self else { return }
-            AIMemoryManager.shared.updateMemory(id: self.entry.id, newContent: newText)
-        }
+    @objc private func deleteMemory() {
+        delegate?.deleteMemory(entry)
     }
 }
