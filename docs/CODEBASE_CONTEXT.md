@@ -375,8 +375,8 @@ A centralized hub interface providing unified access to persistent features like
 | `NerwHubWindowController.swift` | Manages the floating, borderless `NerwHubPanel` centered over the screen. |
 | `NerwHubViewController.swift` | Master controller orchestrating tabs, keyboard event monitor (`Cmd+1/2/3`, `Cmd+K`, `Up`/`Down`, `Enter`, `Delete`), floating tab pill (`NerwHubTabBarView`), command palette, and floating input editor. |
 | `NerwHubTabBarView.swift` | Liquid glass tab bar that expands on hover, animates width smoothly, and supports keyboard/click navigation. |
-| `HubCommandPaletteViewController.swift` | Compact floating modal for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, tab switching) on the active tab and selection. |
-| `HubFloatingInputViewController.swift` | Glassmorphic multi-line text editor with auto-resize and `Enter`/`Shift+Enter` handling for inline editing (e.g. AI Memories). |
+| `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, equilateral search field and selection cell alignment, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, tab switching) on the active tab and selection. |
+| `HubFloatingInputViewController.swift` | Glassmorphic floating text editor with deep shadow, fixed standard dimensions, and `Enter`/`Shift+Enter` handling for inline editing (e.g. AI Memories). |
 | `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, managing `selectedIndex`, auto-scrolling, and row selection states. |
 | `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, right-click context menu (Edit/Delete), accent selection ring, and editing/deletion dispatching. |
 | `Tabs/BookmarksTab.swift` | Renders saved browser bookmarks with favicon support, selection ring, deletion, and click/Enter URL launching. |
@@ -386,6 +386,10 @@ A centralized hub interface providing unified access to persistent features like
 - **Selection Ring**: Active items receive a 1.5pt luminous accent ring (`#61AEFF`) and subtle highlight tint.
 - **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available actions (`Edit`, `Delete`, `Open`).
 - **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Edit", "Delete").
+- **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor (`440x260`) match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Command Palette features equilateral horizontal margins, matching text insets, and immediate `Enter` execution of top recommendations.
+
+
+
 
 
 

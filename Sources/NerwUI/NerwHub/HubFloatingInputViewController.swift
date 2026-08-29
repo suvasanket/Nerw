@@ -50,7 +50,7 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         containerStack.translatesAutoresizingMaskIntoConstraints = false
         containerStack.orientation = .vertical
         containerStack.alignment = .leading
-        containerStack.spacing = 16
+        containerStack.spacing = 14
         effectView.addSubview(containerStack)
 
         let headerStack = NSStackView()
@@ -58,7 +58,7 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         headerStack.alignment = .leading
         headerStack.spacing = 4
 
-        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         headerStack.addArrangedSubview(titleLabel)
@@ -73,6 +73,7 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
 
         // Draw a light border around textview
@@ -99,7 +100,7 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         if let container = textView.textContainer {
             container.widthTracksTextView = true
             container.containerSize = NSSize(
-                width: scrollView.contentSize.width, height: .greatestFiniteMagnitude)
+                width: 400, height: CGFloat.greatestFiniteMagnitude)
         }
 
         scrollView.documentView = textView
@@ -118,15 +119,14 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
             effectView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             effectView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            containerStack.topAnchor.constraint(equalTo: effectView.topAnchor, constant: 20),
+            containerStack.topAnchor.constraint(equalTo: effectView.topAnchor, constant: 18),
             containerStack.bottomAnchor.constraint(equalTo: effectView.bottomAnchor, constant: -16),
             containerStack.leadingAnchor.constraint(
-                equalTo: effectView.leadingAnchor, constant: 20),
+                equalTo: effectView.leadingAnchor, constant: 18),
             containerStack.trailingAnchor.constraint(
-                equalTo: effectView.trailingAnchor, constant: -20),
+                equalTo: effectView.trailingAnchor, constant: -18),
 
             scrollView.widthAnchor.constraint(equalTo: containerStack.widthAnchor),
-            scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 120),
         ])
     }
 

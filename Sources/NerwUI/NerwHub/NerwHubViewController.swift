@@ -275,8 +275,8 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         NSLayoutConstraint.activate([
             palette.view.centerXAnchor.constraint(equalTo: panelView.centerXAnchor),
             palette.view.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
-            palette.view.widthAnchor.constraint(equalToConstant: 400),
-            palette.view.heightAnchor.constraint(equalToConstant: 350),
+            palette.view.widthAnchor.constraint(equalToConstant: 440),
+            palette.view.heightAnchor.constraint(equalToConstant: 300),
         ])
 
         // Setup floating input
@@ -291,6 +291,8 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         NSLayoutConstraint.activate([
             floatingInput.view.centerXAnchor.constraint(equalTo: panelView.centerXAnchor),
             floatingInput.view.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
+            floatingInput.view.widthAnchor.constraint(equalToConstant: 440),
+            floatingInput.view.heightAnchor.constraint(equalToConstant: 260),
         ])
     }
 
