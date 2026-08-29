@@ -382,11 +382,12 @@ A centralized hub interface providing unified access to persistent features like
 | `Tabs/BookmarksTab.swift` | Renders saved browser bookmarks with favicon support, selection ring, deletion, and click/Enter URL launching. |
 
 ### Selection & Navigation
-- **Keyboard Navigation**: `↑ / ↓` or `Ctrl-P / Ctrl-N` / `Ctrl-K / Ctrl-J` navigates rows in the active tab.
-- **Selection Ring**: Active items receive a 1.5pt luminous accent ring (`#61AEFF`) and subtle highlight tint.
+- **Keyboard Navigation**: `↑ / ↓` (all modes), `j / k` (when `navigationStyle == "vim"`), or `Ctrl-P / Ctrl-N` (when `navigationStyle != "vim"`) navigates rows in the active tab.
+- **On-Demand Selection Ring**: No item is pre-selected by default when viewing a tab; the luminous 1.5pt accent selection ring (`#61AEFF`) and highlight tint appear only when the user navigates (`j/k`, `↑/↓`) or clicks an item.
 - **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available actions (`Edit`, `Delete`, `Open`).
 - **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Edit", "Delete").
 - **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor (`440x260`) match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Command Palette features equilateral horizontal margins, matching text insets, and immediate `Enter` execution of top recommendations.
+
 
 
 

@@ -158,22 +158,35 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
                 return nil
             }
 
-            // Up Arrow or Ctrl-P / Ctrl-K
-            if event.keyCode == 126
-                || (flags.contains(.control)
-                    && (event.charactersIgnoringModifiers?.lowercased() == "p"
-                        || event.charactersIgnoringModifiers?.lowercased() == "k"))
-            {
+            let navStyle = ConfigManager.shared.config.navigationStyle
+            let char = event.charactersIgnoringModifiers?.lowercased()
+
+            var isMoveUp = (event.keyCode == 126)  // Up Arrow
+            var isMoveDown = (event.keyCode == 125)  // Down Arrow
+
+            if navStyle == "vim" {
+                // In vim mode, plain 'j' and 'k' move down/up (without Cmd/Ctrl)
+                let noCommandOrControl = !flags.contains(.command) && !flags.contains(.control)
+                if noCommandOrControl && char == "k" {
+                    isMoveUp = true
+                } else if noCommandOrControl && char == "j" {
+                    isMoveDown = true
+                }
+            } else {
+                // In unix/default mode, Ctrl-P and Ctrl-N move up/down
+                if flags.contains(.control) && char == "p" {
+                    isMoveUp = true
+                } else if flags.contains(.control) && char == "n" {
+                    isMoveDown = true
+                }
+            }
+
+            if isMoveUp {
                 (self.currentTabViewController as? BaseHubTabProtocol)?.selectPrevious()
                 return nil
             }
 
-            // Down Arrow or Ctrl-N / Ctrl-J
-            if event.keyCode == 125
-                || (flags.contains(.control)
-                    && (event.charactersIgnoringModifiers?.lowercased() == "n"
-                        || event.charactersIgnoringModifiers?.lowercased() == "j"))
-            {
+            if isMoveDown {
                 (self.currentTabViewController as? BaseHubTabProtocol)?.selectNext()
                 return nil
             }

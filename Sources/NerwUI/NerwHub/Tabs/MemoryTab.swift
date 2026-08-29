@@ -44,8 +44,9 @@ class MemoryTab: BaseHubListTab<MemoryEntry> {
     }
 
     override func performPrimaryActionOnSelected() {
-        guard stackView.arrangedSubviews.indices.contains(selectedIndex),
-            let rowView = stackView.arrangedSubviews[selectedIndex] as? MemoryExpandableRowView
+        guard let idx = selectedIndex,
+            stackView.arrangedSubviews.indices.contains(idx),
+            let rowView = stackView.arrangedSubviews[idx] as? MemoryExpandableRowView
         else { return }
         rowView.toggleExpansion()
     }

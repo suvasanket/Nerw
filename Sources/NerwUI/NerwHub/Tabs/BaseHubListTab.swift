@@ -7,7 +7,7 @@ public protocol HubSelectableRowView: AnyObject {
 }
 
 public protocol BaseHubTabProtocol: AnyObject {
-    var currentSelectedIndex: Int { get }
+    var currentSelectedIndex: Int? { get }
     var totalItemCount: Int { get }
     func selectNext()
     func selectPrevious()
@@ -22,9 +22,9 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     public let scrollView = NSScrollView()
     public let stackView = NSStackView()
 
-    public var selectedIndex: Int = 0
+    public var selectedIndex: Int? = nil
 
-    public var currentSelectedIndex: Int {
+    public var currentSelectedIndex: Int? {
         return selectedIndex
     }
 
@@ -33,8 +33,8 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     }
 
     public var selectedItem: Item? {
-        guard items.indices.contains(selectedIndex) else { return nil }
-        return items[selectedIndex]
+        guard let idx = selectedIndex, items.indices.contains(idx) else { return nil }
+        return items[idx]
     }
 
     public var items: [Item] = [] {
@@ -108,10 +108,10 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     public func reloadData() {
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        if items.isEmpty {
-            selectedIndex = 0
+        if let current = selectedIndex, !items.isEmpty {
+            selectedIndex = max(0, min(current, items.count - 1))
         } else {
-            selectedIndex = max(0, min(selectedIndex, items.count - 1))
+            selectedIndex = nil
         }
 
         for (idx, item) in items.enumerated() {
@@ -123,14 +123,16 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
             ).isActive = true
 
             if let selectable = row as? HubSelectableRowView {
-                selectable.setSelected(idx == selectedIndex, animated: false)
+                let isSelected = (selectedIndex != nil && idx == selectedIndex)
+                selectable.setSelected(isSelected, animated: false)
             }
         }
     }
 
     public func selectItem(at index: Int) {
         guard !items.isEmpty else {
-            selectedIndex = 0
+            selectedIndex = nil
+            updateSelectionStates(animated: true)
             return
         }
         let clamped = max(0, min(index, items.count - 1))
@@ -141,25 +143,36 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
 
     public func selectNext() {
         guard !items.isEmpty else { return }
-        selectItem(at: selectedIndex + 1)
+        if let current = selectedIndex {
+            selectItem(at: current + 1)
+        } else {
+            selectItem(at: 0)
+        }
     }
 
     public func selectPrevious() {
         guard !items.isEmpty else { return }
-        selectItem(at: selectedIndex - 1)
+        if let current = selectedIndex {
+            selectItem(at: current - 1)
+        } else {
+            selectItem(at: items.count - 1)
+        }
     }
 
     public func updateSelectionStates(animated: Bool) {
         for (idx, subview) in stackView.arrangedSubviews.enumerated() {
             if let row = subview as? HubSelectableRowView {
-                row.setSelected(idx == selectedIndex, animated: animated)
+                let isSelected = (selectedIndex != nil && idx == selectedIndex)
+                row.setSelected(isSelected, animated: animated)
             }
         }
     }
 
     public func scrollToSelectedRow() {
-        guard stackView.arrangedSubviews.indices.contains(selectedIndex) else { return }
-        let row = stackView.arrangedSubviews[selectedIndex]
+        guard let idx = selectedIndex, stackView.arrangedSubviews.indices.contains(idx) else {
+            return
+        }
+        let row = stackView.arrangedSubviews[idx]
         row.scrollToVisible(row.bounds)
     }
 
