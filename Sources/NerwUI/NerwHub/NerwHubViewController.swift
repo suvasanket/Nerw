@@ -305,7 +305,6 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             floatingInput.view.centerXAnchor.constraint(equalTo: panelView.centerXAnchor),
             floatingInput.view.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
             floatingInput.view.widthAnchor.constraint(equalToConstant: 440),
-            floatingInput.view.heightAnchor.constraint(equalToConstant: 260),
         ])
     }
 
@@ -325,6 +324,8 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             } else if currentTab == .bookmarks {
                 if let bTab = bookmarksTabController, bTab.selectedItem != nil {
                     actions.append("Open")
+                    actions.append("Edit Name")
+                    actions.append("Edit URL")
                     actions.append("Delete")
                 }
             }
@@ -361,7 +362,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
 
         floatingInput.configure(title: title, subtitle: subtitle, text: initialText)
 
-        floatingInput.onSave = { [weak self, weak floatingInput] text in
+        floatingInput.onSave = { [weak self] text in
             onSave(text)
             self?.closeFloatingInput()
         }
@@ -377,7 +378,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             floatingInput.view.alphaValue = 1.0
         }) {
-            floatingInput.view.window?.makeFirstResponder(floatingInput.textView)
+            floatingInput.focusInputField()
         }
     }
 
@@ -409,6 +410,10 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         closeCommandPalette()
 
         switch action {
+        case "Edit Name", "Edit Bookmark Name":
+            bookmarksTabController?.editSelectedName()
+        case "Edit URL", "Edit Bookmark URL":
+            bookmarksTabController?.editSelectedURL()
         case "Edit", "Edit Memory":
             (currentTabViewController as? BaseHubTabProtocol)?.performEditActionOnSelected()
         case "Delete", "Delete Memory", "Delete Bookmark":

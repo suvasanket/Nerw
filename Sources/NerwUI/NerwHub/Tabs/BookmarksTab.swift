@@ -17,6 +17,57 @@ class BookmarksTab: BaseHubListTab<Bookmark> {
         }
     }
 
+    private func findHubViewController() -> NerwHubViewController? {
+        var responder: NSResponder? = self.view
+        while responder != nil {
+            if let vc = responder as? NerwHubViewController {
+                return vc
+            }
+            responder = responder?.nextResponder
+        }
+        return nil
+    }
+
+    func editBookmarkName(_ bookmark: Bookmark) {
+        let hubVC = findHubViewController()
+        hubVC?.showFloatingInput(
+            title: "Edit Bookmark Name",
+            subtitle: bookmark.url,
+            initialText: bookmark.title
+        ) { newTitle in
+            let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                BookmarkManager.shared.updateBookmark(
+                    id: bookmark.id, url: bookmark.url, title: trimmed)
+            }
+        }
+    }
+
+    func editBookmarkURL(_ bookmark: Bookmark) {
+        let hubVC = findHubViewController()
+        hubVC?.showFloatingInput(
+            title: "Edit Bookmark URL",
+            subtitle: bookmark.title,
+            initialText: bookmark.url
+        ) { newUrl in
+            let trimmed = newUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                BookmarkManager.shared.updateBookmark(
+                    id: bookmark.id, url: trimmed, title: bookmark.title)
+            }
+        }
+    }
+
+    func editSelectedName() {
+        guard let bookmark = selectedItem else { return }
+        editBookmarkName(bookmark)
+    }
+
+    func editSelectedURL() {
+        guard let bookmark = selectedItem else { return }
+        editBookmarkURL(bookmark)
+    }
+
     func deleteBookmark(_ bookmark: Bookmark) {
         BookmarkManager.shared.deleteBookmark(id: bookmark.id)
         loadData()
@@ -25,6 +76,10 @@ class BookmarksTab: BaseHubListTab<Bookmark> {
     override func performPrimaryActionOnSelected() {
         guard let bookmark = selectedItem, let url = URL(string: bookmark.url) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    override func performEditActionOnSelected() {
+        editSelectedName()
     }
 
     override func performDeleteActionOnSelected() {
@@ -88,13 +143,6 @@ class BookmarkRowView: NSView, HubSelectableRowView {
         urlLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(urlLabel)
 
-        let deleteButton = NSButton(title: "", target: self, action: #selector(deleteClicked))
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")
-        deleteButton.isBordered = false
-        deleteButton.translatesAutoresizingMaskIntoConstraints = false
-        deleteButton.contentTintColor = .systemRed
-        addSubview(deleteButton)
-
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: height),
 
@@ -105,17 +153,11 @@ class BookmarkRowView: NSView, HubSelectableRowView {
 
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(
-                equalTo: deleteButton.leadingAnchor, constant: -12),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
 
             urlLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             urlLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            urlLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            deleteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.heightAnchor.constraint(equalToConstant: 24),
+            urlLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
         ])
 
         let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(rowClicked))
@@ -125,6 +167,35 @@ class BookmarkRowView: NSView, HubSelectableRowView {
             rect: .zero, options: [.inVisibleRect, .activeAlways, .mouseEnteredAndExited],
             owner: self, userInfo: nil)
         addTrackingArea(trackingArea)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        delegate?.didClickRow(self)
+
+        let menu = NSMenu()
+        let openItem = NSMenuItem(
+            title: "Open in Browser", action: #selector(openClicked), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+
+        let editNameItem = NSMenuItem(
+            title: "Edit Name...", action: #selector(editNameClicked), keyEquivalent: "")
+        editNameItem.target = self
+        menu.addItem(editNameItem)
+
+        let editURLItem = NSMenuItem(
+            title: "Edit URL...", action: #selector(editURLClicked), keyEquivalent: "")
+        editURLItem.target = self
+        menu.addItem(editURLItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let deleteItem = NSMenuItem(
+            title: "Delete Bookmark", action: #selector(deleteClicked), keyEquivalent: "")
+        deleteItem.target = self
+        menu.addItem(deleteItem)
+
+        return menu
     }
 
     func setSelected(_ selected: Bool, animated: Bool) {
@@ -178,6 +249,20 @@ class BookmarkRowView: NSView, HubSelectableRowView {
         if let url = URL(string: bookmark.url) {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @objc private func openClicked() {
+        rowClicked()
+    }
+
+    @objc private func editNameClicked() {
+        delegate?.didClickRow(self)
+        delegate?.editBookmarkName(bookmark)
+    }
+
+    @objc private func editURLClicked() {
+        delegate?.didClickRow(self)
+        delegate?.editBookmarkURL(bookmark)
     }
 
     @objc private func deleteClicked() {

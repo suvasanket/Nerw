@@ -376,17 +376,20 @@ A centralized hub interface providing unified access to persistent features like
 | `NerwHubViewController.swift` | Master controller orchestrating tabs, keyboard event monitor (`Cmd+1/2/3`, `Cmd+K`, `Up`/`Down`, `Enter`, `Delete`), floating tab pill (`NerwHubTabBarView`), command palette, and floating input editor. |
 | `NerwHubTabBarView.swift` | Liquid glass tab bar that expands on hover, animates width smoothly, and supports keyboard/click navigation. |
 | `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, equilateral search field and selection cell alignment, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, tab switching) on the active tab and selection. |
-| `HubFloatingInputViewController.swift` | Glassmorphic floating text editor with deep shadow, fixed standard dimensions, and `Enter`/`Shift+Enter` handling for inline editing (e.g. AI Memories). |
+| `HubFloatingInputViewController.swift` | Glassmorphic floating text editor (`HubTextView`) with deep shadow, full paste/clipboard support (`Cmd+V`, `Cmd+C`, `Cmd+X`, `Cmd+A`, `Cmd+Z`), dynamic content-driven height (clamped between 36pt and 180pt max scroll threshold), and `Enter`/`Shift+Enter` submission for inline editing (AI Memories, Bookmark names, Bookmark URLs). |
 | `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, managing `selectedIndex`, auto-scrolling, and row selection states. |
 | `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, right-click context menu (Edit/Delete), accent selection ring, and editing/deletion dispatching. |
-| `Tabs/BookmarksTab.swift` | Renders saved browser bookmarks with favicon support, selection ring, deletion, and click/Enter URL launching. |
+| `Tabs/BookmarksTab.swift` | Renders clean browser bookmark rows with favicon support, selection ring, right-click context menu (Open, Edit Name, Edit URL, Delete), and Command Palette action dispatching. |
 
 ### Selection & Navigation
 - **Keyboard Navigation**: `↑ / ↓` (all modes), `j / k` (when `navigationStyle == "vim"`), or `Ctrl-P / Ctrl-N` (when `navigationStyle != "vim"`) navigates rows in the active tab.
 - **On-Demand Selection Ring**: No item is pre-selected by default when viewing a tab; the luminous 1.5pt accent selection ring (`#61AEFF`) and highlight tint appear only when the user navigates (`j/k`, `↑/↓`) or clicks an item.
-- **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available actions (`Edit`, `Delete`, `Open`).
-- **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Edit", "Delete").
-- **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor (`440x260`) match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Command Palette features equilateral horizontal margins, matching text insets, and immediate `Enter` execution of top recommendations.
+- **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available contextual actions (`Edit Name`, `Edit URL`, `Delete`, `Open`).
+- **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Open in Browser", "Edit Name...", "Edit URL...", "Delete Bookmark").
+- **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Floating Input Editor automatically shrinks for short content (e.g. single-line bookmark names and URLs) and expands up to its max threshold for longer multiline notes.
+
+
+
 
 
 

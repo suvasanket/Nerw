@@ -101,6 +101,55 @@ public class BookmarkManager {
         }
     }
 
+    public func updateBookmark(id: UUID, url: String, title: String) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == id }) else { return }
+        let existing = bookmarks[index]
+        let urlChanged = (existing.url != url)
+
+        let updated = Bookmark(
+            id: id,
+            url: url,
+            title: title,
+            faviconPath: urlChanged ? nil : existing.faviconPath,
+            createdAt: existing.createdAt
+        )
+        bookmarks[index] = updated
+        saveBookmarks()
+
+        NotificationCenter.default.post(name: Notification.Name("NerwConfigDidUpdate"), object: nil)
+        Nerw.notify("Bookmark Updated: \(title)")
+
+        if urlChanged, let urlObj = URL(string: url) {
+            let faviconPath = iconsDirectoryURL.appendingPathComponent("\(id.uuidString).png")
+            Task {
+                if let image = await IconManager.shared.fetchFavicon(for: urlObj) {
+                    if let tiff = image.tiffRepresentation,
+                        let bitmap = NSBitmapImageRep(data: tiff),
+                        let pngData = bitmap.representation(using: .png, properties: [:])
+                    {
+                        do {
+                            try pngData.write(to: faviconPath)
+                            DispatchQueue.main.async {
+                                if let idx = self.bookmarks.firstIndex(where: { $0.id == id }) {
+                                    self.bookmarks[idx] = Bookmark(
+                                        id: id, url: url, title: title,
+                                        faviconPath: faviconPath.path,
+                                        createdAt: updated.createdAt)
+                                    self.saveBookmarks()
+                                    NotificationCenter.default.post(
+                                        name: Notification.Name("NerwConfigDidUpdate"),
+                                        object: nil)
+                                }
+                            }
+                        } catch {
+                            print("[BookmarkManager] Failed to save favicon image: \(error)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public func deleteBookmark(id: UUID) {
         if let index = bookmarks.firstIndex(where: { $0.id == id }) {
             let bookmark = bookmarks[index]
@@ -245,8 +294,8 @@ public class BookmarkManager {
                                     values["title"]?.trimmingCharacters(in: .whitespaces) ?? ""
 
                                 if !urlStr.isEmpty && !title.isEmpty {
-                                    BookmarkManager.shared.deleteBookmark(id: bookmark.id)
-                                    BookmarkManager.shared.addBookmark(url: urlStr, title: title)
+                                    BookmarkManager.shared.updateBookmark(
+                                        id: bookmark.id, url: urlStr, title: title)
                                 } else {
                                     Nerw.notify("Please enter a valid URL and Name", level: .warn)
                                 }

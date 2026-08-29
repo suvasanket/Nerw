@@ -7,8 +7,13 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
     private let scrollView = NSScrollView()
-    public let textView = NSTextView()
+    public let textView = HubTextView()
+    private let footerLabel = NSTextField(labelWithString: "")
     private let effectView = NSVisualEffectView()
+
+    private var scrollViewHeightConstraint: NSLayoutConstraint!
+    private let minScrollHeight: CGFloat = 36
+    private let maxScrollHeight: CGFloat = 180
 
     public init() {
         super.init(nibName: nil, bundle: nil)
@@ -19,7 +24,7 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
     }
 
     public override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 260))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 160))
         setupViews()
     }
 
@@ -72,11 +77,10 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         containerStack.addArrangedSubview(headerStack)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
 
-        // Draw a light border around textview
         scrollView.wantsLayer = true
         scrollView.layer?.cornerRadius = 8
         scrollView.layer?.borderWidth = 1
@@ -89,6 +93,8 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         textView.drawsBackground = false
         textView.isRichText = false
         textView.allowsUndo = true
+        textView.isEditable = true
+        textView.isSelectable = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
@@ -106,8 +112,11 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         scrollView.documentView = textView
         containerStack.addArrangedSubview(scrollView)
 
-        let footerLabel = NSTextField(
-            labelWithString: "Press Enter to save, Esc to cancel. Shift+Enter for new line.")
+        scrollViewHeightConstraint = scrollView.heightAnchor.constraint(
+            equalToConstant: minScrollHeight)
+        scrollViewHeightConstraint.isActive = true
+
+        footerLabel.stringValue = "Press Enter to save, Esc to cancel. Shift+Enter for new line."
         footerLabel.font = .systemFont(ofSize: 11)
         footerLabel.textColor = .tertiaryLabelColor
         footerLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -134,6 +143,41 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
         titleLabel.stringValue = title
         subtitleLabel.stringValue = subtitle
         textView.string = text
+        updateDynamicHeight(animated: false)
+    }
+
+    private func updateDynamicHeight(animated: Bool = false) {
+        guard let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer
+        else { return }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let usedRect = layoutManager.usedRect(for: textContainer)
+        let contentHeight = ceil(usedRect.height) + 16  // top & bottom insets (8 + 8)
+        let targetHeight = min(max(contentHeight, minScrollHeight), maxScrollHeight)
+
+        scrollView.hasVerticalScroller = (contentHeight > maxScrollHeight)
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.scrollViewHeightConstraint.constant = targetHeight
+                self.view.superview?.layoutSubtreeIfNeeded()
+            }
+        } else {
+            scrollViewHeightConstraint.constant = targetHeight
+            view.superview?.layoutSubtreeIfNeeded()
+        }
+    }
+
+    public func textDidChange(_ notification: Notification) {
+        updateDynamicHeight(animated: true)
+    }
+
+    public func focusInputField() {
+        view.window?.makeFirstResponder(textView)
+        textView.selectAll(nil)
     }
 
     public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -142,10 +186,8 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
             let isShiftPressed = event?.modifierFlags.contains(.shift) ?? false
 
             if isShiftPressed {
-                // Let it insert a newline
                 return false
             } else {
-                // Submit
                 onSave?(textView.string)
                 return true
             }
@@ -154,5 +196,43 @@ public class HubFloatingInputViewController: NSViewController, NSTextViewDelegat
             return true
         }
         return false
+    }
+}
+
+public class HubTextView: NSTextView {
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.command) {
+            let char = event.charactersIgnoringModifiers?.lowercased()
+            if char == "v" {
+                paste(nil)
+                return true
+            } else if char == "c" {
+                copy(nil)
+                return true
+            } else if char == "x" {
+                cut(nil)
+                return true
+            } else if char == "a" {
+                selectAll(nil)
+                return true
+            } else if char == "z" {
+                if flags.contains(.shift) {
+                    undoManager?.redo()
+                } else {
+                    undoManager?.undo()
+                }
+                return true
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    public override func paste(_ sender: Any?) {
+        if let str = NSPasteboard.general.string(forType: .string) {
+            insertText(str, replacementRange: selectedRange())
+        } else {
+            super.paste(sender)
+        }
     }
 }
