@@ -213,6 +213,7 @@ class PromptTextField: NSTextField {
     var onSubmit: (() -> Void)?
     var onCancel: (() -> Void)?
     var onClearChat: (() -> Void)?
+    var onNewConversation: (() -> Void)?
     var onMoveUp: (() -> Void)?
     var onMoveDown: (() -> Void)?
     var onToggleContextPanel: (() -> Void)?
@@ -311,6 +312,10 @@ class PromptTextField: NSTextField {
         if event.modifierFlags.contains(.command) {
             guard let chars = event.charactersIgnoringModifiers?.lowercased() else {
                 return super.performKeyEquivalent(with: event)
+            }
+            if chars == "n" {
+                onNewConversation?()
+                return true
             }
             if chars == "r" {
                 onRetry?()
@@ -849,6 +854,9 @@ public class ConversationViewController: NSViewController {
         promptTextField.onClearChat = { [weak self] in
             self?.clearChat()
         }
+        promptTextField.onNewConversation = { [weak self] in
+            self?.startNewConversation()
+        }
         promptTextField.onMoveUp = { [weak self] in
             guard let self = self, self.activeTurnIndex > 0 else { return }
             self.selectTurn(at: self.activeTurnIndex - 1)
@@ -1254,12 +1262,17 @@ public class ConversationViewController: NSViewController {
         focusInput()
     }
 
-    @objc private func clearChat() {
+    @objc public func startNewConversation() {
         cancelActiveTask()
         currentConversationId = nil
         turns.removeAll()
         activeTurnIndex = -1
         updateCard()
+        focusInput()
+    }
+
+    @objc private func clearChat() {
+        startNewConversation()
     }
 
     private func dismissController() {
@@ -1913,6 +1926,16 @@ public class ConversationViewController: NSViewController {
             operations: modelOps
         )
 
+        let newConversationOp = NerwActionContext.Operation(
+            id: "newConversation",
+            kind: .custom("newConversation"),
+            title: "New Conversation",
+            subtitle: "Start a new conversation thread",
+            icon: .system("plus.bubble"),
+            interaction: .execute,
+            detailText: "⌘N"
+        )
+
         let clearChatOp = NerwActionContext.Operation(
             id: "clearChat",
             kind: .custom("clearChat"),
@@ -1943,7 +1966,6 @@ public class ConversationViewController: NSViewController {
             detailText: downKeybind
         )
 
-        var conversationOps = [clearChatOp, moveUpOp, moveDownOp]
         let cancelGenerationOp = NerwActionContext.Operation(
             id: "cancelGeneration",
             kind: .custom("cancelGeneration"),
@@ -1953,7 +1975,6 @@ public class ConversationViewController: NSViewController {
             interaction: .execute,
             detailText: "⌃C"
         )
-        conversationOps.insert(cancelGenerationOp, at: 0)
 
         let retryGenerationOp = NerwActionContext.Operation(
             id: "retryGeneration",
@@ -1964,7 +1985,11 @@ public class ConversationViewController: NSViewController {
             interaction: .execute,
             detailText: "⌘R"
         )
-        conversationOps.insert(retryGenerationOp, at: 1)
+
+        let conversationOps = [
+            newConversationOp, retryGenerationOp, cancelGenerationOp, moveUpOp, moveDownOp,
+            clearChatOp,
+        ]
 
         let section = NerwActionContext.Section(
             id: "conversation",
@@ -2120,6 +2145,8 @@ extension ConversationViewController: ActionContextViewControllerDelegate {
             }
 
             switch customId {
+            case "newConversation":
+                startNewConversation()
             case "cancelGeneration":
                 cancelGeneration()
             case "retryGeneration":
