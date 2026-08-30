@@ -4,6 +4,8 @@ import NerwBuiltin
 import NerwCore
 
 class MemoryTab: BaseHubListTab<MemoryEntry> {
+    override var tabTitle: String { "Memory" }
+
     private var allEntries: [MemoryEntry] = []
 
     override func loadData() {

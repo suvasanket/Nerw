@@ -3,6 +3,8 @@ import NerwBuiltin
 import NerwCore
 
 class ConversationsTab: BaseHubListTab<AIConversation> {
+    override var tabTitle: String { "Conversations" }
+
     private let emptyStateView = NSView()
 
     override func viewDidLoad() {

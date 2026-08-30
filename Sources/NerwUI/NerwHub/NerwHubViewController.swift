@@ -104,7 +104,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     private var floatingInputController: HubFloatingInputViewController?
 
     override func loadView() {
-        let metricsWidth: CGFloat = 940
+        let metricsWidth: CGFloat = 960
         let metricsHeight: CGFloat = 640
         view = NSView(frame: NSRect(x: 0, y: 0, width: metricsWidth, height: metricsHeight))
         view.wantsLayer = true
@@ -271,9 +271,8 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
         view.addSubview(tabBarView)  // Added to the main view, not inside panelView
 
         NSLayoutConstraint.activate([
-            tabBarView.centerYAnchor.constraint(equalTo: panelView.topAnchor),  // Straddles the top border
-            tabBarView.leadingAnchor.constraint(equalTo: panelView.leadingAnchor, constant: 32),
-            tabBarView.heightAnchor.constraint(equalToConstant: 36),
+            tabBarView.centerXAnchor.constraint(equalTo: panelView.leadingAnchor),  // Straddles the left border
+            tabBarView.centerYAnchor.constraint(equalTo: panelView.centerYAnchor),
         ])
 
         // Setup palette controller

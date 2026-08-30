@@ -22,8 +22,7 @@ class NerwHubTabItemView: NSView {
     var onClick: ((NerwHubTab) -> Void)?
 
     private let iconImageView = NSImageView()
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let stackView = NSStackView()
+    private var trackingArea: NSTrackingArea?
 
     init(tab: NerwHubTab) {
         self.tab = tab
@@ -37,31 +36,20 @@ class NerwHubTabItemView: NSView {
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.orientation = .horizontal
-        stackView.spacing = 6
-        stackView.alignment = .centerY
-        addSubview(stackView)
+        wantsLayer = true
 
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
-        iconImageView.image = NSImage(systemSymbolName: tab.iconName, accessibilityDescription: nil)
-        iconImageView.contentTintColor = .white
-        stackView.addArrangedSubview(iconImageView)
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.stringValue = tab.rawValue
-        titleLabel.lineBreakMode = .byTruncatingTail
-        stackView.addArrangedSubview(titleLabel)
+        iconImageView.imageScaling = .scaleProportionallyDown
+        addSubview(iconImageView)
 
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            widthAnchor.constraint(equalToConstant: 28),
+            heightAnchor.constraint(equalToConstant: 28),
 
-            iconImageView.widthAnchor.constraint(equalToConstant: 14),
-            iconImageView.heightAnchor.constraint(equalToConstant: 14),
+            iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 16),
+            iconImageView.heightAnchor.constraint(equalToConstant: 16),
         ])
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
@@ -70,28 +58,59 @@ class NerwHubTabItemView: NSView {
         updateState()
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea = trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways]
+        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if !isSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                iconImageView.animator().alphaValue = 0.8
+            }
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if !isSelected {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                iconImageView.animator().alphaValue = 0.4
+            }
+        }
+    }
+
     private func updateState() {
-        let isFullyActive = isSelected && isExpandedBar
-        let translucentColor = NSColor.secondaryLabelColor
+        let baseImage = NSImage(
+            systemSymbolName: tab.iconName, accessibilityDescription: tab.rawValue)
 
         if isSelected {
-            titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
-            titleLabel.textColor = .white
             if #available(macOS 12.0, *) {
-                iconImageView.symbolConfiguration = NSImage.SymbolConfiguration(
-                    hierarchicalColor: .white)
+                let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .bold)
+                    .applying(NSImage.SymbolConfiguration(hierarchicalColor: .white))
+                iconImageView.image = baseImage?.withSymbolConfiguration(config)
             } else {
-                iconImageView.contentTintColor = .white
+                iconImageView.image = baseImage
             }
+            iconImageView.contentTintColor = .white
+            iconImageView.alphaValue = 1.0
         } else {
-            titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
-            titleLabel.textColor = translucentColor
+            let translucentColor = NSColor.white.withAlphaComponent(0.4)
             if #available(macOS 12.0, *) {
-                iconImageView.symbolConfiguration = NSImage.SymbolConfiguration(
-                    hierarchicalColor: translucentColor)
+                let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+                    .applying(NSImage.SymbolConfiguration(hierarchicalColor: translucentColor))
+                iconImageView.image = baseImage?.withSymbolConfiguration(config)
             } else {
-                iconImageView.contentTintColor = translucentColor
+                iconImageView.image = baseImage
             }
+            iconImageView.contentTintColor = translucentColor
+            iconImageView.alphaValue = 0.4
         }
     }
 
@@ -103,30 +122,15 @@ class NerwHubTabItemView: NSView {
 class NerwHubTabBarView: NSView {
     weak var delegate: NerwHubTabBarDelegate?
 
-    private let height: CGFloat = 36
-    private let maxWidthThreshold: CGFloat = 450
+    private let pillWidth: CGFloat = 36
 
     private let containerView = NSView()
     private let visualEffect = NSVisualEffectView()
     private let borderOverlay = NSView()
-    private let scrollView = NSScrollView()
     private let stackView = NSStackView()
 
-    private let leftArrow = NSImageView()
-    private let rightArrow = NSImageView()
-
-    private var isExpanded: Bool = false {
-        didSet {
-            for view in tabViews.values {
-                view.isExpandedBar = isExpanded
-            }
-        }
-    }
     private var activeTab: NerwHubTab = .memory
     private var tabViews: [NerwHubTab: NerwHubTabItemView] = [:]
-
-    private var widthConstraint: NSLayoutConstraint!
-    private var trackingArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -139,10 +143,11 @@ class NerwHubTabBarView: NSView {
 
     private func setup() {
         wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
 
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerView.wantsLayer = true
-        containerView.layer?.cornerRadius = height / 2
+        containerView.layer?.cornerRadius = pillWidth / 2
         if #available(macOS 10.15, *) {
             containerView.layer?.cornerCurve = .circular
         }
@@ -153,46 +158,29 @@ class NerwHubTabBarView: NSView {
         visualEffect.state = .active
         visualEffect.material = .popover
         visualEffect.blendingMode = .withinWindow
-
-        let mask = NSImage(size: NSSize(width: height, height: height), flipped: false) { rect in
-            let path = NSBezierPath(
-                roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2)
-            NSColor.black.setFill()
-            path.fill()
-            return true
-        }
-        mask.capInsets = NSEdgeInsets(
-            top: height / 2, left: height / 2, bottom: height / 2, right: height / 2)
-        visualEffect.maskImage = mask
-
         containerView.addSubview(visualEffect)
 
         borderOverlay.translatesAutoresizingMaskIntoConstraints = false
         borderOverlay.wantsLayer = true
         borderOverlay.layer?.borderWidth = 1.0
         borderOverlay.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        borderOverlay.layer?.cornerRadius = height / 2
+        borderOverlay.layer?.cornerRadius = pillWidth / 2
         if #available(macOS 10.15, *) {
             borderOverlay.layer?.cornerCurve = .circular
         }
         borderOverlay.layer?.masksToBounds = true
         containerView.addSubview(borderOverlay)
 
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.hasVerticalScroller = false
-        scrollView.hasHorizontalScroller = false
-        scrollView.drawsBackground = false
-        containerView.addSubview(scrollView)
-
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.orientation = .horizontal
-        stackView.spacing = 0
-        stackView.alignment = .centerY
-        scrollView.documentView = stackView
-
-        setupArrows()
+        stackView.orientation = .vertical
+        stackView.spacing = 4
+        stackView.alignment = .centerX
+        stackView.edgeInsets = NSEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
+        containerView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: pillWidth),
+
             containerView.topAnchor.constraint(equalTo: topAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -208,84 +196,53 @@ class NerwHubTabBarView: NSView {
             borderOverlay.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             borderOverlay.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
 
-            scrollView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
-            scrollView.trailingAnchor.constraint(
-                equalTo: containerView.trailingAnchor, constant: -4),
-
-            stackView.heightAnchor.constraint(equalTo: scrollView.heightAnchor),
+            stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
         ])
 
-        for tab in NerwHubTab.allCases {
+        let allTabs = NerwHubTab.allCases
+        for (index, tab) in allTabs.enumerated() {
             let tabView = NerwHubTabItemView(tab: tab)
+            tabView.toolTip = "\(tab.rawValue) (⌘\(index + 1))"
             tabView.onClick = { [weak self] selectedTab in
                 self?.delegate?.didSelect(tab: selectedTab)
             }
             stackView.addArrangedSubview(tabView)
             tabViews[tab] = tabView
+
+            if index < allTabs.count - 1 {
+                let dot = createSeparatorDot()
+                stackView.addArrangedSubview(dot)
+            }
         }
-
-        widthConstraint = widthAnchor.constraint(equalToConstant: height)  // Default starting size
-        widthConstraint.isActive = true
-
-        scrollView.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(boundsDidChange), name: NSView.boundsDidChangeNotification,
-            object: scrollView.contentView)
 
         select(tab: .memory)
     }
 
-    private func setupArrows() {
-        let arrowConfig = NSImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+    private func createSeparatorDot() -> NSView {
+        let dotContainer = NSView()
+        dotContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        leftArrow.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: nil)?
-            .withSymbolConfiguration(arrowConfig)
-        leftArrow.contentTintColor = .white
-        leftArrow.translatesAutoresizingMaskIntoConstraints = false
-        leftArrow.alphaValue = 0
-        containerView.addSubview(leftArrow)
-
-        rightArrow.image = NSImage(
-            systemSymbolName: "chevron.right", accessibilityDescription: nil)?
-            .withSymbolConfiguration(arrowConfig)
-        rightArrow.contentTintColor = .white
-        rightArrow.translatesAutoresizingMaskIntoConstraints = false
-        rightArrow.alphaValue = 0
-        containerView.addSubview(rightArrow)
+        let dot = NSView()
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        dot.wantsLayer = true
+        dot.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.25).cgColor
+        dot.layer?.cornerRadius = 1.5
+        dotContainer.addSubview(dot)
 
         NSLayoutConstraint.activate([
-            leftArrow.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            leftArrow.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
+            dotContainer.widthAnchor.constraint(equalToConstant: 28),
+            dotContainer.heightAnchor.constraint(equalToConstant: 6),
 
-            rightArrow.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            rightArrow.trailingAnchor.constraint(
-                equalTo: containerView.trailingAnchor, constant: -8),
+            dot.centerXAnchor.constraint(equalTo: dotContainer.centerXAnchor),
+            dot.centerYAnchor.constraint(equalTo: dotContainer.centerYAnchor),
+            dot.widthAnchor.constraint(equalToConstant: 3),
+            dot.heightAnchor.constraint(equalToConstant: 3),
         ])
-    }
 
-    override func layout() {
-        super.layout()
-        layer?.shadowOpacity = 0.0
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea = trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways]
-        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
-        addTrackingArea(trackingArea!)
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        expand()
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        collapse()
+        return dotContainer
     }
 
     func select(tab: NerwHubTab) {
@@ -293,102 +250,10 @@ class NerwHubTabBarView: NSView {
         for (t, view) in tabViews {
             view.isSelected = (t == tab)
         }
-        if !isExpanded {
-            collapse()  // Re-center and resize to the new tab
-        } else {
-            // Scroll to make sure it's visible if needed when expanded
-            centerActiveTab()
-        }
-    }
-
-    private func expand() {
-        isExpanded = true
-        layoutSubtreeIfNeeded()
-        let totalWidth = stackView.fittingSize.width + 8  // 4 padding on each side
-        let targetWidth = min(totalWidth, maxWidthThreshold)
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            ctx.allowsImplicitAnimation = true
-            widthConstraint.constant = targetWidth
-            self.superview?.layoutSubtreeIfNeeded()
-        }
-        updateScrollIndicators()
-    }
-
-    private func collapse() {
-        isExpanded = false
-        layoutSubtreeIfNeeded()
-
-        guard let activeView = tabViews[activeTab] else { return }
-        let targetWidth = activeView.fittingSize.width + 8
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            ctx.allowsImplicitAnimation = true
-            widthConstraint.constant = targetWidth
-            self.superview?.layoutSubtreeIfNeeded()
-            centerActiveTab()
-        }
-
-        // Hide scroll indicators when collapsed
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.1
-            leftArrow.animator().alphaValue = 0
-            rightArrow.animator().alphaValue = 0
-        }
-    }
-
-    private func centerActiveTab() {
-        guard let activeView = tabViews[activeTab] else { return }
-
-        let targetContainerWidth: CGFloat
-        if isExpanded {
-            targetContainerWidth = min(stackView.fittingSize.width, maxWidthThreshold - 8)
-        } else {
-            targetContainerWidth = activeView.fittingSize.width
-        }
-
-        let activeFrame = activeView.frame
-        let targetX = activeFrame.origin.x - (targetContainerWidth - activeFrame.width) / 2
-
-        let maxOffset = max(0, stackView.frame.width - targetContainerWidth)
-        let clampedX = max(0, min(targetX, maxOffset))
-
-        scrollView.contentView.animator().setBoundsOrigin(NSPoint(x: clampedX, y: 0))
-    }
-
-    @objc private func boundsDidChange(notification: Notification) {
-        if isExpanded {
-            updateScrollIndicators()
-        }
-    }
-
-    private func updateScrollIndicators() {
-        let maxOffset = stackView.frame.width - scrollView.bounds.width
-        if maxOffset <= 0 {
-            leftArrow.animator().alphaValue = 0
-            rightArrow.animator().alphaValue = 0
-            return
-        }
-
-        let currentOffset = scrollView.contentView.bounds.origin.x
-
-        let showLeft = currentOffset > 1
-        let showRight = currentOffset < maxOffset - 1
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            leftArrow.animator().alphaValue = showLeft ? 1.0 : 0.0
-            rightArrow.animator().alphaValue = showRight ? 1.0 : 0.0
-        }
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let view = super.hitTest(point)
-        // Ensure scrolling and clicks pass through visual effect/border
         if view == visualEffect || view == borderOverlay || view == containerView {
             return self
         }

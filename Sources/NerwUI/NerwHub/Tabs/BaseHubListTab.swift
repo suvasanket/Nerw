@@ -19,8 +19,11 @@ public protocol BaseHubTabProtocol: AnyObject {
 }
 
 open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
+    public let titleLabel = NSTextField(labelWithString: "")
     public let scrollView = NSScrollView()
     public let stackView = NSStackView()
+
+    open var tabTitle: String { "" }
 
     public var selectedIndex: Int? = nil
 
@@ -50,6 +53,16 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     }
 
     private func setupUI() {
+        // Title Label
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+        titleLabel.isBezeled = false
+        titleLabel.drawsBackground = false
+        view.addSubview(titleLabel)
+
         // Scroll view for the list
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.drawsBackground = false
@@ -62,7 +75,7 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         stackView.orientation = .vertical
         stackView.alignment = .leading
         stackView.spacing = 8
-        stackView.edgeInsets = NSEdgeInsets(top: 48, left: 24, bottom: 16, right: 24)
+        stackView.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
         let documentView = HubListFlippedView()
         documentView.translatesAutoresizingMaskIntoConstraints = false
@@ -70,10 +83,16 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         scrollView.documentView = documentView
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            // Title pinned at the top with even 24pt padding
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+
+            // ScrollView pinned below title with even 24pt bottom padding
+            scrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 14),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -24),
 
             documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
@@ -88,6 +107,7 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
 
     open override func viewDidLoad() {
         super.viewDidLoad()
+        titleLabel.stringValue = tabTitle
         loadData()
 
         NotificationCenter.default.addObserver(
@@ -117,10 +137,7 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         for (idx, item) in items.enumerated() {
             let row = createRowView(for: item)
             stackView.addArrangedSubview(row)
-            row.widthAnchor.constraint(
-                equalTo: stackView.widthAnchor,
-                constant: -(stackView.edgeInsets.left + stackView.edgeInsets.right)
-            ).isActive = true
+            row.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true
 
             if let selectable = row as? HubSelectableRowView {
                 let isSelected = (selectedIndex != nil && idx == selectedIndex)

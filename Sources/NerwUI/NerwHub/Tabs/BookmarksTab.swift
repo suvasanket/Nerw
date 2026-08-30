@@ -3,6 +3,8 @@ import NerwBuiltin
 import NerwCore
 
 class BookmarksTab: BaseHubListTab<Bookmark> {
+    override var tabTitle: String { "Bookmarks" }
+
     override func loadData() {
         self.items = BookmarkManager.shared.bookmarks.sorted(by: { $0.createdAt > $1.createdAt })
     }
