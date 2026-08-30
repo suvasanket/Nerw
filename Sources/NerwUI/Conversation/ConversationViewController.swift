@@ -694,6 +694,28 @@ struct ChatTurn {
     var actionType: String?
     var actionPayload: [String: Any]?
     var pciIcons: [(icon: String, name: String)] = []
+
+    func toSaved() -> SavedChatTurn {
+        return SavedChatTurn(
+            query: query,
+            response: response,
+            rawResponse: rawResponse,
+            actionType: actionType,
+            pciIcons: pciIcons.map { PCIIconItem(icon: $0.icon, name: $0.name) },
+            timestamp: Date()
+        )
+    }
+
+    static func from(saved: SavedChatTurn) -> ChatTurn {
+        return ChatTurn(
+            query: saved.query,
+            response: saved.response,
+            rawResponse: saved.rawResponse,
+            actionType: saved.actionType,
+            actionPayload: nil,
+            pciIcons: saved.pciIcons.map { ($0.icon, $0.name) }
+        )
+    }
 }
 
 // MARK: - ConversationViewController
@@ -759,6 +781,7 @@ public class ConversationViewController: NSViewController {
     private var actionContextOverlay: ActionContextOverlayView?
     private var actionContextViewController: ActionContextViewController?
 
+    private var currentConversationId: UUID? = nil
     private var turns: [ChatTurn] = []
     private var activeTurnIndex: Int = -1
     private var activeTask: Task<Void, Never>?
@@ -1221,8 +1244,19 @@ public class ConversationViewController: NSViewController {
         updateCard()
     }
 
+    public func loadConversation(id: UUID) {
+        guard let conversation = ConversationManager.shared.getConversation(id: id) else { return }
+        cancelActiveTask()
+        self.currentConversationId = conversation.id
+        self.turns = conversation.turns.map { ChatTurn.from(saved: $0) }
+        self.activeTurnIndex = max(0, self.turns.count - 1)
+        updateCard()
+        focusInput()
+    }
+
     @objc private func clearChat() {
         cancelActiveTask()
+        currentConversationId = nil
         turns.removeAll()
         activeTurnIndex = -1
         updateCard()
@@ -1635,6 +1669,10 @@ public class ConversationViewController: NSViewController {
             }
         }
 
+        if currentConversationId == nil {
+            currentConversationId = UUID()
+        }
+
         // Add turn to list
         let newTurn = ChatTurn(
             query: text, response: "Generating...", actionType: nil, actionPayload: nil,
@@ -1742,6 +1780,17 @@ public class ConversationViewController: NSViewController {
                         self.stopGeneratingAnimation()
                         self.spinner.stopAnimation()
                         self.updateCard()
+
+                        if let conversationId = self.currentConversationId {
+                            let validTurns = self.turns.filter {
+                                !$0.response.hasPrefix("Generating") && !$0.query.isEmpty
+                            }
+                            let savedTurns = validTurns.map { $0.toSaved() }
+                            if !savedTurns.isEmpty {
+                                ConversationManager.shared.saveConversation(
+                                    id: conversationId, title: nil, turns: savedTurns)
+                            }
+                        }
                     }
                 }
             } catch {
@@ -1757,6 +1806,17 @@ public class ConversationViewController: NSViewController {
                         if self.activeTurnIndex == self.turns.count - 1 {
                             self.setResponseText(errMsg)
                             self.updateCard()
+                        }
+
+                        if let conversationId = self.currentConversationId {
+                            let validTurns = self.turns.filter {
+                                !$0.response.hasPrefix("Generating") && !$0.query.isEmpty
+                            }
+                            let savedTurns = validTurns.map { $0.toSaved() }
+                            if !savedTurns.isEmpty {
+                                ConversationManager.shared.saveConversation(
+                                    id: conversationId, title: nil, turns: savedTurns)
+                            }
                         }
                     }
                 }

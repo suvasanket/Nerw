@@ -81,6 +81,7 @@ public struct AIConfig: Codable {
     public var systemPrompt: String = "You are a helpful macOS assistant."
     public var temperature: Double = 0.7
     public var maxTokens: Int = 1024
+    public var maxSavedConversations: Int = 50
 
     private enum CodingKeys: String, CodingKey {
         case isEnabled
@@ -103,6 +104,7 @@ public struct AIConfig: Codable {
         case systemPrompt
         case temperature
         case maxTokens
+        case maxSavedConversations
     }
 
     public init() {
@@ -150,6 +152,8 @@ public struct AIConfig: Codable {
             ?? "You are a helpful macOS assistant."
         temperature = try container.decodeIfPresent(Double.self, forKey: .temperature) ?? 0.7
         maxTokens = try container.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 1024
+        maxSavedConversations =
+            try container.decodeIfPresent(Int.self, forKey: .maxSavedConversations) ?? 50
 
         providers = try container.decodeIfPresent([AIProvider].self, forKey: .providers) ?? []
         selectedProviderId =

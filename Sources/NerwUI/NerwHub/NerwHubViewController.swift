@@ -96,6 +96,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
     // Tab controllers cache
     private var memoryTabController: MemoryTab?
     private var bookmarksTabController: BookmarksTab?
+    private var conversationsTabController: ConversationsTab?
 
     private let panelView = NerwPanelView(style: .main)
 
@@ -328,6 +329,14 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
                     actions.append("Edit URL")
                     actions.append("Delete")
                 }
+            } else if currentTab == .conversations {
+                if let cTab = conversationsTabController, cTab.selectedItem != nil {
+                    actions.append("Open")
+                    actions.append("Delete")
+                }
+                if let cTab = conversationsTabController, !cTab.items.isEmpty {
+                    actions.append("Clear All Conversations")
+                }
             }
 
             for tab in NerwHubTab.allCases {
@@ -416,10 +425,12 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             bookmarksTabController?.editSelectedURL()
         case "Edit", "Edit Memory":
             (currentTabViewController as? BaseHubTabProtocol)?.performEditActionOnSelected()
-        case "Delete", "Delete Memory", "Delete Bookmark":
+        case "Delete", "Delete Memory", "Delete Bookmark", "Delete Conversation":
             (currentTabViewController as? BaseHubTabProtocol)?.performDeleteActionOnSelected()
-        case "Open", "Open Bookmark":
+        case "Open", "Open Bookmark", "Open Conversation":
             (currentTabViewController as? BaseHubTabProtocol)?.performPrimaryActionOnSelected()
+        case "Clear All Conversations":
+            conversationsTabController?.clearAllConversations()
         case "Open Memory", "Switch to Memory":
             selectTab(.memory)
         case "Open Bookmarks", "Switch to Bookmarks":
@@ -453,18 +464,10 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
             }
             newController = bookmarksTabController!
         case .conversations:
-            let placeholder = NSViewController()
-            placeholder.view = NSView()
-            let label = NSTextField(labelWithString: "\(tab.rawValue) - Coming Soon")
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.textColor = .secondaryLabelColor
-            label.font = .systemFont(ofSize: 24, weight: .semibold)
-            placeholder.view.addSubview(label)
-            NSLayoutConstraint.activate([
-                label.centerXAnchor.constraint(equalTo: placeholder.view.centerXAnchor),
-                label.centerYAnchor.constraint(equalTo: placeholder.view.centerYAnchor),
-            ])
-            newController = placeholder
+            if conversationsTabController == nil {
+                conversationsTabController = ConversationsTab()
+            }
+            newController = conversationsTabController!
         }
 
         if let current = currentTabViewController {

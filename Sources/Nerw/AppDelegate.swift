@@ -72,6 +72,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.conversationWindowController.show(prompt: prompt)
         }
 
+        ConversationManager.shared.showConversationCallback = { [weak self] conversationId in
+            ScreenCaptureManager.shared.captureAsync()
+            self?.popupController.hide(restoreFocus: false)
+            self?.nerwHubController.hide()
+            self?.conversationWindowController.show(conversationId: conversationId)
+        }
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(configDidUpdate),
             name: Notification.Name("NerwConfigDidUpdate"),

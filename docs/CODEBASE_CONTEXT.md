@@ -174,6 +174,7 @@ The source code is organized into modular targets within `Sources/`:
 ### Persistence Locations (managed by NerwPaths)
 - **Config**: `~/.nerw/config.json`.
 - **Action Preferences**: `~/.nerw/actions.json`.
+- **AI Conversations**: `~/.nerw/conversations.json`.
 - **Extensions**: `~/.nerw/extensions/`.
 - **Daemon Registry**: `~/.nerw/daemon_registry.json`. **[NEW]**
 - **Daemon Sockets**: `~/.nerw/run/<extension-id>.sock`. **[NEW]**
@@ -336,12 +337,12 @@ A minimal, card-based chat layout utilizing `AIService` directly inside the app,
 ### Files
 | File | Purpose |
 |---|---|
-| `ConversationManager.swift` | Exposes the builtin search action triggers (`ai`, `chat`, `ask`, `assistant`). Provides both a direct launch action (`builtin.aichat`) and an inline query action (`builtin.aiquery`). The inline query action is automatically suggested as a high-relevance result when the query categorizer detects a natural language question (`.webSearch`). |
-| `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card, user query capsule placed outside the card, scrollable text area, floating glassmorphic prompt input (containing an active generation spinner), floating circular trash button, large sparkles placeholder for empty chat history, streaming Task management, and **interactive markdown nodes with a floating selection pill** mapped to keyboard navigation (`Tab` / `Enter`). |
+| `ConversationManager.swift` | Manages persistent storage of AI conversations and turns (`~/.nerw/conversations.json`), enforces the configurable `maxSavedConversations` threshold (auto-pruning oldest threads), exposes builtin search action triggers (`ai`, `chat`, `ask`, `assistant`), and provides routing callbacks to launch or restore specific chat sessions in the conversation panel. |
+| `ConversationViewController.swift` | Builds the visual layout: left indicator timeline bars (`SegmentBarView`), center response card, user query capsule placed outside the card, scrollable text area, floating glassmorphic prompt input (containing an active generation spinner), floating circular trash button, large sparkles placeholder for empty chat history, streaming Task management, auto-persisting conversation turns, session restoration (`loadConversation(id:)`), and **interactive markdown nodes with a floating selection pill** mapped to keyboard navigation (`Tab` / `Enter`). |
 | `ConversationWindowController.swift` | Manages the floating, non-activating `NSPanel` (`ConversationPanel`) overlapping the main panel's exact position |
 
 ### Flow & Navigation
-- **Opening**: User selects the "AI Chat" search result. The search panel hides, and the conversation panel is centered directly over the main panel frame.
+- **Opening**: User selects the "AI Chat" search result or opens a thread from NerwHub. The search panel/Hub hides, and the conversation panel is centered directly over the main panel frame.
 - **Empty State**: Renders a large translucent sparkles symbol in the center.
 - **Timeline Paging**: The vertical stack of bars on the left lets users click on past queries to swap the response card content dynamically.
 - **Subsystem Disabled State**: Renders a custom warning view with a glassy "Configure AI..." button. Clicking this dismisses the panel and posts the settings notification targeting the AI configuration tab.
@@ -375,11 +376,12 @@ A centralized hub interface providing unified access to persistent features like
 | `NerwHubWindowController.swift` | Manages the floating, borderless `NerwHubPanel` centered over the screen. |
 | `NerwHubViewController.swift` | Master controller orchestrating tabs, keyboard event monitor (`Cmd+1/2/3`, `Cmd+K`, `Up`/`Down`, `Enter`, `Delete`), floating tab pill (`NerwHubTabBarView`), command palette, and floating input editor. |
 | `NerwHubTabBarView.swift` | Liquid glass tab bar that expands on hover, animates width smoothly, and supports keyboard/click navigation. |
-| `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, equilateral search field and selection cell alignment, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, tab switching) on the active tab and selection. |
+| `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, equilateral search field and selection cell alignment, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, `Clear All Conversations`, tab switching) on the active tab and selection. |
 | `HubFloatingInputViewController.swift` | Glassmorphic floating text editor (`HubTextView`) with deep shadow, full paste/clipboard support (`Cmd+V`, `Cmd+C`, `Cmd+X`, `Cmd+A`, `Cmd+Z`), dynamic content-driven height (clamped between 36pt and 180pt max scroll threshold), and `Enter`/`Shift+Enter` submission for inline editing (AI Memories, Bookmark names, Bookmark URLs). |
 | `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, managing `selectedIndex`, auto-scrolling, and row selection states. |
 | `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, right-click context menu (Edit/Delete), accent selection ring, and editing/deletion dispatching. |
 | `Tabs/BookmarksTab.swift` | Renders clean browser bookmark rows with favicon support, selection ring, right-click context menu (Open, Edit Name, Edit URL, Delete), and Command Palette action dispatching. |
+| `Tabs/ConversationsTab.swift` | Renders saved `AIConversation` history rows with relative timestamps, turn count badges, selection ring, right-click context menu (Open, Delete, Clear All), and direct resumption in the NerwAI conversation panel. |
 
 ### Selection & Navigation
 - **Keyboard Navigation**: `↑ / ↓` (all modes), `j / k` (when `navigationStyle == "vim"`), or `Ctrl-P / Ctrl-N` (when `navigationStyle != "vim"`) navigates rows in the active tab.

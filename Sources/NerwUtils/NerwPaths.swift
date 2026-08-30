@@ -71,6 +71,11 @@ public struct NerwPaths {
         configDirectory.appendingPathComponent("memory.json")
     }
 
+    /// Path for the AI conversations history file (`~/.nerw/conversations.json`).
+    public static var aiConversationsFile: URL {
+        configDirectory.appendingPathComponent("conversations.json")
+    }
+
     /// Per-extension persistent data directory (`~/.nerw/extensions/<id>/data`).
     /// Survives restarts; cleaned on extension uninstall.
     public static func daemonDataDir(for extensionId: String) -> URL {

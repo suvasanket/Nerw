@@ -83,7 +83,7 @@ public class ConversationWindowController: NSObject {
         }
     }
 
-    public func show(prompt: String? = nil) {
+    public func show(prompt: String? = nil, conversationId: UUID? = nil) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
         let width = GlobalLayout.mainWidth
@@ -96,7 +96,9 @@ public class ConversationWindowController: NSObject {
 
         panel.makeKeyAndOrderFront(nil)
         _ = contentViewController.view
-        if let prompt = prompt {
+        if let conversationId = conversationId {
+            contentViewController.loadConversation(id: conversationId)
+        } else if let prompt = prompt {
             contentViewController.submitPromptDirectly(prompt)
         } else {
             contentViewController.focusInput()
