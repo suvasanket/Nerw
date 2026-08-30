@@ -56,7 +56,7 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         // Title Label
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        titleLabel.textColor = .white
+        titleLabel.textColor = NSColor.white.withAlphaComponent(0.65)
         titleLabel.isEditable = false
         titleLabel.isSelectable = false
         titleLabel.isBezeled = false
@@ -83,9 +83,9 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         scrollView.documentView = documentView
 
         NSLayoutConstraint.activate([
-            // Title pinned at the top with even 24pt padding
+            // Title pinned at the top with even 24pt padding, slightly indented to align with card content
             titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 38),
             titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
 
             // ScrollView pinned below title with even 24pt bottom padding

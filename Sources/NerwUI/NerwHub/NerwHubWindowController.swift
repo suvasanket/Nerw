@@ -75,6 +75,7 @@ public class NerwHubWindowController: NSWindowController {
         _ = nerwViewController.view
 
         nerwViewController.selectTab(tab)
+        nerwViewController.playIntroAnimation()
     }
 
     public func hide() {

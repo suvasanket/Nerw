@@ -117,6 +117,7 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
 
     override func viewDidAppear() {
         super.viewDidAppear()
+        tabBarView.playIntroAnimation()
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.view.window == event.window else { return event }
 
@@ -487,6 +488,10 @@ class NerwHubViewController: NSViewController, HubCommandPaletteDelegate {
 
         currentTabViewController = newController
         tabBarView.select(tab: tab)
+    }
+
+    public func playIntroAnimation() {
+        tabBarView.playIntroAnimation()
     }
 
     // MARK: - Keyboard Handling
