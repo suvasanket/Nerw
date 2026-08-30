@@ -342,10 +342,11 @@ A minimal, card-based chat layout utilizing `AIService` directly inside the app,
 | `ConversationWindowController.swift` | Manages the floating, non-activating `NSPanel` (`ConversationPanel`) overlapping the main panel's exact position |
 
 ### Flow & Navigation
-- **Opening**: User selects the "AI Chat" search result or opens a thread from NerwHub. The search panel/Hub hides, and the conversation panel is centered directly over the main panel frame.
+- **Opening**: User selects the "AI Chat" search result or opens a thread from NerwHub. The search panel/Hub hides, and the conversation panel is centered directly over the main panel frame. Respects `openWithNewConversation` (starting clean on launch when enabled) and `searchStartsNewConversation` (starting clean when a prompt is queried from search when enabled).
 - **Empty State**: Renders a large translucent sparkles symbol in the center.
 - **Timeline Paging**: The vertical stack of bars on the left lets users click on past queries to swap the response card content dynamically.
 - **Subsystem Disabled State**: Renders a custom warning view with a glassy "Configure AI..." button. Clicking this dismisses the panel and posts the settings notification targeting the AI configuration tab.
+- **General Configuration**: `AISettingsViewController` exposes user controls for "Open With New Conversation", "Search Starts New Conversation", "Conversation Limit" (`maxSavedConversations`), "AI Logs", and "Memory".
 
 ---
 

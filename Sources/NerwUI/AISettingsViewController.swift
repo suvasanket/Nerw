@@ -1,4 +1,5 @@
 import Cocoa
+import NerwBuiltin
 import NerwCore
 import NerwSearchBackend
 import NerwUtils
@@ -25,6 +26,9 @@ class AISettingsViewController: NSViewController {
 
     // General AI UI elements
     private let enableAISwitch = NSSwitch()
+    private let openWithNewConversationSwitch = NSSwitch()
+    private let searchStartsNewConversationSwitch = NSSwitch()
+    private let conversationLimitPopUp = NSPopUpButton()
     private let enableConversationLogSwitch = NSSwitch()
     private let enableMemorySwitch = NSSwitch()
     private let memoryRow = NSStackView()
@@ -108,6 +112,57 @@ class AISettingsViewController: NSViewController {
         enableRow.addArrangedSubview(spacer1)
         enableRow.addArrangedSubview(enableAISwitch)
 
+        openWithNewConversationSwitch.controlSize = .mini
+        openWithNewConversationSwitch.target = self
+        openWithNewConversationSwitch.action = #selector(openWithNewConversationToggled(_:))
+        openWithNewConversationSwitch.translatesAutoresizingMaskIntoConstraints = false
+
+        let openNewRow = createToggleRow(
+            title: "Open With New Conversation",
+            subtitle: "Always start a fresh conversation when opening the AI assistant.",
+            switchControl: openWithNewConversationSwitch
+        )
+
+        searchStartsNewConversationSwitch.controlSize = .mini
+        searchStartsNewConversationSwitch.target = self
+        searchStartsNewConversationSwitch.action = #selector(searchStartsNewConversationToggled(_:))
+        searchStartsNewConversationSwitch.translatesAutoresizingMaskIntoConstraints = false
+
+        let searchNewRow = createToggleRow(
+            title: "Search Starts New Conversation",
+            subtitle:
+                "Submitting a prompt from search creates a fresh conversation instead of continuing previous.",
+            switchControl: searchStartsNewConversationSwitch
+        )
+
+        conversationLimitPopUp.pullsDown = false
+        conversationLimitPopUp.bezelStyle = .rounded
+        conversationLimitPopUp.controlSize = .small
+        conversationLimitPopUp.translatesAutoresizingMaskIntoConstraints = false
+
+        let limits: [(String, Int)] = [
+            ("10", 10),
+            ("25", 25),
+            ("50", 50),
+            ("100", 100),
+            ("200", 200),
+            ("500", 500),
+        ]
+        for (title, limit) in limits {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.representedObject = limit
+            conversationLimitPopUp.menu?.addItem(item)
+        }
+        conversationLimitPopUp.target = self
+        conversationLimitPopUp.action = #selector(conversationLimitChanged(_:))
+
+        let limitRow = createControlRow(
+            title: "Conversation Limit",
+            subtitle:
+                "Maximum number of saved conversations before older ones are automatically removed.",
+            control: conversationLimitPopUp
+        )
+
         enableConversationLogSwitch.controlSize = .mini
         enableConversationLogSwitch.target = self
         enableConversationLogSwitch.action = #selector(conversationLogToggleClicked(_:))
@@ -181,7 +236,7 @@ class AISettingsViewController: NSViewController {
 
         activationSection = SettingsSection(
             title: "General",
-            contentViews: [enableRow, logRow, warningContainer]
+            contentViews: [enableRow, openNewRow, searchNewRow, limitRow, logRow, warningContainer]
         )
         stackView.addArrangedSubview(activationSection)
         activationSection.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -48)
@@ -353,6 +408,38 @@ class AISettingsViewController: NSViewController {
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(spacer)
         row.addArrangedSubview(switchControl)
+        return row
+    }
+
+    private func createControlRow(title: String, subtitle: String, control: NSView) -> NSStackView {
+        let textStack = NSStackView()
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .labelColor
+
+        let subtext = NSTextField(labelWithString: subtitle)
+        subtext.font = .systemFont(ofSize: 11)
+        subtext.textColor = .secondaryLabelColor
+        subtext.cell?.wraps = true
+        subtext.cell?.isScrollable = false
+
+        textStack.addArrangedSubview(label)
+        textStack.addArrangedSubview(subtext)
+
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.distribution = .fill
+        row.addArrangedSubview(textStack)
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        row.addArrangedSubview(spacer)
+        row.addArrangedSubview(control)
         return row
     }
 
@@ -781,6 +868,24 @@ class AISettingsViewController: NSViewController {
         updateVisibility()
     }
 
+    @objc private func openWithNewConversationToggled(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.openWithNewConversation = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func searchStartsNewConversationToggled(_ sender: NSSwitch) {
+        ConfigManager.shared.config.aiConfig.searchStartsNewConversation = (sender.state == .on)
+        ConfigManager.shared.save()
+    }
+
+    @objc private func conversationLimitChanged(_ sender: NSPopUpButton) {
+        guard let limit = sender.selectedItem?.representedObject as? Int else { return }
+        ConfigManager.shared.config.aiConfig.maxSavedConversations = limit
+        ConfigManager.shared.save()
+        ConversationManager.shared.enforceLimit()
+        ConversationManager.shared.saveToDisk()
+    }
+
     @objc private func conversationLogToggleClicked(_ sender: NSSwitch) {
         ConfigManager.shared.config.aiConfig.isConversationLogEnabled = (sender.state == .on)
         ConfigManager.shared.save()
@@ -912,6 +1017,22 @@ class AISettingsViewController: NSViewController {
         let config = ConfigManager.shared.config.aiConfig
 
         enableAISwitch.state = config.isEnabled ? .on : .off
+        openWithNewConversationSwitch.state = config.openWithNewConversation ? .on : .off
+        searchStartsNewConversationSwitch.state = config.searchStartsNewConversation ? .on : .off
+
+        let currentLimit = config.maxSavedConversations
+        if let item = conversationLimitPopUp.menu?.items.first(where: {
+            ($0.representedObject as? Int) == currentLimit
+        }) {
+            conversationLimitPopUp.select(item)
+        } else {
+            let customItem = NSMenuItem(
+                title: "\(currentLimit) conversations", action: nil, keyEquivalent: "")
+            customItem.representedObject = currentLimit
+            conversationLimitPopUp.menu?.insertItem(customItem, at: 0)
+            conversationLimitPopUp.select(customItem)
+        }
+
         enableConversationLogSwitch.state = config.isConversationLogEnabled ? .on : .off
         enableMemorySwitch.state = config.isMemoryEnabled ? .on : .off
 
@@ -944,6 +1065,10 @@ class AISettingsViewController: NSViewController {
     private func updateVisibility() {
         let isEnabled = ConfigManager.shared.config.aiConfig.isEnabled
 
+        openWithNewConversationSwitch.isEnabled = isEnabled
+        searchStartsNewConversationSwitch.isEnabled = isEnabled
+        conversationLimitPopUp.isEnabled = isEnabled
+        enableConversationLogSwitch.isEnabled = isEnabled
         memoryRow.isHidden = !isEnabled
         providersSection.isHidden = !isEnabled
         contextSection.isHidden = !isEnabled

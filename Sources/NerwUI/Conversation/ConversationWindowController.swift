@@ -99,9 +99,16 @@ public class ConversationWindowController: NSObject {
         if let conversationId = conversationId {
             contentViewController.loadConversation(id: conversationId)
         } else if let prompt = prompt {
+            if ConfigManager.shared.config.aiConfig.searchStartsNewConversation {
+                contentViewController.startNewConversation()
+            }
             contentViewController.submitPromptDirectly(prompt)
         } else {
-            contentViewController.focusInput()
+            if ConfigManager.shared.config.aiConfig.openWithNewConversation {
+                contentViewController.startNewConversation()
+            } else {
+                contentViewController.focusInput()
+            }
         }
     }
 
