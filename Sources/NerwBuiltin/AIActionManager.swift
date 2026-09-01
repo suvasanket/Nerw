@@ -84,15 +84,10 @@ public class AIActionManager {
         }
         let label = payload["label"] as? String ?? "AI Timer"
 
-        Logger.shared.info("AIActionManager: Timer set for \(duration) seconds.")
+        TimerManager.shared.startTimer(duration: TimeInterval(duration), label: label)
+        let durStr = TimerParser.shared.formatDuration(TimeInterval(duration))
         DispatchQueue.main.async {
-            Nerw.notify("Timer set for \(duration) seconds: \(label)", level: .info)
-        }
-
-        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(duration)) {
-            DispatchQueue.main.async {
-                Nerw.notify("Timer Finished: \(label)", level: .info)
-            }
+            Nerw.notify("Timer set for \(durStr): \(label)", level: .info)
         }
     }
 

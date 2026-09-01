@@ -43,6 +43,7 @@ The source code is organized into modular targets within `Sources/`:
     - `ResultCellView.swift`: Custom table cell rendering search results with async icon loading, "Peek" support, and a 3-dot vertical context button visible on the selected row.
     - **Notification System**: `NotificationManager.swift`, `NotificationPanel.swift`, `NotificationItemView.swift`. Handles glassmorphic, stacked alerts.
     - **Specialized Views**: `ExtensionCardView.swift` (Settings list), `FormView.swift` (Multi-field inputs), `IconDropView.swift` (Drag & Drop support), `KeybindRecorder.swift` (Hotkey input).
+    - **Timer Alert UI**: `TimerAlertWindowController.swift` and `TimerAlertViewController.swift`. Centered, glassmorphic pop-up with sound playback, providing Complete and Snooze options upon timer completion.
     - **Settings**: `GeneralSettingsViewController`, `AppearanceSettingsViewController`, `FeaturesSettingsViewController`, `SearchEnginesSettingsViewController` (WebSearch - includes a dropdown to configure the fallback modifier key), `ExtensionSettingsViewController`, `ActionsSettingsViewController` (renders lightweight row models with aliases, hotkeys, and enable/disable toggles).
     - `SettingsWindowController.swift`: Manages the tabbed settings interface.
     - `ExtensionInstallWindowController.swift`: Manages the `.nerw` extension installation flow and confirmation UI.
@@ -53,6 +54,7 @@ The source code is organized into modular targets within `Sources/`:
 - **Role**: Core search providers and internal capabilities.
 - **Key Components**:
     - `SearchService.swift`: The central orchestrator. Aggregates results from Apps, Built-ins, and Extensions while filtering out disabled actions. Handles fuzzy matching and ranking. Delegates Web Search and Fallback Search to dedicated services. Also handles pinning **inlineArg** triggers to the top.
+    - `TimerManager.swift` & `TimerParser.swift`: Native timer system providing `.inlineArg` action triggers (`starttimer`, `settimer`, `timer`). Features deep natural language time reference parsing (relative durations, "until next 7", clock times, typo and grammar tolerance, label extraction), background countdowns, audio playback, persistence (`~/Library/Application Support/Nerw/Data/timers.json`), and instant cancellation/snoozing.
     - `WebSearchService.swift`: Handles generating web search actions and resolving icons for web search engines.
     - `FallbackSearchService.swift`: Handles generating fallback search actions (both web search engines and generic actions).
     - `SearchEngine.swift`: Manages custom search engines and bang matching (!g, !yt). Persists to `~/Library/Application Support/Nerw/Bangs.json`.
@@ -390,6 +392,35 @@ A centralized hub interface providing unified access to persistent features like
 - **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available contextual actions (`Edit Name`, `Edit URL`, `Delete`, `Open`).
 - **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Open in Browser", "Edit Name...", "Edit URL...", "Delete Bookmark").
 - **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Floating Input Editor automatically shrinks for short content (e.g. single-line bookmark names and URLs) and expands up to its max threshold for longer multiline notes.
+
+---
+
+## 15. Timer System & Center Alert Popup (`NerwBuiltin/Timer/` & `NerwUI/Timer/`)
+
+A robust native timer utility accessible directly from the search bar via `starttimer`, `settimer`, or `timer` inline triggers.
+
+### Architecture
+
+**1. Natural Language Engine (`TimerParser.swift`)**
+- High-resilience, typo-tolerant natural language time evaluator.
+- Supports relative durations (`2min`, `30s`, `1.5 hours`, `1h 30m`, `5 minuts`, `10 secnds`, `2 hoours`).
+- Supports upcoming clock targets & "until next X" expressions (`until next 7`, `next 7:30`, `settimer 7pm`, `until 19:00`, `half past 7`).
+- Flexible timer label extraction from leading, trailing, quoted, or keyword-tagged positions (`starttimer 2min tea`, `settimer tea for 2min`, `starttimer boil eggs in 10 mins`, `starttimer "Break" 15m`).
+- Word numbers and conversational durations (`half an hour`, `quarter of an hour`, `an hour and a half`, `five minutes`).
+
+**2. State & Background Engine (`TimerManager.swift`)**
+- Manages `NerwTimer` records (`id`, `label`, `targetDate`, `totalDuration`, `createdAt`, `isCompleted`, `isSnoozed`).
+- Persists active timers to `~/Library/Application Support/Nerw/Data/timers.json`.
+- Evaluates countdown ticks on a background loop and triggers audio alerts via `TimerSoundPlayer` upon completion.
+- Provides search action integration with live argument preview and instant cancellation for running timers.
+
+**3. Center Alert Pop-up (`TimerAlertWindowController.swift` & `TimerAlertViewController.swift`)**
+- Non-activating, floating frosted glass panel positioned in the exact center of the screen.
+- Displays animated glowing icon, timer title, and completion timestamp.
+- Intercepts keyboard navigation:
+  - `Enter` / `Esc` / `Space`: Marks timer as complete, stops sound, and closes panel.
+  - `Cmd+S` / `Tab`: Snoozes timer for 5 minutes (`snoozeTimer(id:duration:)`) and posts confirmation notification.
+
 
 
 

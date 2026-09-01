@@ -29,6 +29,7 @@ func runTests() {
     runAITests()
     runMathConversionTests()
     runSpellCheckTests()
+    runTimerTests()
 
     print("[Testing] All SearchService tests PASSED.")
 

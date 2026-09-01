@@ -64,6 +64,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ShortcutsEngine.shared.refreshIfStale()
         }
 
+        TimerManager.shared.setup()
+        TimerManager.shared.showTimerAlertCallback = { timer in
+            TimerAlertWindowController.shared.show(for: timer)
+        }
+
         conversationWindowController = ConversationWindowController()
 
         ConversationManager.shared.showWindowCallback = { [weak self] prompt in

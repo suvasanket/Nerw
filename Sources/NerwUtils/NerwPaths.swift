@@ -76,6 +76,11 @@ public struct NerwPaths {
         configDirectory.appendingPathComponent("conversations.json")
     }
 
+    /// Path for active and saved timers (`~/Library/Application Support/Nerw/Data/timers.json`).
+    public static var timersFile: URL {
+        dataDirectory.appendingPathComponent("timers.json")
+    }
+
     /// Per-extension persistent data directory (`~/.nerw/extensions/<id>/data`).
     /// Survives restarts; cleaned on extension uninstall.
     public static func daemonDataDir(for extensionId: String) -> URL {

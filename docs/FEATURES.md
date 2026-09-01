@@ -37,6 +37,17 @@ Nerw comes equipped with a comprehensive suite of native built-in actions, cover
 ## ⭐️ Text Snippets
 - System-wide text expansion that replaces short trigger words (e.g., `;sig`) with full templates in any macOS app. Supports dynamic placeholders like `{{clipboard}}`, `{{time}}`, and custom dates (`{{yyyy-MM-dd}}`).
 
+## ⭐️ Native Timer (`starttimer` / `settimer` / `timer`)
+- **Natural Language Parsing**: Start timers instantly using flexible natural language expressions:
+  - Relative durations: `starttimer 2min`, `settimer for 25 min`, `timer 30s`, `settimer 1.5 hours`.
+  - Conversational times: `half an hour`, `quarter of an hour`, `an hour and a half`, `five minutes`.
+  - Upcoming target clock times: `settimer until next 7`, `settimer 7pm`, `until 19:00`, `at 7:30 am`, `half past 7`.
+  - Typo & grammar tolerance: handles misspellings and abbreviations (`fo 2min`, `5 minuts`, `10 secnds`, `untill 7pm`, `2 hoours`).
+  - Timer naming: extract timer names from any position (`starttimer 2min tea`, `settimer tea for 2min`, `starttimer boil eggs in 10 mins`, `starttimer meeting until 7pm`, `starttimer "Take a break" 15m`).
+- **Live Search Preview**: As you type arguments inline, Nerw displays live previews of the target duration, end time, and label.
+- **Active Timer Management**: Shows running timers with remaining countdowns directly in search, with one-click cancellation.
+- **Centered Alert Pop-up & Audio**: When the timer finishes, Nerw plays an audio chime and displays a centered, glassmorphic pop-up on screen with options to **Complete** (`Enter` / `Esc` / `Space`) or **Snooze (+5m)** (`Cmd + S` / `Tab`).
+
 ## ⭐️ Bookmark Website
 - **Add Bookmark (`add bookmark`)**: Universally save website as bookmarks directly into nerw. Automatically detects the active browser's URL and title to pre-fill the form.
 - **Bookmark Management**: Search saved bookmarks instantly and open them in your browser.
