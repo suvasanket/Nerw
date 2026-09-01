@@ -194,7 +194,11 @@ public class AIStreamParser {
                 return ["type": "app", "action": "menubar", "path": detail]
             }
         case "timer":
-            return ["type": "timer", "duration": 60, "label": detail]
+            if let parsed = TimerParser.shared.parse(query: detail) {
+                return ["type": "timer", "duration": Int(parsed.duration), "label": parsed.label]
+            } else {
+                return ["type": "timer", "duration": 60, "label": detail]
+            }
         case "reminder":
             return ["type": "reminder", "title": detail]
         case "calendar":

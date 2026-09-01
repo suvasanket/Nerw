@@ -16,7 +16,7 @@ public class AIInstructionManager {
 
         if actionIntents.contains(.timer) {
             instructions +=
-                "\n- timer: <action>{ \"type\": \"timer\", \"duration\": 60, \"label\": \"Boil eggs\" }</action>"
+                "\n- timer: <action>{ \"type\": \"timer\", \"duration\": 120, \"label\": \"Tea\" }</action> (duration can be numeric seconds or natural time strings like \"2min\", \"until 7pm\", \"until next 7\")"
         }
         if actionIntents.contains(.reminder) {
             instructions +=

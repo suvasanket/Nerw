@@ -330,10 +330,16 @@ public class IntentClassifier {
             )
         case .timer:
             return DomainRule(
-                canonicalKeywords: ["timer", "set a timer", "countdown", "alarm"],
+                canonicalKeywords: [
+                    "timer", "starttimer", "settimer", "set a timer", "start a timer", "countdown",
+                    "alarm",
+                ],
                 semanticAnchors: ["timer", "countdown", "alarm", "stopwatch"],
                 actionVerbs: ["set", "start", "create"],
-                explicitActionPhrases: ["set a timer", "timer", "countdown", "alarm"]
+                explicitActionPhrases: [
+                    "set a timer", "start a timer", "starttimer", "settimer", "timer", "countdown",
+                    "alarm",
+                ]
             )
         case .memory:
             return DomainRule(

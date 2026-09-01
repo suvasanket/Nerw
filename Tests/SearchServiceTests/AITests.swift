@@ -13,6 +13,8 @@ func runAITests() {
     testIntentClassifierTypoResilience()
     testIntentClassifierGrammaticalVariations()
     testIntentClassifierSemanticSynonyms()
+    testAIStreamParserTimerExtraction()
+    testIntentClassifierStartTimerKeyword()
 }
 
 func testAIStreamParserActionExtraction() {
@@ -211,4 +213,54 @@ func testIntentClassifierSemanticSynonyms() {
     }
 
     print("  ✓ testIntentClassifierSemanticSynonyms passed.")
+}
+
+func testAIStreamParserTimerExtraction() {
+    let parser = AIStreamParser()
+    var detectedType = ""
+    var detectedPayload: [String: Any]?
+
+    parser.onActionDetected = { type, payload in
+        detectedType = type
+        detectedPayload = payload
+    }
+
+    parser.append(text: "Setting your timer: ")
+    parser.append(
+        text:
+            "<action>{\"type\": \"timer\", \"duration\": \"2min\", \"label\": \"Tea\"}</action>"
+    )
+
+    if detectedType != "timer" {
+        fatalError("FAIL: Expected action type 'timer', got '\(detectedType)'")
+    }
+
+    if let dur = detectedPayload?["duration"] as? String, dur != "2min" {
+        fatalError("FAIL: Expected duration '2min', got '\(dur)'")
+    }
+
+    // Test fallback pill reconstruction with TimerParser
+    let reconstructed = AIStreamParser.reconstructPayload(type: "timer", detail: "2min Focus")
+    if let duration = reconstructed["duration"] as? Int, duration != 120 {
+        fatalError("FAIL: Reconstructed duration should be 120s, got \(duration)")
+    }
+    if let label = reconstructed["label"] as? String, label != "Focus" {
+        fatalError("FAIL: Reconstructed label should be 'Focus', got '\(label)'")
+    }
+
+    print("  ✓ testAIStreamParserTimerExtraction passed.")
+}
+
+func testIntentClassifierStartTimerKeyword() {
+    let result1 = IntentClassifier.shared.classify("starttimer for 2min")
+    guard result1.actionIntents.contains(.timer) else {
+        fatalError("FAIL: Expected .timer action intent for 'starttimer for 2min'")
+    }
+
+    let result2 = IntentClassifier.shared.classify("settimer until next 7")
+    guard result2.actionIntents.contains(.timer) else {
+        fatalError("FAIL: Expected .timer action intent for 'settimer until next 7'")
+    }
+
+    print("  ✓ testIntentClassifierStartTimerKeyword passed.")
 }

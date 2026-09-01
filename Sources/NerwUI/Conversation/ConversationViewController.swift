@@ -1380,17 +1380,36 @@ public class ConversationViewController: NSViewController {
     private static func actionDetail(type: String, payload: [String: Any]) -> String {
         switch type.lowercased() {
         case "timer":
-            let label = payload["label"] as? String ?? ""
-            let duration = payload["duration"] as? Int ?? 0
-            let minutes = duration / 60
-            let seconds = duration % 60
-            let timeStr: String
-            if minutes > 0 {
-                timeStr = seconds > 0 ? "\(minutes)m \(seconds)s" : "\(minutes)m"
+            var label = payload["label"] as? String ?? ""
+            let durationSeconds: TimeInterval
+            if let d = payload["duration"] as? Int {
+                durationSeconds = TimeInterval(d)
+            } else if let d = payload["duration"] as? Double {
+                durationSeconds = d
+            } else if let dStr = payload["duration"] as? String {
+                if let dNum = Double(dStr) {
+                    durationSeconds = dNum
+                } else if let parsed = TimerParser.shared.parse(query: dStr) {
+                    durationSeconds = parsed.duration
+                    if label.isEmpty && parsed.label != "Timer" {
+                        label = parsed.label
+                    }
+                } else {
+                    durationSeconds = 60
+                }
+            } else if let timeStr = payload["time"] as? String,
+                let parsed = TimerParser.shared.parse(query: timeStr)
+            {
+                durationSeconds = parsed.duration
+                if label.isEmpty && parsed.label != "Timer" {
+                    label = parsed.label
+                }
             } else {
-                timeStr = "\(seconds)s"
+                durationSeconds = 60
             }
-            return label.isEmpty ? timeStr : "\(label) · \(timeStr)"
+            let timeStr = TimerParser.shared.formatDuration(durationSeconds)
+            return label.isEmpty || label.lowercased() == "timer"
+                ? timeStr : "\(label) · \(timeStr)"
         case "reminder":
             return payload["title"] as? String ?? ""
         case "calendar":

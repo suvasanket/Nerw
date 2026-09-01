@@ -77,17 +77,52 @@ public class AIActionManager {
     }
 
     private func handleTimer(payload: [String: Any]) {
-        guard let duration = payload["duration"] as? Int else {
+        var durationSeconds: TimeInterval? = nil
+        var label = payload["label"] as? String ?? ""
+
+        if let dInt = payload["duration"] as? Int {
+            durationSeconds = TimeInterval(dInt)
+        } else if let dDouble = payload["duration"] as? Double {
+            durationSeconds = dDouble
+        } else if let dStr = payload["duration"] as? String {
+            if let dNum = Double(dStr) {
+                durationSeconds = dNum
+            } else if let parsed = TimerParser.shared.parse(query: dStr) {
+                durationSeconds = parsed.duration
+                if label.isEmpty && parsed.label != "Timer" {
+                    label = parsed.label
+                }
+            }
+        } else if let timeStr = payload["time"] as? String,
+            let parsed = TimerParser.shared.parse(query: timeStr)
+        {
+            durationSeconds = parsed.duration
+            if label.isEmpty && parsed.label != "Timer" {
+                label = parsed.label
+            }
+        } else if let queryStr = payload["query"] as? String,
+            let parsed = TimerParser.shared.parse(query: queryStr)
+        {
+            durationSeconds = parsed.duration
+            if label.isEmpty && parsed.label != "Timer" {
+                label = parsed.label
+            }
+        } else if !label.isEmpty, let parsed = TimerParser.shared.parse(query: label) {
+            durationSeconds = parsed.duration
+            label = parsed.label
+        }
+
+        guard let finalDuration = durationSeconds, finalDuration > 0 else {
             Logger.shared.error(
-                "AIActionManager: Timer payload missing 'duration'. Payload: \(payload)")
+                "AIActionManager: Unable to resolve timer duration from payload: \(payload)")
             return
         }
-        let label = payload["label"] as? String ?? "AI Timer"
 
-        TimerManager.shared.startTimer(duration: TimeInterval(duration), label: label)
-        let durStr = TimerParser.shared.formatDuration(TimeInterval(duration))
+        let finalLabel = label.isEmpty ? "Timer" : label
+        TimerManager.shared.startTimer(duration: finalDuration, label: finalLabel)
+        let durStr = TimerParser.shared.formatDuration(finalDuration)
         DispatchQueue.main.async {
-            Nerw.notify("Timer set for \(durStr): \(label)", level: .info)
+            Nerw.notify("Timer set for \(durStr): \(finalLabel)", level: .info)
         }
     }
 
