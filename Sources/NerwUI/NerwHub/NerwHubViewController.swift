@@ -110,6 +110,9 @@ public class NerwHubWindow: NSWindow {
                 vc.unfocusSearchField()
                 return
             }
+            if vc.deselectCurrentItemIfAny() {
+                return
+            }
             // Do NOT close window on Esc
         }
     }
@@ -122,6 +125,17 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
     HubCommandPaletteDelegate
 {
     var onDismiss: (() -> Void)?
+
+    @discardableResult
+    func deselectCurrentItemIfAny() -> Bool {
+        if let tab = currentTabViewController as? BaseHubTabProtocol,
+            tab.currentSelectedIndex != nil
+        {
+            tab.deselectAll()
+            return true
+        }
+        return false
+    }
 
     var isSearchFocused: Bool {
         guard let window = view.window else { return false }
@@ -249,6 +263,9 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
             if event.keyCode == 53 {
                 if self.isSearchFocused {
                     self.unfocusSearchField()
+                    return nil
+                }
+                if self.deselectCurrentItemIfAny() {
                     return nil
                 }
                 // Do NOT close window on Esc!
@@ -450,8 +467,8 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
         NSLayoutConstraint.activate([
             palette.view.centerXAnchor.constraint(equalTo: rightContainer.centerXAnchor),
             palette.view.centerYAnchor.constraint(equalTo: rightContainer.centerYAnchor),
-            palette.view.widthAnchor.constraint(equalToConstant: 440),
-            palette.view.heightAnchor.constraint(equalToConstant: 300),
+            palette.view.widthAnchor.constraint(equalToConstant: 340),
+            palette.view.heightAnchor.constraint(equalToConstant: 240),
         ])
 
         // Setup floating input
@@ -582,6 +599,7 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
                 if let memTab = memoryTabController, memTab.selectedItem != nil {
                     actions.append("Edit")
                     actions.append("Delete")
+                    actions.append("Deselect")
                 }
             } else if currentTab == .bookmarks {
                 if let bTab = bookmarksTabController, bTab.selectedItem != nil {
@@ -589,24 +607,30 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
                     actions.append("Edit Name")
                     actions.append("Edit URL")
                     actions.append("Delete")
+                    actions.append("Deselect")
                 }
             } else if currentTab == .conversations {
                 if let cTab = conversationsTabController, cTab.selectedItem != nil {
                     actions.append("Open")
                     actions.append("Delete")
+                    actions.append("Deselect")
                 }
                 if let cTab = conversationsTabController, !cTab.items.isEmpty {
                     actions.append("Clear All Conversations")
                 }
             }
 
+            actions.append("Search")
+            actions.append("Toggle Sidebar")
+
             for tab in NerwHubTab.allCases {
                 if tab != currentTab {
-                    actions.append("Open \(tab.rawValue)")
+                    actions.append("Switch to \(tab.rawValue)")
                 }
             }
 
             actions.append("Refresh")
+            actions.append("Close Window")
 
             palette.setActions(actions)
 
@@ -690,8 +714,16 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
             (currentTabViewController as? BaseHubTabProtocol)?.performDeleteActionOnSelected()
         case "Open", "Open Bookmark", "Open Conversation":
             (currentTabViewController as? BaseHubTabProtocol)?.performPrimaryActionOnSelected()
+        case "Deselect", "Deselect Item":
+            deselectCurrentItemIfAny()
         case "Clear All Conversations":
             conversationsTabController?.clearAllConversations()
+        case "Search", "Focus Search":
+            DispatchQueue.main.async {
+                self.view.window?.makeFirstResponder(self.topBarView.searchField)
+            }
+        case "Toggle Sidebar":
+            toggleSidebar()
         case "Open Memory", "Switch to Memory":
             selectTab(.memory)
         case "Open Bookmarks", "Switch to Bookmarks":
@@ -700,6 +732,8 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
             selectTab(.conversations)
         case "Refresh":
             (currentTabViewController as? BaseHubTabProtocol)?.refreshData()
+        case "Close Window":
+            self.onDismiss?()
         default:
             break
         }

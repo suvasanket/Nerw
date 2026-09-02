@@ -37,7 +37,7 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
     }
 
     public override func loadView() {
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 300))
+        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 240))
         view.wantsLayer = true
 
         setupUI()
@@ -55,7 +55,7 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
         effectView.blendingMode = .withinWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = 16
+        effectView.layer?.cornerRadius = 12
         effectView.layer?.masksToBounds = true
         effectView.layer?.borderWidth = 1
         effectView.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
@@ -73,7 +73,7 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
         // Rounded pill search container
         searchContainer.translatesAutoresizingMaskIntoConstraints = false
         searchContainer.wantsLayer = true
-        searchContainer.layer?.cornerRadius = 18  // Fully rounded pill for 36pt height
+        searchContainer.layer?.cornerRadius = 14  // Fully rounded pill for 28pt height
         searchContainer.layer?.masksToBounds = true
         searchContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
         searchContainer.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
@@ -84,7 +84,7 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
         searchField.focusRingType = .none
         searchField.isBordered = false
         searchField.drawsBackground = false
-        searchField.font = .systemFont(ofSize: 14, weight: .medium)  // Equal font size to selection
+        searchField.font = .systemFont(ofSize: 12, weight: .regular)
         searchField.placeholderString = "Search commands..."
         searchField.delegate = self
         searchContainer.addSubview(searchField)
@@ -95,8 +95,8 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
         tableView.headerView = nil
         tableView.style = .plain
         tableView.backgroundColor = .clear
-        tableView.rowHeight = 36
-        tableView.intercellSpacing = NSSize(width: 0, height: 4)
+        tableView.rowHeight = 28
+        tableView.intercellSpacing = NSSize(width: 0, height: 2)
         tableView.selectionHighlightStyle = .none
         tableView.focusRingType = .none
         tableView.delegate = self
@@ -118,26 +118,26 @@ public class HubCommandPaletteViewController: NSViewController, NSTableViewDataS
             effectView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             effectView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            // Search container: 20pt margin to match selection cell width
-            searchContainer.topAnchor.constraint(equalTo: effectView.topAnchor, constant: 16),
+            // Search container
+            searchContainer.topAnchor.constraint(equalTo: effectView.topAnchor, constant: 12),
             searchContainer.leadingAnchor.constraint(
-                equalTo: effectView.leadingAnchor, constant: 20),
+                equalTo: effectView.leadingAnchor, constant: 14),
             searchContainer.trailingAnchor.constraint(
-                equalTo: effectView.trailingAnchor, constant: -20),
-            searchContainer.heightAnchor.constraint(equalToConstant: 36),
+                equalTo: effectView.trailingAnchor, constant: -14),
+            searchContainer.heightAnchor.constraint(equalToConstant: 28),
 
-            // Search text inside container: 14pt inset matching cell titleLabel
+            // Search text inside container
             searchField.leadingAnchor.constraint(
-                equalTo: searchContainer.leadingAnchor, constant: 14),
+                equalTo: searchContainer.leadingAnchor, constant: 10),
             searchField.trailingAnchor.constraint(
-                equalTo: searchContainer.trailingAnchor, constant: -14),
+                equalTo: searchContainer.trailingAnchor, constant: -10),
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
 
-            // ScrollView container: exact same 20pt horizontal margin
-            scrollView.topAnchor.constraint(equalTo: searchContainer.bottomAnchor, constant: 10),
-            scrollView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor, constant: 20),
-            scrollView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor, constant: -20),
-            scrollView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor, constant: -14),
+            // ScrollView container
+            scrollView.topAnchor.constraint(equalTo: searchContainer.bottomAnchor, constant: 6),
+            scrollView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor, constant: 10),
+            scrollView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor, constant: -10),
+            scrollView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor, constant: -10),
         ])
     }
 
@@ -254,17 +254,17 @@ class CommandPaletteCellView: NSTableCellView {
 
     private func setupUI() {
         container.wantsLayer = true
-        container.layer?.cornerRadius = 10
+        container.layer?.cornerRadius = 6
         container.layer?.masksToBounds = true
         container.translatesAutoresizingMaskIntoConstraints = false
         addSubview(container)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: 12, weight: .regular)
         titleLabel.lineBreakMode = .byTruncatingTail
         container.addSubview(titleLabel)
 
-        let configSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
+        let configSymbol = NSImage.SymbolConfiguration(pointSize: 10, weight: .regular)
         returnIconView.image = NSImage(systemSymbolName: "return", accessibilityDescription: nil)?
             .withSymbolConfiguration(configSymbol)
         returnIconView.translatesAutoresizingMaskIntoConstraints = false
@@ -278,15 +278,14 @@ class CommandPaletteCellView: NSTableCellView {
             container.topAnchor.constraint(equalTo: topAnchor),
             container.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // Text starts at 14pt, perfectly matching the searchField text inset
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
+            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
             titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
 
             returnIconView.trailingAnchor.constraint(
-                equalTo: container.trailingAnchor, constant: -14),
+                equalTo: container.trailingAnchor, constant: -10),
             returnIconView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             titleLabel.trailingAnchor.constraint(
-                lessThanOrEqualTo: returnIconView.leadingAnchor, constant: -8),
+                lessThanOrEqualTo: returnIconView.leadingAnchor, constant: -6),
         ])
     }
 

@@ -92,20 +92,18 @@ class LiquidDropletButton: NSControl {
 
     override func mouseEntered(with event: NSEvent) {
         isHovered = true
-        animateDroplet(scale: 1.06, bgAlpha: 0.14, borderAlpha: 0.24, iconAlpha: 1.0)
+        animateDroplet(bgAlpha: 0.12, borderAlpha: 0.22, iconAlpha: 1.0)
     }
 
     override func mouseExited(with event: NSEvent) {
         isHovered = false
         isPressed = false
-        animateDroplet(scale: 1.0, bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8)
+        animateDroplet(bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8)
     }
 
     override func mouseDown(with event: NSEvent) {
         isPressed = true
-        // Liquid squash animation
-        animateDroplet(
-            scale: 0.90, bgAlpha: 0.22, borderAlpha: 0.35, iconAlpha: 1.0, duration: 0.08)
+        animateDroplet(bgAlpha: 0.20, borderAlpha: 0.32, iconAlpha: 1.0, duration: 0.06)
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -113,16 +111,16 @@ class LiquidDropletButton: NSControl {
             isPressed = false
             let mouseInView = bounds.contains(convert(event.locationInWindow, from: nil))
             if mouseInView {
-                animateSpringDropletBounce()
+                animateDroplet(bgAlpha: 0.12, borderAlpha: 0.22, iconAlpha: 1.0, duration: 0.1)
                 onClick?()
             } else {
-                animateDroplet(scale: 1.0, bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8)
+                animateDroplet(bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8, duration: 0.1)
             }
         }
     }
 
     private func animateDroplet(
-        scale: CGFloat, bgAlpha: CGFloat, borderAlpha: CGFloat, iconAlpha: CGFloat,
+        bgAlpha: CGFloat, borderAlpha: CGFloat, iconAlpha: CGFloat,
         duration: TimeInterval = 0.15
     ) {
         NSAnimationContext.runAnimationGroup { ctx in
@@ -131,26 +129,7 @@ class LiquidDropletButton: NSControl {
             self.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
             self.layer?.borderColor = NSColor.white.withAlphaComponent(borderAlpha).cgColor
             self.iconImageView.contentTintColor = NSColor.white.withAlphaComponent(iconAlpha)
-
-            let transform = CATransform3DMakeScale(scale, scale, 1.0)
-            self.layer?.transform = transform
         }
-    }
-
-    private func animateSpringDropletBounce() {
-        let spring = CASpringAnimation(keyPath: "transform.scale")
-        spring.damping = 12
-        spring.mass = 0.7
-        spring.stiffness = 280
-        spring.initialVelocity = 3.0
-        spring.fromValue = 0.90
-        spring.toValue = 1.06
-        spring.duration = spring.settlingDuration
-        layer?.add(spring, forKey: "springBounce")
-
-        animateDroplet(
-            scale: 1.06, bgAlpha: 0.14, borderAlpha: 0.24, iconAlpha: 1.0,
-            duration: spring.settlingDuration)
     }
 }
 

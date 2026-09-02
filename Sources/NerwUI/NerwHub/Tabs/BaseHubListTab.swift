@@ -12,6 +12,7 @@ public protocol BaseHubTabProtocol: AnyObject {
     func selectNext()
     func selectPrevious()
     func selectItem(at index: Int)
+    func deselectAll()
     func performPrimaryActionOnSelected()
     func performEditActionOnSelected()
     func performDeleteActionOnSelected()
@@ -149,6 +150,12 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         selectedIndex = clamped
         updateSelectionStates(animated: true)
         scrollToSelectedRow()
+    }
+
+    public func deselectAll() {
+        guard selectedIndex != nil else { return }
+        selectedIndex = nil
+        updateSelectionStates(animated: true)
     }
 
     public func selectNext() {
