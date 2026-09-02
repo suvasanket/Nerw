@@ -163,7 +163,7 @@ public final class TimerManager {
     public func completeTimer(id: UUID) {
         lock.lock()
         if let idx = timers.firstIndex(where: { $0.id == id }) {
-            timers[idx].isCompleted = true
+            timers.remove(at: idx)
         }
         triggeredTimerIds.remove(id)
         lock.unlock()
@@ -171,6 +171,18 @@ public final class TimerManager {
         TimerSoundPlayer.shared.stop()
         saveTimers()
         Logger.shared.info("TimerManager: Completed timer \(id)")
+    }
+
+    public func reset() {
+        lock.lock()
+        timers.removeAll()
+        triggeredTimerIds.removeAll()
+        lock.unlock()
+
+        checkTimer?.invalidate()
+        checkTimer = nil
+        TimerSoundPlayer.shared.stop()
+        saveTimers()
     }
 
     @discardableResult
@@ -268,14 +280,12 @@ public final class TimerManager {
         let toSave = timers.filter { !$0.isCompleted }
         lock.unlock()
 
-        DispatchQueue.global(qos: .utility).async {
-            NerwPaths.ensureDirectoryExists(at: NerwPaths.dataDirectory)
-            do {
-                let data = try JSONEncoder().encode(toSave)
-                try data.write(to: NerwPaths.timersFile, options: .atomic)
-            } catch {
-                Logger.shared.error("TimerManager: Failed to save timers: \(error)")
-            }
+        NerwPaths.ensureDirectoryExists(at: NerwPaths.dataDirectory)
+        do {
+            let data = try JSONEncoder().encode(toSave)
+            try data.write(to: NerwPaths.timersFile, options: .atomic)
+        } catch {
+            Logger.shared.error("TimerManager: Failed to save timers: \(error)")
         }
     }
 

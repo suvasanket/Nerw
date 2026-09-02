@@ -369,29 +369,31 @@ A native macOS spell-checking capability integrated as a dynamic `.args` action 
 
 ---
 
-## 14. NerwHub Panel System (`NerwUI/NerwHub/`)
+## 14. NerwHub Native Window System (`NerwUI/NerwHub/`)
 
-A centralized hub interface providing unified access to persistent features like AI Memory, Bookmarks, and Conversations.
+A centralized hub interface designed as a native macOS Finder-style application window with sidebar navigation, breadcrumbs, live search filtering, and unified access to persistent features like AI Memory, Bookmarks, and Conversations.
 
 ### Files
 | File | Purpose |
 |---|---|
-| `NerwHubWindowController.swift` | Manages the floating, borderless `NerwHubPanel` centered over the screen. |
-| `NerwHubViewController.swift` | Master controller orchestrating tabs, keyboard event monitor (`Cmd+1/2/3`, `Cmd+K`, `Up`/`Down`, `Enter`, `Delete`), floating tab pill (`NerwHubTabBarView`), command palette, and floating input editor. |
-| `NerwHubTabBarView.swift` | Vertical liquid glass pill straddling the left border of the panel. Default view shows only the active tab icon (36x36 circular pill); on hover or on Hub open, expands smoothly (36x118) with animated crossfade showing all tab icons separated by dots, before auto-collapsing. |
-| `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, equilateral search field and selection cell alignment, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, `Clear All Conversations`, tab switching) on the active tab and selection. |
+| `NerwHubWindowController.swift` | Manages the native `NerwHubWindow` (`.titled`, `.closable`, `.miniaturizable`, `.resizable`, `.fullSizeContentView`) with transparent titlebar and window lifecycle. |
+| `NerwHubViewController.swift` | Master split controller managing the Finder-style layout: left sidebar (`NerwHubSidebarView`), top navigation/search bar (`NerwHubTopBarView`), tab content container, bottom status bar (`NerwHubStatusBar`), keyboard routing, command palette, and floating input editor. |
+| `NerwHubSidebarView.swift` | Native macOS sidebar backed by `.sidebar` visual effect material, section header ("FAVORITES"), tab item rows ("Memory", "Bookmarks", "Conversations"), live badge counters, and accent selection pills (`NSColor.controlAccentColor`). |
+| `NerwHubTopBarView.swift` | Top bar featuring breadcrumb path navigation (`NerwHub › Tab`), rounded live search pill with real-time in-memory filtering, and Command Palette button (`⌘K`). |
+| `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, search field, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, `Clear All Conversations`, tab switching) on the active tab and selection. |
 | `HubFloatingInputViewController.swift` | Glassmorphic floating text editor (`HubTextView`) with deep shadow, full paste/clipboard support (`Cmd+V`, `Cmd+C`, `Cmd+X`, `Cmd+A`, `Cmd+Z`), dynamic content-driven height (clamped between 36pt and 180pt max scroll threshold), and `Enter`/`Shift+Enter` submission for inline editing (AI Memories, Bookmark names, Bookmark URLs). |
-| `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, translucent bold header title (`22pt bold`, `alpha = 0.65`, indented `38pt` to align with card content), even panel padding (`24pt` top/bottom), `selectedIndex`, auto-scrolling, and row selection states. |
-| `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, right-click context menu (Edit/Delete), accent selection ring, and editing/deletion dispatching. |
-| `Tabs/BookmarksTab.swift` | Renders clean browser bookmark rows with favicon support, selection ring, right-click context menu (Open, Edit Name, Edit URL, Delete), and Command Palette action dispatching. |
-| `Tabs/ConversationsTab.swift` | Renders saved `AIConversation` history rows with relative timestamps, turn count badges, selection ring, right-click context menu (Open, Delete, Clear All), and direct resumption in the NerwAI conversation panel. |
+| `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, real-time `filter(with:)` support, `onCountChanged` badge reporting, `selectedIndex`, auto-scrolling, and row selection states. |
+| `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, multi-attribute live search filtering, shared date formatter, right-click context menu (Edit/Delete), and editing/deletion dispatching. |
+| `Tabs/BookmarksTab.swift` | Renders clean browser bookmark rows with favicon support, live search filtering, right-click context menu (Open, Edit Name, Edit URL, Delete), and Command Palette action dispatching. |
+| `Tabs/ConversationsTab.swift` | Renders saved `AIConversation` history rows with relative timestamps, turn count badges, live search filtering, shared date formatters, right-click context menu (Open, Delete, Clear All), and direct resumption in the NerwAI conversation panel. |
 
-### Selection & Navigation
+### Selection, Navigation & Filtering
+- **Sidebar & Tabs**: `Cmd+1`, `Cmd+2`, `Cmd+3` or clicking sidebar rows instantly switches between Memory, Bookmarks, and Conversations.
+- **Live Search**: `Cmd+F` or typing into the top search bar filters the active tab in real-time with sub-millisecond latency and updates the status bar item count.
 - **Keyboard Navigation**: `↑ / ↓` (all modes), `j / k` (when `navigationStyle == "vim"`), or `Ctrl-P / Ctrl-N` (when `navigationStyle != "vim"`) navigates rows in the active tab.
-- **On-Demand Selection Ring**: No item is pre-selected by default when viewing a tab; the luminous 1.5pt accent selection ring (`#61AEFF`) and highlight tint appear only when the user navigates (`j/k`, `↑/↓`) or clicks an item.
 - **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available contextual actions (`Edit Name`, `Edit URL`, `Delete`, `Open`).
-- **Context Menus**: Right-clicking any item selects the row and presents contextual options (e.g. "Open in Browser", "Edit Name...", "Edit URL...", "Delete Bookmark").
-- **Floating Overlays**: Both the Command Palette (`440x300`) and Floating Input Editor match the floating glass aesthetic (vibrant dark `NSVisualEffectView`, rounded corners, border stroke, and deep 20pt drop shadow). The Floating Input Editor automatically shrinks for short content (e.g. single-line bookmark names and URLs) and expands up to its max threshold for longer multiline notes.
+- **Window Management**: `Cmd+W` or `Esc` closes the window via clean `orderOut(nil)`.
+- **Resource Optimization**: Static formatters, zero redundant view allocation, `.sidebar` OS blur cache, and minimal RAM footprint.
 
 ---
 

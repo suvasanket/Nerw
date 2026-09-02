@@ -225,6 +225,16 @@ func testLabelExtractionPositions() {
 
 func testTimerManagerLifecycle() {
     let manager = TimerManager.shared
+    let originalTimers = manager.allTimers
+
+    defer {
+        manager.reset()
+        for t in originalTimers {
+            manager.startTimer(targetDate: t.targetDate, label: t.label)
+        }
+    }
+
+    manager.reset()
 
     // Start timer
     let timer = manager.startTimer(duration: 60, label: "Test Timer")
@@ -250,6 +260,7 @@ func testTimerManagerLifecycle() {
     assert(
         !manager.activeTimers.contains(where: { $0.id == timer2.id }),
         "Cancelled timer should be removed")
+    assert(manager.activeTimers.isEmpty, "Active timers should be empty after test")
 
     print("  ✓ testTimerManagerLifecycle passed.")
 }

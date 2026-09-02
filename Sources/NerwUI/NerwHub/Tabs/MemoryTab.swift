@@ -3,6 +3,13 @@ import NerwAction
 import NerwBuiltin
 import NerwCore
 
+private let sharedMemoryDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .short
+    formatter.timeStyle = .short
+    return formatter
+}()
+
 class MemoryTab: BaseHubListTab<MemoryEntry> {
     override var tabTitle: String { "Memory" }
 
@@ -10,7 +17,25 @@ class MemoryTab: BaseHubListTab<MemoryEntry> {
 
     override func loadData() {
         allEntries = AIMemoryManager.shared.entries.sorted(by: { $0.timestamp > $1.timestamp })
-        self.items = allEntries
+        applyFilter()
+    }
+
+    override func filter(with query: String) {
+        super.filter(with: query)
+        applyFilter()
+    }
+
+    private func applyFilter() {
+        let q = currentQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty {
+            self.items = allEntries
+        } else {
+            self.items = allEntries.filter {
+                $0.title.lowercased().contains(q) || $0.content.lowercased().contains(q)
+                    || $0.category.lowercased().contains(q)
+                    || $0.type.rawValue.lowercased().contains(q)
+            }
+        }
     }
 
     override func createRowView(for item: MemoryEntry) -> NSView {
@@ -87,15 +112,12 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
 
     private func setupViews() {
         wantsLayer = true
-        layer?.cornerRadius = 12
+        layer?.cornerRadius = 10
         layer?.borderWidth = 1.0
         layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .short
-        dateFormatter.timeStyle = .short
-        let dateString = dateFormatter.string(from: entry.timestamp)
+        let dateString = sharedMemoryDateFormatter.string(from: entry.timestamp)
 
         let mainHStack = NSStackView()
         mainHStack.translatesAutoresizingMaskIntoConstraints = false
@@ -117,8 +139,10 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         leftVStack.addArrangedSubview(headerView)
 
         let titleLabel = NSTextField(labelWithString: entry.title)
-        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
         titleLabel.textColor = .labelColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         headerView.addSubview(titleLabel)
 
@@ -126,9 +150,10 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         detailStack.translatesAutoresizingMaskIntoConstraints = false
         detailStack.orientation = .vertical
         detailStack.alignment = .leading
-        detailStack.spacing = 8
+        detailStack.spacing = 6
         detailStack.alphaValue = 1.0
         detailStack.isHidden = false
+        detailStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         leftVStack.addArrangedSubview(detailStack)
 
         let metaLabel = NSTextField(
@@ -137,13 +162,16 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         )
         metaLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         metaLabel.textColor = .secondaryLabelColor
+        metaLabel.lineBreakMode = .byTruncatingTail
+        metaLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailStack.addArrangedSubview(metaLabel)
 
         let contentLabel = NSTextField(labelWithString: entry.content)
-        contentLabel.font = .systemFont(ofSize: 14)
+        contentLabel.font = .systemFont(ofSize: 13)
         contentLabel.textColor = .labelColor
         contentLabel.cell?.isScrollable = false
         contentLabel.cell?.wraps = true
+        contentLabel.lineBreakMode = .byWordWrapping
         contentLabel.translatesAutoresizingMaskIntoConstraints = false
         contentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailStack.addArrangedSubview(contentLabel)
@@ -162,8 +190,8 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
             imageView.translatesAutoresizingMaskIntoConstraints = false
             imageView.imageScaling = .scaleProportionallyUpOrDown
 
-            imageView.widthAnchor.constraint(equalToConstant: 96).isActive = true
-            imageView.heightAnchor.constraint(equalToConstant: 60).isActive = true
+            imageView.widthAnchor.constraint(equalToConstant: 80).isActive = true
+            imageView.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
             let imageBox = NSView()
             imageBox.translatesAutoresizingMaskIntoConstraints = false
@@ -185,12 +213,12 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         }
 
         NSLayoutConstraint.activate([
-            mainHStack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-            mainHStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
-            mainHStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            mainHStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            mainHStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            mainHStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+            mainHStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            mainHStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
 
-            headerView.heightAnchor.constraint(equalToConstant: 32),
+            headerView.heightAnchor.constraint(equalToConstant: 26),
             headerView.widthAnchor.constraint(equalTo: leftVStack.widthAnchor),
 
             titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
@@ -199,10 +227,8 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         ])
 
         // Setup initial expanded state
-        heightConstraint = heightAnchor.constraint(equalToConstant: 44)
-        heightConstraint.isActive = false  // Make it expanded by default
-
-        // Initial expanded state property
+        heightConstraint = heightAnchor.constraint(equalToConstant: 38)
+        heightConstraint.isActive = false
         isExpanded = true
 
         // Setup tracking for hover and click
@@ -214,19 +240,20 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
 
     func setSelected(_ selected: Bool, animated: Bool) {
         isRowSelected = selected
+        let accent = NSColor(hexString: "#61AEFF") ?? .controlAccentColor
         let targetBorderColor =
             selected
-            ? NSColor(red: 0.38, green: 0.68, blue: 1.0, alpha: 0.9).cgColor
+            ? accent.cgColor
             : NSColor.white.withAlphaComponent(0.08).cgColor
         let targetBorderWidth: CGFloat = selected ? 1.5 : 1.0
         let targetBgColor =
             selected
-            ? NSColor.white.withAlphaComponent(0.09).cgColor
+            ? accent.withAlphaComponent(0.12).cgColor
             : NSColor.white.withAlphaComponent(0.05).cgColor
 
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
+                ctx.duration = 0.12
                 self.layer?.borderColor = targetBorderColor
                 self.layer?.borderWidth = targetBorderWidth
                 self.layer?.backgroundColor = targetBgColor
@@ -242,8 +269,8 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         NSCursor.pointingHand.push()
         if !isRowSelected {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
-                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+                ctx.duration = 0.1
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.09).cgColor
             }
         }
     }
@@ -252,7 +279,7 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         NSCursor.pop()
         if !isRowSelected {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
+                ctx.duration = 0.1
                 layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
             }
         }
@@ -270,14 +297,14 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
             heightConstraint.isActive = false
             detailStack.isHidden = false
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
+                ctx.duration = 0.15
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 detailStack.animator().alphaValue = 1.0
             }
         } else {
             NSAnimationContext.runAnimationGroup(
                 { ctx in
-                    ctx.duration = 0.15
+                    ctx.duration = 0.12
                     ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
                     detailStack.animator().alphaValue = 0.0
                 },

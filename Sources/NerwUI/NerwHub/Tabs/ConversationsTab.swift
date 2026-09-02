@@ -2,10 +2,23 @@ import Cocoa
 import NerwBuiltin
 import NerwCore
 
+private let sharedTimeDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "h:mm a"
+    return formatter
+}()
+
+private let sharedDateOnlyFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "MMM d"
+    return formatter
+}()
+
 class ConversationsTab: BaseHubListTab<AIConversation> {
     override var tabTitle: String { "Conversations" }
 
     private let emptyStateView = NSView()
+    private var allConversations: [AIConversation] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -13,9 +26,27 @@ class ConversationsTab: BaseHubListTab<AIConversation> {
     }
 
     override func loadData() {
-        self.items = ConversationManager.shared.conversations.sorted(by: {
+        allConversations = ConversationManager.shared.conversations.sorted(by: {
             $0.updatedAt > $1.updatedAt
         })
+        applyFilter()
+    }
+
+    override func filter(with query: String) {
+        super.filter(with: query)
+        applyFilter()
+    }
+
+    private func applyFilter() {
+        let q = currentQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty {
+            self.items = allConversations
+        } else {
+            self.items = allConversations.filter {
+                $0.title.lowercased().contains(q) || $0.preview.lowercased().contains(q)
+                    || $0.queryPreview.lowercased().contains(q)
+            }
+        }
         updateEmptyState()
     }
 
@@ -28,26 +59,26 @@ class ConversationsTab: BaseHubListTab<AIConversation> {
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 12
+        stack.spacing = 10
         emptyStateView.addSubview(stack)
 
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        let iconConfig = NSImage.SymbolConfiguration(pointSize: 42, weight: .regular)
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: 36, weight: .regular)
         iconView.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: nil
         )?.withSymbolConfiguration(iconConfig)
         iconView.contentTintColor = .tertiaryLabelColor
         stack.addArrangedSubview(iconView)
 
-        let titleLabel = NSTextField(labelWithString: "No AI Conversations Yet")
-        titleLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        let titleLabel = NSTextField(labelWithString: "No AI Conversations Found")
+        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = .secondaryLabelColor
         stack.addArrangedSubview(titleLabel)
 
         let subtitleLabel = NSTextField(
             labelWithString: "Start a chat with NerwAI to see conversation history here.")
-        subtitleLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
         subtitleLabel.textColor = .tertiaryLabelColor
         stack.addArrangedSubview(subtitleLabel)
 
@@ -132,24 +163,24 @@ class ConversationRowView: NSView, HubSelectableRowView {
 
     private func setupUI() {
         wantsLayer = true
-        layer?.cornerRadius = 12
+        layer?.cornerRadius = 10
         layer?.borderWidth = 1.0
         layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
-        let height: CGFloat = 68
+        let height: CGFloat = 64
 
         // Icon Container
         let iconContainer = NSView()
         iconContainer.translatesAutoresizingMaskIntoConstraints = false
         iconContainer.wantsLayer = true
-        iconContainer.layer?.cornerRadius = 10
+        iconContainer.layer?.cornerRadius = 8
         iconContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
         addSubview(iconContainer)
 
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        let iconConfig = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
         iconView.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right.fill", accessibilityDescription: nil
         )?.withSymbolConfiguration(iconConfig)
@@ -162,12 +193,14 @@ class ConversationRowView: NSView, HubSelectableRowView {
         textStack.orientation = .vertical
         textStack.alignment = .leading
         textStack.spacing = 3
+        textStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(textStack)
 
         let titleLabel = NSTextField(labelWithString: conversation.title)
         titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         textStack.addArrangedSubview(titleLabel)
 
@@ -178,6 +211,7 @@ class ConversationRowView: NSView, HubSelectableRowView {
         previewLabel.font = .systemFont(ofSize: 12)
         previewLabel.textColor = .secondaryLabelColor
         previewLabel.lineBreakMode = .byTruncatingTail
+        previewLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         previewLabel.translatesAutoresizingMaskIntoConstraints = false
         textStack.addArrangedSubview(previewLabel)
 
@@ -198,7 +232,7 @@ class ConversationRowView: NSView, HubSelectableRowView {
         let pillView = NSView()
         pillView.translatesAutoresizingMaskIntoConstraints = false
         pillView.wantsLayer = true
-        pillView.layer?.cornerRadius = 8
+        pillView.layer?.cornerRadius = 6
         pillView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
         metaStack.addArrangedSubview(pillView)
 
@@ -215,18 +249,18 @@ class ConversationRowView: NSView, HubSelectableRowView {
 
             iconContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             iconContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconContainer.widthAnchor.constraint(equalToConstant: 38),
-            iconContainer.heightAnchor.constraint(equalToConstant: 38),
+            iconContainer.widthAnchor.constraint(equalToConstant: 34),
+            iconContainer.heightAnchor.constraint(equalToConstant: 34),
 
             iconView.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
 
-            textStack.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 14),
+            textStack.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
             textStack.centerYAnchor.constraint(equalTo: centerYAnchor),
             textStack.trailingAnchor.constraint(
-                lessThanOrEqualTo: metaStack.leadingAnchor, constant: -16),
+                lessThanOrEqualTo: metaStack.leadingAnchor, constant: -14),
 
-            metaStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            metaStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             metaStack.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             countLabel.topAnchor.constraint(equalTo: pillView.topAnchor, constant: 2),
@@ -239,15 +273,11 @@ class ConversationRowView: NSView, HubSelectableRowView {
     private func formattedDate(_ date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "h:mm a"
-            return formatter.string(from: date)
+            return sharedTimeDateFormatter.string(from: date)
         } else if calendar.isDateInYesterday(date) {
             return "Yesterday"
         } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: date)
+            return sharedDateOnlyFormatter.string(from: date)
         }
     }
 

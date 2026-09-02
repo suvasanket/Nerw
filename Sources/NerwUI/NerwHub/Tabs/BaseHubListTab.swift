@@ -16,16 +16,18 @@ public protocol BaseHubTabProtocol: AnyObject {
     func performEditActionOnSelected()
     func performDeleteActionOnSelected()
     func refreshData()
+    func filter(with query: String)
 }
 
 open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
-    public let titleLabel = NSTextField(labelWithString: "")
     public let scrollView = NSScrollView()
     public let stackView = NSStackView()
 
     open var tabTitle: String { "" }
 
     public var selectedIndex: Int? = nil
+    public var onCountChanged: ((Int) -> Void)?
+    public var currentQuery: String = ""
 
     public var currentSelectedIndex: Int? {
         return selectedIndex
@@ -53,16 +55,6 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
     }
 
     private func setupUI() {
-        // Title Label
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        titleLabel.textColor = NSColor.white.withAlphaComponent(0.65)
-        titleLabel.isEditable = false
-        titleLabel.isSelectable = false
-        titleLabel.isBezeled = false
-        titleLabel.drawsBackground = false
-        view.addSubview(titleLabel)
-
         // Scroll view for the list
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.drawsBackground = false
@@ -83,31 +75,26 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
         scrollView.documentView = documentView
 
         NSLayoutConstraint.activate([
-            // Title pinned at the top with even 24pt padding, slightly indented to align with card content
-            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 38),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
-
-            // ScrollView pinned below title with even 24pt bottom padding
-            scrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 14),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -24),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -14),
 
             documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
 
             stackView.topAnchor.constraint(equalTo: documentView.topAnchor),
             stackView.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
             stackView.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
+            stackView.widthAnchor.constraint(equalTo: documentView.widthAnchor),
         ])
     }
 
     open override func viewDidLoad() {
         super.viewDidLoad()
-        titleLabel.stringValue = tabTitle
         loadData()
 
         NotificationCenter.default.addObserver(
@@ -123,6 +110,10 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
 
     open func createRowView(for item: Item) -> NSView {
         fatalError("Subclasses must override createRowView(for:)")
+    }
+
+    open func filter(with query: String) {
+        currentQuery = query
     }
 
     public func reloadData() {
@@ -144,6 +135,8 @@ open class BaseHubListTab<Item>: NSViewController, BaseHubTabProtocol {
                 selectable.setSelected(isSelected, animated: false)
             }
         }
+
+        onCountChanged?(items.count)
     }
 
     public func selectItem(at index: Int) {

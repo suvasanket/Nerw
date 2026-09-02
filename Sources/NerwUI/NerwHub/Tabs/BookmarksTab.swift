@@ -5,8 +5,27 @@ import NerwCore
 class BookmarksTab: BaseHubListTab<Bookmark> {
     override var tabTitle: String { "Bookmarks" }
 
+    private var allBookmarks: [Bookmark] = []
+
     override func loadData() {
-        self.items = BookmarkManager.shared.bookmarks.sorted(by: { $0.createdAt > $1.createdAt })
+        allBookmarks = BookmarkManager.shared.bookmarks.sorted(by: { $0.createdAt > $1.createdAt })
+        applyFilter()
+    }
+
+    override func filter(with query: String) {
+        super.filter(with: query)
+        applyFilter()
+    }
+
+    private func applyFilter() {
+        let q = currentQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.isEmpty {
+            self.items = allBookmarks
+        } else {
+            self.items = allBookmarks.filter {
+                $0.title.lowercased().contains(q) || $0.url.lowercased().contains(q)
+            }
+        }
     }
 
     override func createRowView(for item: Bookmark) -> NSView {
@@ -108,12 +127,12 @@ class BookmarkRowView: NSView, HubSelectableRowView {
 
     private func setupUI() {
         wantsLayer = true
-        layer?.cornerRadius = 12
+        layer?.cornerRadius = 10
         layer?.borderWidth = 1.0
         layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
-        let height: CGFloat = 50
+        let height: CGFloat = 48
 
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -132,34 +151,36 @@ class BookmarkRowView: NSView, HubSelectableRowView {
         addSubview(iconView)
 
         let titleLabel = NSTextField(labelWithString: bookmark.title)
-        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
         titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
 
         let urlLabel = NSTextField(labelWithString: bookmark.url)
-        urlLabel.font = .systemFont(ofSize: 12)
+        urlLabel.font = .systemFont(ofSize: 11)
         urlLabel.textColor = .secondaryLabelColor
         urlLabel.lineBreakMode = .byTruncatingTail
+        urlLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         urlLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(urlLabel)
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: height),
 
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 24),
-            iconView.heightAnchor.constraint(equalToConstant: 24),
+            iconView.widthAnchor.constraint(equalToConstant: 22),
+            iconView.heightAnchor.constraint(equalToConstant: 22),
 
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 7),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
 
             urlLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             urlLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            urlLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            urlLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
         ])
 
         let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(rowClicked))
@@ -202,19 +223,20 @@ class BookmarkRowView: NSView, HubSelectableRowView {
 
     func setSelected(_ selected: Bool, animated: Bool) {
         isRowSelected = selected
+        let accent = NSColor(hexString: "#61AEFF") ?? .controlAccentColor
         let targetBorderColor =
             selected
-            ? NSColor(red: 0.38, green: 0.68, blue: 1.0, alpha: 0.9).cgColor
+            ? accent.cgColor
             : NSColor.white.withAlphaComponent(0.08).cgColor
         let targetBorderWidth: CGFloat = selected ? 1.5 : 1.0
         let targetBgColor =
             selected
-            ? NSColor.white.withAlphaComponent(0.09).cgColor
+            ? accent.withAlphaComponent(0.12).cgColor
             : NSColor.white.withAlphaComponent(0.05).cgColor
 
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
+                ctx.duration = 0.12
                 self.layer?.borderColor = targetBorderColor
                 self.layer?.borderWidth = targetBorderWidth
                 self.layer?.backgroundColor = targetBgColor
@@ -230,8 +252,8 @@ class BookmarkRowView: NSView, HubSelectableRowView {
         NSCursor.pointingHand.push()
         if !isRowSelected {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
-                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
+                ctx.duration = 0.1
+                layer?.backgroundColor = NSColor.white.withAlphaComponent(0.09).cgColor
             }
         }
     }
@@ -240,7 +262,7 @@ class BookmarkRowView: NSView, HubSelectableRowView {
         NSCursor.pop()
         if !isRowSelected {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.15
+                ctx.duration = 0.1
                 layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
             }
         }
