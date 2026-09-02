@@ -169,7 +169,7 @@ class NerwHubSidebarItemView: NSView {
             systemSymbolName: tab.iconName, accessibilityDescription: tab.rawValue)
 
         if isSelected {
-            pillView.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+            pillView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
             titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
             titleLabel.textColor = .white
             badgeLabel.textColor = NSColor.white.withAlphaComponent(0.85)
@@ -186,18 +186,20 @@ class NerwHubSidebarItemView: NSView {
         } else {
             pillView.layer?.backgroundColor = NSColor.clear.cgColor
             titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
-            titleLabel.textColor = .labelColor
+            titleLabel.textColor = NSColor.white.withAlphaComponent(0.7)
             badgeLabel.textColor = .secondaryLabelColor
             shortcutLabel.textColor = .tertiaryLabelColor
 
             if #available(macOS 12.0, *) {
                 let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
-                    .applying(NSImage.SymbolConfiguration(hierarchicalColor: .secondaryLabelColor))
+                    .applying(
+                        NSImage.SymbolConfiguration(
+                            hierarchicalColor: NSColor.white.withAlphaComponent(0.7)))
                 iconImageView.image = baseImage?.withSymbolConfiguration(config)
             } else {
                 iconImageView.image = baseImage
             }
-            iconImageView.contentTintColor = .secondaryLabelColor
+            iconImageView.contentTintColor = NSColor.white.withAlphaComponent(0.7)
         }
         updateBadge()
     }

@@ -119,20 +119,12 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
 
         let dateString = sharedMemoryDateFormatter.string(from: entry.timestamp)
 
-        let mainHStack = NSStackView()
-        mainHStack.translatesAutoresizingMaskIntoConstraints = false
-        mainHStack.orientation = .horizontal
-        mainHStack.alignment = .centerY
-        mainHStack.spacing = 16
-        addSubview(mainHStack)
-
         let leftVStack = NSStackView()
         leftVStack.translatesAutoresizingMaskIntoConstraints = false
         leftVStack.orientation = .vertical
         leftVStack.alignment = .leading
         leftVStack.spacing = 0
-        leftVStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        mainHStack.addArrangedSubview(leftVStack)
+        addSubview(leftVStack)
 
         // Header View
         headerView.translatesAutoresizingMaskIntoConstraints = false
@@ -142,7 +134,6 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
         titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         headerView.addSubview(titleLabel)
 
@@ -153,7 +144,6 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         detailStack.spacing = 6
         detailStack.alphaValue = 1.0
         detailStack.isHidden = false
-        detailStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         leftVStack.addArrangedSubview(detailStack)
 
         let metaLabel = NSTextField(
@@ -163,7 +153,6 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         metaLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         metaLabel.textColor = .secondaryLabelColor
         metaLabel.lineBreakMode = .byTruncatingTail
-        metaLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailStack.addArrangedSubview(metaLabel)
 
         let contentLabel = NSTextField(labelWithString: entry.content)
@@ -173,25 +162,14 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
         contentLabel.cell?.wraps = true
         contentLabel.lineBreakMode = .byWordWrapping
         contentLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailStack.addArrangedSubview(contentLabel)
 
-        // Ensure leftVStack and detailStack stretch
-        leftVStack.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
-        contentLabel.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
-
-        let spacer = NSView()
-        spacer.translatesAutoresizingMaskIntoConstraints = false
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        mainHStack.addArrangedSubview(spacer)
+        var trailingConstraint: NSLayoutConstraint?
 
         if let imagePath = entry.imagePath, let image = NSImage(contentsOfFile: imagePath) {
             let imageView = NSImageView(image: image)
             imageView.translatesAutoresizingMaskIntoConstraints = false
             imageView.imageScaling = .scaleProportionallyUpOrDown
-
-            imageView.widthAnchor.constraint(equalToConstant: 80).isActive = true
-            imageView.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
             let imageBox = NSView()
             imageBox.translatesAutoresizingMaskIntoConstraints = false
@@ -202,21 +180,32 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
             imageBox.layer?.borderColor = NSColor.white.withAlphaComponent(0.1).cgColor
 
             imageBox.addSubview(imageView)
+            addSubview(imageBox)
+
             NSLayoutConstraint.activate([
+                imageBox.widthAnchor.constraint(equalToConstant: 80),
+                imageBox.heightAnchor.constraint(equalToConstant: 50),
+                imageBox.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+                imageBox.centerYAnchor.constraint(equalTo: centerYAnchor),
+
                 imageView.topAnchor.constraint(equalTo: imageBox.topAnchor),
                 imageView.bottomAnchor.constraint(equalTo: imageBox.bottomAnchor),
                 imageView.leadingAnchor.constraint(equalTo: imageBox.leadingAnchor),
                 imageView.trailingAnchor.constraint(equalTo: imageBox.trailingAnchor),
             ])
 
-            mainHStack.addArrangedSubview(imageBox)
+            trailingConstraint = leftVStack.trailingAnchor.constraint(
+                equalTo: imageBox.leadingAnchor, constant: -16)
+        } else {
+            trailingConstraint = leftVStack.trailingAnchor.constraint(
+                equalTo: trailingAnchor, constant: -14)
         }
 
         NSLayoutConstraint.activate([
-            mainHStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-            mainHStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
-            mainHStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            mainHStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            leftVStack.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            leftVStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+            leftVStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            trailingConstraint!,
 
             headerView.heightAnchor.constraint(equalToConstant: 26),
             headerView.widthAnchor.constraint(equalTo: leftVStack.widthAnchor),
@@ -224,6 +213,10 @@ class MemoryExpandableRowView: NSView, HubSelectableRowView {
             titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
             titleLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
+
+            detailStack.widthAnchor.constraint(equalTo: leftVStack.widthAnchor),
+            metaLabel.widthAnchor.constraint(equalTo: detailStack.widthAnchor),
+            contentLabel.widthAnchor.constraint(equalTo: detailStack.widthAnchor),
         ])
 
         // Setup initial expanded state

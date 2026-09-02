@@ -21,6 +21,11 @@ public class NerwHubWindow: NSWindow {
     public override var canBecomeKey: Bool { return true }
     public override var canBecomeMain: Bool { return true }
 
+    public override var initialFirstResponder: NSView? {
+        get { return self.contentView }
+        set { super.initialFirstResponder = newValue }
+    }
+
     public override func resignKey() {
         super.resignKey()
         DispatchQueue.main.async { [weak self] in
@@ -61,15 +66,37 @@ public class NerwHubWindow: NSWindow {
         return super.performKeyEquivalent(with: event)
     }
 
+    public override func layoutIfNeeded() {
+        super.layoutIfNeeded()
+        adjustTrafficLights()
+    }
+
+    public func adjustTrafficLights() {
+        guard let close = standardWindowButton(.closeButton),
+            let mini = standardWindowButton(.miniaturizeButton),
+            let zoom = standardWindowButton(.zoomButton)
+        else { return }
+
+        let desiredX: CGFloat = 20
+        if close.frame.origin.x < 18 {
+            let shift = desiredX - close.frame.origin.x
+            close.frame.origin.x += shift
+            mini.frame.origin.x += shift
+            zoom.frame.origin.x += shift
+        }
+    }
+
     public override func cancelOperation(_ sender: Any?) {
         if let vc = contentViewController as? NerwHubViewController {
             if vc.isOverlayOpen {
                 super.cancelOperation(sender)
                 return
             }
-            vc.onDismiss?()
-        } else {
-            self.orderOut(nil)
+            if vc.isSearchFocused {
+                vc.unfocusSearchField()
+                return
+            }
+            // Do NOT close window on Esc
         }
     }
 }
@@ -81,6 +108,20 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
     HubCommandPaletteDelegate
 {
     var onDismiss: (() -> Void)?
+
+    var isSearchFocused: Bool {
+        guard let window = view.window else { return false }
+        if let textView = window.firstResponder as? NSTextView,
+            textView.delegate as? NSSearchField == topBarView.searchField
+        {
+            return true
+        }
+        return window.firstResponder == topBarView.searchField
+    }
+
+    func unfocusSearchField() {
+        view.window?.makeFirstResponder(view)
+    }
 
     var isOverlayOpen: Bool {
         if let palette = commandPaletteController,
@@ -120,13 +161,17 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
         let defaultHeight: CGFloat = 580
         view = NSView(frame: NSRect(x: 0, y: 0, width: defaultWidth, height: defaultHeight))
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        let bgColor = NSColor(hexString: "#1e1e1e") ?? NSColor(white: 0.118, alpha: 1.0)
+        view.layer?.backgroundColor = bgColor.cgColor
 
         setupViews()
     }
 
     override func viewDidAppear() {
         super.viewDidAppear()
+
+        // Ensure search bar is not auto-focused on appear
+        view.window?.makeFirstResponder(view)
 
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.view.window == event.window else { return event }
@@ -177,16 +222,13 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
                 return nil
             }
 
-            // Esc
+            // Esc (keyCode 53)
             if event.keyCode == 53 {
-                if let searchFirstResponder = self.view.window?.firstResponder as? NSTextView,
-                    searchFirstResponder.delegate as? NSSearchField == self.topBarView.searchField,
-                    !self.topBarView.searchField.stringValue.isEmpty
-                {
-                    self.topBarView.clearSearch()
+                if self.isSearchFocused {
+                    self.unfocusSearchField()
                     return nil
                 }
-                self.onDismiss?()
+                // Do NOT close window on Esc!
                 return nil
             }
 
@@ -264,34 +306,41 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
     }
 
     private func setupViews() {
+        let bgColor = NSColor(hexString: "#1e1e1e") ?? NSColor(white: 0.118, alpha: 1.0)
+
         sidebarView.delegate = self
         view.addSubview(sidebarView)
 
         let verticalDivider = NSView()
         verticalDivider.translatesAutoresizingMaskIntoConstraints = false
         verticalDivider.wantsLayer = true
-        verticalDivider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        verticalDivider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
         view.addSubview(verticalDivider)
 
         let rightContainer = NSView()
         rightContainer.translatesAutoresizingMaskIntoConstraints = false
+        rightContainer.wantsLayer = true
+        rightContainer.layer?.backgroundColor = bgColor.cgColor
         view.addSubview(rightContainer)
 
         topBarView.delegate = self
         rightContainer.addSubview(topBarView)
 
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.wantsLayer = true
+        contentContainer.layer?.backgroundColor = bgColor.cgColor
         rightContainer.addSubview(contentContainer)
 
         // Status bar at bottom
         statusBarView.translatesAutoresizingMaskIntoConstraints = false
         statusBarView.wantsLayer = true
+        statusBarView.layer?.backgroundColor = bgColor.cgColor
         rightContainer.addSubview(statusBarView)
 
         let statusTopBorder = NSView()
         statusTopBorder.translatesAutoresizingMaskIntoConstraints = false
         statusTopBorder.wantsLayer = true
-        statusTopBorder.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        statusTopBorder.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
         statusBarView.addSubview(statusTopBorder)
 
         statusLabel.translatesAutoresizingMaskIntoConstraints = false

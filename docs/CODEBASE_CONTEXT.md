@@ -371,28 +371,29 @@ A native macOS spell-checking capability integrated as a dynamic `.args` action 
 
 ## 14. NerwHub Native Window System (`NerwUI/NerwHub/`)
 
-A centralized hub interface designed as a native macOS Finder-style application window with sidebar navigation, breadcrumbs, live search filtering, and unified access to persistent features like AI Memory, Bookmarks, and Conversations.
+A centralized hub interface designed as a native macOS Finder-style application window with sidebar navigation, bold tab titles, `#1e1e1e` dark theme, live search filtering, and unified access to persistent features like AI Memory, Bookmarks, and Conversations.
 
 ### Files
 | File | Purpose |
 |---|---|
-| `NerwHubWindowController.swift` | Manages the native `NerwHubWindow` (`.titled`, `.closable`, `.miniaturizable`, `.resizable`, `.fullSizeContentView`) with transparent titlebar and window lifecycle. |
-| `NerwHubViewController.swift` | Master split controller managing the Finder-style layout: left sidebar (`NerwHubSidebarView`), top navigation/search bar (`NerwHubTopBarView`), tab content container, bottom status bar (`NerwHubStatusBar`), keyboard routing, command palette, and floating input editor. |
-| `NerwHubSidebarView.swift` | Native macOS sidebar backed by `.sidebar` visual effect material, section header ("FAVORITES"), tab item rows ("Memory", "Bookmarks", "Conversations"), live badge counters, and accent selection pills (`NSColor.controlAccentColor`). |
-| `NerwHubTopBarView.swift` | Top bar featuring breadcrumb path navigation (`NerwHub › Tab`), rounded live search pill with real-time in-memory filtering, and Command Palette button (`⌘K`). |
+| `NerwHubWindowController.swift` | Manages the native `NerwHubWindow` (`.titled`, `.closable`, `.miniaturizable`, `.resizable`, `.fullSizeContentView`) with `#1e1e1e` background, `maxSize`, traffic lights adjusted inward, and window lifecycle. |
+| `NerwHubViewController.swift` | Master split controller managing the Finder-style layout: left sidebar (`NerwHubSidebarView`), top navigation/search bar (`NerwHubTopBarView`), tab content container, bottom status bar (`NerwHubStatusBar`), keyboard routing (`⌘1-3`, `⌘F`, `⌘K`, `⌘W`, `⌘Q`), command palette, and floating input editor. |
+| `NerwHubSidebarView.swift` | Native macOS sidebar backed by `.sidebar` visual effect material, tab item rows ("Memory", "Bookmarks", "Conversations"), live badge counters, and translucent selection pills (`NSColor.white.withAlphaComponent(0.12)`). |
+| `NerwHubTopBarView.swift` | Top bar featuring large bold tab titles (22pt bold), `LiquidDropletButton` (`command.circle` with organic squash-and-stretch spring physics) positioned to the left of the search pill, and live search filtering with Esc unfocusing. |
 | `HubCommandPaletteViewController.swift` | Floating glass modal with deep shadow, search field, and fast keyboard navigation for executing contextual actions (`Edit`, `Delete`, `Open`, `Refresh`, `Clear All Conversations`, tab switching) on the active tab and selection. |
 | `HubFloatingInputViewController.swift` | Glassmorphic floating text editor (`HubTextView`) with deep shadow, full paste/clipboard support (`Cmd+V`, `Cmd+C`, `Cmd+X`, `Cmd+A`, `Cmd+Z`), dynamic content-driven height (clamped between 36pt and 180pt max scroll threshold), and `Enter`/`Shift+Enter` submission for inline editing (AI Memories, Bookmark names, Bookmark URLs). |
 | `Tabs/BaseHubListTab.swift` | Generic list controller base (`BaseHubListTab<Item>`) implementing `BaseHubTabProtocol`, real-time `filter(with:)` support, `onCountChanged` badge reporting, `selectedIndex`, auto-scrolling, and row selection states. |
-| `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, multi-attribute live search filtering, shared date formatter, right-click context menu (Edit/Delete), and editing/deletion dispatching. |
+| `Tabs/MemoryTab.swift` | Renders expandable `MemoryEntry` rows with screenshot previews, full-length content wrapping, multi-attribute live search filtering, shared date formatter, right-click context menu (Edit/Delete), and editing/deletion dispatching. |
 | `Tabs/BookmarksTab.swift` | Renders clean browser bookmark rows with favicon support, live search filtering, right-click context menu (Open, Edit Name, Edit URL, Delete), and Command Palette action dispatching. |
 | `Tabs/ConversationsTab.swift` | Renders saved `AIConversation` history rows with relative timestamps, turn count badges, live search filtering, shared date formatters, right-click context menu (Open, Delete, Clear All), and direct resumption in the NerwAI conversation panel. |
 
 ### Selection, Navigation & Filtering
-- **Sidebar & Tabs**: `Cmd+1`, `Cmd+2`, `Cmd+3` or clicking sidebar rows instantly switches between Memory, Bookmarks, and Conversations.
-- **Live Search**: `Cmd+F` or typing into the top search bar filters the active tab in real-time with sub-millisecond latency and updates the status bar item count.
+- **Sidebar & Tabs**: `Cmd+1`, `Cmd+2`, `Cmd+3` or clicking sidebar rows instantly switches between Memory, Bookmarks, and Conversations. Translucent selection pill.
+- **Liquid Droplet Button**: `LiquidDropletButton` features organic physical squash-and-stretch hover/click dynamics and spring bounce triggers for the Command Palette (`⌘K`).
+- **Live Search**: `Cmd+F` or clicking into the top search bar filters the active tab in real-time with sub-millisecond latency. Pressing `Esc` while the search field is focused cleanly unfocuses the search field without closing the window.
 - **Keyboard Navigation**: `↑ / ↓` (all modes), `j / k` (when `navigationStyle == "vim"`), or `Ctrl-P / Ctrl-N` (when `navigationStyle != "vim"`) navigates rows in the active tab.
 - **Action Dispatch**: `Enter` toggles expansion (Memory) or opens URL (Bookmarks); `Delete / Backspace` deletes the selected item; `Cmd+K` opens the Command Palette pre-populated with available contextual actions (`Edit Name`, `Edit URL`, `Delete`, `Open`).
-- **Window Management**: `Cmd+W` or `Esc` closes the window via clean `orderOut(nil)`.
+- **Window Management**: `Cmd+W` or `Cmd+Q` closes the window via clean `orderOut(nil)`. Pressing `Esc` does not close the window.
 - **Resource Optimization**: Static formatters, zero redundant view allocation, `.sidebar` OS blur cache, and minimal RAM footprint.
 
 ---

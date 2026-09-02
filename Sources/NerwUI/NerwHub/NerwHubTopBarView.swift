@@ -1,25 +1,19 @@
 import Cocoa
 import NerwCore
+import QuartzCore
 
 protocol NerwHubTopBarDelegate: AnyObject {
     func topBarSearchQueryDidChange(_ query: String)
     func topBarDidClickCommandPalette()
 }
 
-class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
-    weak var delegate: NerwHubTopBarDelegate?
+class LiquidDropletButton: NSControl {
+    var onClick: (() -> Void)?
 
-    private let pathIconView = NSImageView()
-    private let pathLabel = NSTextField(labelWithString: "")
-    let searchField: NSSearchField = {
-        let field = NSSearchField()
-        (field.cell as? NSSearchFieldCell)?.searchButtonCell = nil
-        (field.cell as? NSSearchFieldCell)?.cancelButtonCell = nil
-        return field
-    }()
-    private let searchContainer = NSView()
-    private let commandPaletteButton = NSButton()
-    private let bottomBorder = NSView()
+    private let iconImageView = NSImageView()
+    private var isHovered = false
+    private var isPressed = false
+    private var trackingArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -34,36 +28,155 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
 
-        // Breadcrumb Icon & Label
-        pathIconView.translatesAutoresizingMaskIntoConstraints = false
-        pathIconView.imageScaling = .scaleProportionallyDown
-        pathIconView.contentTintColor = NSColor.controlAccentColor
-        addSubview(pathIconView)
+        layer?.cornerRadius = 15
+        layer?.masksToBounds = false
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        layer?.borderWidth = 1.0
 
-        pathLabel.translatesAutoresizingMaskIntoConstraints = false
-        pathLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        pathLabel.textColor = .labelColor
-        pathLabel.isEditable = false
-        pathLabel.isSelectable = false
-        pathLabel.drawsBackground = false
-        pathLabel.isBezeled = false
-        addSubview(pathLabel)
+        // Liquid glass shadow / inner glow
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.2
+        layer?.shadowOffset = CGSize(width: 0, height: -1)
+        layer?.shadowRadius = 3
 
-        // Command palette button on the far right
-        commandPaletteButton.translatesAutoresizingMaskIntoConstraints = false
-        commandPaletteButton.bezelStyle = .regularSquare
-        commandPaletteButton.isBordered = false
-        commandPaletteButton.wantsLayer = true
-        commandPaletteButton.layer?.cornerRadius = 6
-        commandPaletteButton.toolTip = "Command Palette (⌘K)"
-        commandPaletteButton.target = self
-        commandPaletteButton.action = #selector(commandPaletteClicked)
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconImageView.imageScaling = .scaleProportionallyDown
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        iconImageView.image = NSImage(
+            systemSymbolName: "command.circle", accessibilityDescription: "Command Palette"
+        )?.withSymbolConfiguration(config)
+        iconImageView.contentTintColor = NSColor.white.withAlphaComponent(0.8)
+        addSubview(iconImageView)
 
-        let cmdConfig = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-        commandPaletteButton.image = NSImage(
-            systemSymbolName: "command", accessibilityDescription: "Command Palette"
-        )?.withSymbolConfiguration(cmdConfig)
-        commandPaletteButton.contentTintColor = .secondaryLabelColor
+        toolTip = "Command Palette (⌘K)"
+
+        NSLayoutConstraint.activate([
+            iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 20),
+            iconImageView.heightAnchor.constraint(equalToConstant: 20),
+        ])
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking = trackingArea {
+            removeTrackingArea(tracking)
+        }
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        animateDroplet(scale: 1.06, bgAlpha: 0.14, borderAlpha: 0.24, iconAlpha: 1.0)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        isPressed = false
+        animateDroplet(scale: 1.0, bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        // Liquid squash animation
+        animateDroplet(
+            scale: 0.90, bgAlpha: 0.22, borderAlpha: 0.35, iconAlpha: 1.0, duration: 0.08)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if isPressed {
+            isPressed = false
+            let mouseInView = bounds.contains(convert(event.locationInWindow, from: nil))
+            if mouseInView {
+                animateSpringDropletBounce()
+                onClick?()
+            } else {
+                animateDroplet(scale: 1.0, bgAlpha: 0.06, borderAlpha: 0.12, iconAlpha: 0.8)
+            }
+        }
+    }
+
+    private func animateDroplet(
+        scale: CGFloat, bgAlpha: CGFloat, borderAlpha: CGFloat, iconAlpha: CGFloat,
+        duration: TimeInterval = 0.15
+    ) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.layer?.backgroundColor = NSColor.white.withAlphaComponent(bgAlpha).cgColor
+            self.layer?.borderColor = NSColor.white.withAlphaComponent(borderAlpha).cgColor
+            self.iconImageView.contentTintColor = NSColor.white.withAlphaComponent(iconAlpha)
+
+            let transform = CATransform3DMakeScale(scale, scale, 1.0)
+            self.layer?.transform = transform
+        }
+    }
+
+    private func animateSpringDropletBounce() {
+        let spring = CASpringAnimation(keyPath: "transform.scale")
+        spring.damping = 12
+        spring.mass = 0.7
+        spring.stiffness = 280
+        spring.initialVelocity = 3.0
+        spring.fromValue = 0.90
+        spring.toValue = 1.06
+        spring.duration = spring.settlingDuration
+        layer?.add(spring, forKey: "springBounce")
+
+        animateDroplet(
+            scale: 1.06, bgAlpha: 0.14, borderAlpha: 0.24, iconAlpha: 1.0,
+            duration: spring.settlingDuration)
+    }
+}
+
+class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
+    weak var delegate: NerwHubTopBarDelegate?
+
+    private let titleLabel = NSTextField(labelWithString: "")
+    let searchField: NSSearchField = {
+        let field = NSSearchField()
+        (field.cell as? NSSearchFieldCell)?.searchButtonCell = nil
+        (field.cell as? NSSearchFieldCell)?.cancelButtonCell = nil
+        return field
+    }()
+    private let searchContainer = NSView()
+    private let commandPaletteButton = LiquidDropletButton()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setup() {
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+
+        // Tab Title (Bigger font and Bold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+        titleLabel.drawsBackground = false
+        titleLabel.isBezeled = false
+        addSubview(titleLabel)
+
+        // Command palette liquid droplet button (positioned to the left of the search bar)
+        commandPaletteButton.onClick = { [weak self] in
+            self?.delegate?.topBarDidClickCommandPalette()
+        }
         addSubview(commandPaletteButton)
 
         // Search container pill
@@ -93,33 +206,27 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         searchField.delegate = self
         searchContainer.addSubview(searchField)
 
-        // Bottom separator
-        bottomBorder.translatesAutoresizingMaskIntoConstraints = false
-        bottomBorder.wantsLayer = true
-        bottomBorder.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        addSubview(bottomBorder)
-
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 48),
+            heightAnchor.constraint(equalToConstant: 52),
 
-            pathIconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
-            pathIconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            pathIconView.widthAnchor.constraint(equalToConstant: 16),
-            pathIconView.heightAnchor.constraint(equalToConstant: 16),
+            // Tab title on the left
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: commandPaletteButton.leadingAnchor, constant: -12),
 
-            pathLabel.leadingAnchor.constraint(equalTo: pathIconView.trailingAnchor, constant: 8),
-            pathLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-
-            commandPaletteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            commandPaletteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            commandPaletteButton.widthAnchor.constraint(equalToConstant: 28),
-            commandPaletteButton.heightAnchor.constraint(equalToConstant: 28),
-
-            searchContainer.trailingAnchor.constraint(
-                equalTo: commandPaletteButton.leadingAnchor, constant: -10),
+            // Search pill on the far right
+            searchContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
             searchContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
             searchContainer.widthAnchor.constraint(equalToConstant: 210),
             searchContainer.heightAnchor.constraint(equalToConstant: 28),
+
+            // Command palette button to the left of the search bar
+            commandPaletteButton.trailingAnchor.constraint(
+                equalTo: searchContainer.leadingAnchor, constant: -10),
+            commandPaletteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            commandPaletteButton.widthAnchor.constraint(equalToConstant: 30),
+            commandPaletteButton.heightAnchor.constraint(equalToConstant: 30),
 
             searchIcon.leadingAnchor.constraint(
                 equalTo: searchContainer.leadingAnchor, constant: 9),
@@ -131,24 +238,11 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
             searchField.trailingAnchor.constraint(
                 equalTo: searchContainer.trailingAnchor, constant: -8),
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
-
-            bottomBorder.leadingAnchor.constraint(equalTo: leadingAnchor),
-            bottomBorder.trailingAnchor.constraint(equalTo: trailingAnchor),
-            bottomBorder.bottomAnchor.constraint(equalTo: bottomAnchor),
-            bottomBorder.heightAnchor.constraint(equalToConstant: 1),
         ])
     }
 
     func updateTab(_ tab: NerwHubTab) {
-        let baseImage = NSImage(
-            systemSymbolName: tab.iconName, accessibilityDescription: tab.rawValue)
-        if #available(macOS 12.0, *) {
-            let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-            pathIconView.image = baseImage?.withSymbolConfiguration(config)
-        } else {
-            pathIconView.image = baseImage
-        }
-        pathLabel.stringValue = "NerwHub  ›  \(tab.rawValue)"
+        titleLabel.stringValue = tab.rawValue
         searchField.placeholderString = "Search \(tab.rawValue)..."
     }
 
@@ -161,8 +255,8 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         window?.makeFirstResponder(searchField)
     }
 
-    @objc private func commandPaletteClicked() {
-        delegate?.topBarDidClickCommandPalette()
+    func unfocusSearchField() {
+        window?.makeFirstResponder(window?.contentView)
     }
 
     // MARK: - NSSearchFieldDelegate
@@ -176,10 +270,8 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         -> Bool
     {
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            if !searchField.stringValue.isEmpty {
-                clearSearch()
-                return true
-            }
+            unfocusSearchField()
+            return true
         }
         return false
     }

@@ -30,6 +30,8 @@ public class NerwHubWindowController: NSWindowController, NSWindowDelegate {
         hubWindow.isMovableByWindowBackground = true
         hubWindow.minSize = NSSize(width: 740, height: 440)
         hubWindow.maxSize = NSSize(width: 1040, height: 740)
+        hubWindow.backgroundColor =
+            NSColor(hexString: "#1e1e1e") ?? NSColor(white: 0.118, alpha: 1.0)
         hubWindow.isReleasedWhenClosed = false
         hubWindow.center()
 
@@ -56,7 +58,9 @@ public class NerwHubWindowController: NSWindowController, NSWindowDelegate {
         hubWindow.makeKeyAndOrderFront(nil)
         _ = nerwViewController.view
 
+        hubWindow.adjustTrafficLights()
         nerwViewController.selectTab(tab)
+        hubWindow.makeFirstResponder(hubWindow.contentView)
     }
 
     public func hide() {
