@@ -47,6 +47,11 @@ public class NerwHubWindow: NSWindow {
                     self.orderOut(nil)
                 }
                 return true
+            case "s":
+                if let vc = contentViewController as? NerwHubViewController {
+                    vc.toggleSidebar()
+                    return true
+                }
             case "v":
                 if NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self) {
                     return true
@@ -83,6 +88,15 @@ public class NerwHubWindow: NSWindow {
             close.frame.origin.x += shift
             mini.frame.origin.x += shift
             zoom.frame.origin.x += shift
+
+            close.superview?.clipsToBounds = false
+            close.superview?.superview?.clipsToBounds = false
+
+            let isFlipped = close.superview?.isFlipped ?? false
+            let deltaY: CGFloat = isFlipped ? 8.0 : -8.0
+            close.frame.origin.y += deltaY
+            mini.frame.origin.y += deltaY
+            zoom.frame.origin.y += deltaY
         }
     }
 
@@ -143,6 +157,9 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
     private let statusBarView = NSView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let hintLabel = NSTextField(labelWithString: "")
+    private let verticalDivider = NSView()
+    private var sidebarWidthConstraint: NSLayoutConstraint!
+    private var isSidebarCollapsed: Bool = false
 
     private var currentTabViewController: NSViewController?
     private var currentTab: NerwHubTab = .memory
@@ -219,6 +236,12 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
             // Cmd + W or Cmd + Q
             if flags.contains(.command), char == "w" || char == "q" {
                 self.onDismiss?()
+                return nil
+            }
+
+            // Cmd + S (Toggle Sidebar)
+            if flags.contains(.command), char == "s" {
+                self.toggleSidebar()
                 return nil
             }
 
@@ -311,7 +334,6 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
         sidebarView.delegate = self
         view.addSubview(sidebarView)
 
-        let verticalDivider = NSView()
         verticalDivider.translatesAutoresizingMaskIntoConstraints = false
         verticalDivider.wantsLayer = true
         verticalDivider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
@@ -353,7 +375,7 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
         statusBarView.addSubview(statusLabel)
 
         hintLabel.translatesAutoresizingMaskIntoConstraints = false
-        hintLabel.stringValue = "⌘K Command Palette  •  ⌘F Search  •  ⌘1-3 Tabs"
+        hintLabel.stringValue = "⌘K Command Palette"
         hintLabel.font = .systemFont(ofSize: 11, weight: .regular)
         hintLabel.textColor = .tertiaryLabelColor
         hintLabel.isEditable = false
@@ -363,12 +385,14 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
         hintLabel.alignment = .right
         statusBarView.addSubview(hintLabel)
 
+        sidebarWidthConstraint = sidebarView.widthAnchor.constraint(equalToConstant: 210)
+
         NSLayoutConstraint.activate([
             // Sidebar on the left (210pt width)
             sidebarView.topAnchor.constraint(equalTo: view.topAnchor),
             sidebarView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             sidebarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            sidebarView.widthAnchor.constraint(equalToConstant: 210),
+            sidebarWidthConstraint,
 
             // Vertical divider line
             verticalDivider.topAnchor.constraint(equalTo: view.topAnchor),
@@ -683,5 +707,54 @@ class NerwHubViewController: NSViewController, NerwHubSidebarDelegate, NerwHubTo
 
     public func commandPaletteDidRequestClose() {
         closeCommandPalette()
+    }
+
+    // MARK: - Sidebar Toggling
+
+    func sidebarDidToggle() {
+        toggleSidebar()
+    }
+
+    func topBarDidToggleSidebar() {
+        toggleSidebar()
+    }
+
+    func toggleSidebar(animated: Bool = true) {
+        isSidebarCollapsed.toggle()
+        let targetWidth: CGFloat = isSidebarCollapsed ? 0 : 210
+        sidebarWidthConstraint.constant = targetWidth
+
+        if !isSidebarCollapsed {
+            sidebarView.isHidden = false
+            verticalDivider.isHidden = false
+        }
+        topBarView.setSidebarCollapsed(isSidebarCollapsed)
+
+        let animations = {
+            self.view.layoutSubtreeIfNeeded()
+            self.verticalDivider.alphaValue = self.isSidebarCollapsed ? 0 : 1
+            self.sidebarView.alphaValue = self.isSidebarCollapsed ? 0 : 1
+        }
+
+        if animated {
+            NSAnimationContext.runAnimationGroup(
+                { ctx in
+                    ctx.duration = 0.20
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    animations()
+                },
+                completionHandler: {
+                    if self.isSidebarCollapsed {
+                        self.sidebarView.isHidden = true
+                        self.verticalDivider.isHidden = true
+                    }
+                })
+        } else {
+            animations()
+            if isSidebarCollapsed {
+                sidebarView.isHidden = true
+                verticalDivider.isHidden = true
+            }
+        }
     }
 }

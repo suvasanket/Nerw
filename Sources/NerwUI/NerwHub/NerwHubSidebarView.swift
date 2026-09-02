@@ -3,6 +3,7 @@ import NerwCore
 
 protocol NerwHubSidebarDelegate: AnyObject {
     func sidebarDidSelect(tab: NerwHubTab)
+    func sidebarDidToggle()
 }
 
 class NerwHubSidebarItemView: NSView {
@@ -212,6 +213,10 @@ class NerwHubSidebarView: NSView {
     private let stackView = NSStackView()
     private var tabViews: [NerwHubTab: NerwHubSidebarItemView] = [:]
     private var activeTab: NerwHubTab = .memory
+    private let toggleButton = LiquidDropletButton(
+        symbolName: "sidebar.leading", pointSize: 13, tooltip: "Toggle Sidebar (⌘S)",
+        cornerRadius: 14
+    )
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -232,6 +237,11 @@ class NerwHubSidebarView: NSView {
         visualEffect.state = .active
         addSubview(visualEffect)
 
+        toggleButton.onClick = { [weak self] in
+            self?.delegate?.sidebarDidToggle()
+        }
+        addSubview(toggleButton)
+
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.orientation = .vertical
         stackView.alignment = .leading
@@ -246,7 +256,13 @@ class NerwHubSidebarView: NSView {
             visualEffect.leadingAnchor.constraint(equalTo: leadingAnchor),
             visualEffect.trailingAnchor.constraint(equalTo: trailingAnchor),
 
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 50),
+            // Sidebar toggle button on top right of the sidebar
+            toggleButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            toggleButton.centerYAnchor.constraint(equalTo: topAnchor, constant: 25),
+            toggleButton.widthAnchor.constraint(equalToConstant: 28),
+            toggleButton.heightAnchor.constraint(equalToConstant: 28),
+
+            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 58),
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])

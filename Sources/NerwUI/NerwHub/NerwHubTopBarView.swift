@@ -5,6 +5,7 @@ import QuartzCore
 protocol NerwHubTopBarDelegate: AnyObject {
     func topBarSearchQueryDidChange(_ query: String)
     func topBarDidClickCommandPalette()
+    func topBarDidToggleSidebar()
 }
 
 class LiquidDropletButton: NSControl {
@@ -15,20 +16,34 @@ class LiquidDropletButton: NSControl {
     private var isPressed = false
     private var trackingArea: NSTrackingArea?
 
+    init(
+        symbolName: String = "command.circle",
+        pointSize: CGFloat = 15,
+        tooltip: String? = nil,
+        cornerRadius: CGFloat = 14
+    ) {
+        super.init(frame: .zero)
+        setup(
+            symbolName: symbolName, pointSize: pointSize, tooltip: tooltip,
+            cornerRadius: cornerRadius)
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        setup()
+        setup(symbolName: "command.circle", pointSize: 15, tooltip: nil, cornerRadius: 14)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setup() {
+    private func setup(
+        symbolName: String, pointSize: CGFloat, tooltip: String?, cornerRadius: CGFloat
+    ) {
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
 
-        layer?.cornerRadius = 15
+        layer?.cornerRadius = cornerRadius
         layer?.masksToBounds = false
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
         layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
@@ -42,20 +57,22 @@ class LiquidDropletButton: NSControl {
 
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
         iconImageView.imageScaling = .scaleProportionallyDown
-        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
         iconImageView.image = NSImage(
-            systemSymbolName: "command.circle", accessibilityDescription: "Command Palette"
+            systemSymbolName: symbolName, accessibilityDescription: tooltip
         )?.withSymbolConfiguration(config)
         iconImageView.contentTintColor = NSColor.white.withAlphaComponent(0.8)
         addSubview(iconImageView)
 
-        toolTip = "Command Palette (⌘K)"
+        if let tooltip = tooltip {
+            toolTip = tooltip
+        }
 
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 20),
-            iconImageView.heightAnchor.constraint(equalToConstant: 20),
+            iconImageView.widthAnchor.constraint(equalToConstant: pointSize + 5),
+            iconImageView.heightAnchor.constraint(equalToConstant: pointSize + 5),
         ])
     }
 
@@ -140,6 +157,10 @@ class LiquidDropletButton: NSControl {
 class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
     weak var delegate: NerwHubTopBarDelegate?
 
+    private let toggleSidebarButton = LiquidDropletButton(
+        symbolName: "sidebar.leading", pointSize: 13, tooltip: "Toggle Sidebar (⌘S)",
+        cornerRadius: 14
+    )
     private let titleLabel = NSTextField(labelWithString: "")
     let searchField: NSSearchField = {
         let field = NSSearchField()
@@ -148,7 +169,13 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         return field
     }()
     private let searchContainer = NSView()
-    private let commandPaletteButton = LiquidDropletButton()
+    private let commandPaletteButton = LiquidDropletButton(
+        symbolName: "command.circle", pointSize: 15, tooltip: "Command Palette (⌘K)",
+        cornerRadius: 15
+    )
+
+    private var titleLeadingWithSidebarConstraint: NSLayoutConstraint!
+    private var titleLeadingWithoutSidebarConstraint: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -163,10 +190,19 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
 
+        // Toggle sidebar button (visible only when sidebar is collapsed)
+        toggleSidebarButton.isHidden = true
+        toggleSidebarButton.onClick = { [weak self] in
+            self?.delegate?.topBarDidToggleSidebar()
+        }
+        addSubview(toggleSidebarButton)
+
         // Tab Title (Bigger font and Bold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textColor = .white
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.isEditable = false
         titleLabel.isSelectable = false
         titleLabel.drawsBackground = false
@@ -206,11 +242,25 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
         searchField.delegate = self
         searchContainer.addSubview(searchField)
 
+        let searchWidthConstraint = searchContainer.widthAnchor.constraint(equalToConstant: 210)
+        searchWidthConstraint.priority = .defaultHigh
+
+        titleLeadingWithSidebarConstraint = titleLabel.leadingAnchor.constraint(
+            equalTo: leadingAnchor, constant: 20)
+        titleLeadingWithoutSidebarConstraint = titleLabel.leadingAnchor.constraint(
+            equalTo: toggleSidebarButton.trailingAnchor, constant: 12)
+
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 52),
 
+            // Toggle sidebar button (at x=84, right after traffic lights when collapsed)
+            toggleSidebarButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 84),
+            toggleSidebarButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            toggleSidebarButton.widthAnchor.constraint(equalToConstant: 28),
+            toggleSidebarButton.heightAnchor.constraint(equalToConstant: 28),
+
             // Tab title on the left
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            titleLeadingWithSidebarConstraint,
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             titleLabel.trailingAnchor.constraint(
                 lessThanOrEqualTo: commandPaletteButton.leadingAnchor, constant: -12),
@@ -218,7 +268,8 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
             // Search pill on the far right
             searchContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
             searchContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchContainer.widthAnchor.constraint(equalToConstant: 210),
+            searchWidthConstraint,
+            searchContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             searchContainer.heightAnchor.constraint(equalToConstant: 28),
 
             // Command palette button to the left of the search bar
@@ -239,6 +290,12 @@ class NerwHubTopBarView: NSView, NSSearchFieldDelegate {
                 equalTo: searchContainer.trailingAnchor, constant: -8),
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
         ])
+    }
+
+    func setSidebarCollapsed(_ collapsed: Bool) {
+        toggleSidebarButton.isHidden = !collapsed
+        titleLeadingWithSidebarConstraint.isActive = !collapsed
+        titleLeadingWithoutSidebarConstraint.isActive = collapsed
     }
 
     func updateTab(_ tab: NerwHubTab) {
