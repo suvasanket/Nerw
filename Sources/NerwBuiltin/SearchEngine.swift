@@ -64,10 +64,10 @@ public class SearchEngine {
     private func getDefaults() -> [Engine] {
         return [
             Engine(
-                name: "Google", triggers: ["google", "g"],
+                name: "Google", triggers: ["google"],
                 urlTemplate: "https://www.google.com/search?q=%@", icon: "se_google"),
             Engine(
-                name: "NerwAI", triggers: ["ai", "chat", "ask", "assistant"],
+                name: "NerwAI", triggers: ["nerwai"],
                 urlTemplate: "nerwai://?q=%@", icon: "00.circle.fill.hi"),
             Engine(
                 name: "Google Lucky Search", triggers: ["lucky"],
